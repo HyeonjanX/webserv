@@ -51,7 +51,7 @@ Server socketInit(int port, int max_clients)
     // 소켓 생성
     if ((s.sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
-        throw std::runtime_error("Failed to create socket: " + std::string(strerror(errno)));
+        throw "Failed to create socket: " + std::string(strerror(errno));
     }
 
     s.addr.sin_family = AF_INET;         // IPv4
@@ -62,18 +62,18 @@ Server socketInit(int port, int max_clients)
     int enable = 1;
     if (setsockopt(s.sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) == -1)
     {
-        throw std::runtime_error("Failed to set socket options: " + std::string(strerror(errno)));
+        throw "Failed to set socket options: " + std::string(strerror(errno));
     }
 
     // 소켓에 정보 바인드
     if (bind(s.sock, reinterpret_cast<const struct sockaddr *>(&s.addr), sizeof(s.addr)) == -1)
     {
-        throw std::runtime_error("Failed to bind socket: " + std::string(strerror(errno)));
+        throw "Failed to bind socket: " + std::string(strerror(errno));
     }
 
     if (listen(s.sock, s.max_clients) == -1)
     {
-        throw std::runtime_error("Failed to listen on socket: " + std::string(strerror(errno)));
+        throw "Failed to listen on socket: " + std::string(strerror(errno));
     }
 
     return s;
@@ -245,10 +245,20 @@ int main()
     }
     catch (const std::exception &e)
     {
-        std::cerr << "에러 발생: " << e.what() << std::endl;
+        std::cerr << "exception occurred: " << e.what() << std::endl;
         return 1;
     }
-    
-    return 0;
+    catch (int e)
+    {
+        std::cerr << "integer exception occurred: " << e << std::endl;
+    }
+    catch(const char* str) {
+        std::cerr << "string exception occurred: " << str << std::endl;
+    }
+    catch (...)
+    {
+        std::cerr << "Unknown exception occurred" << std::endl;
+    }
 
+    return 0;
 }
