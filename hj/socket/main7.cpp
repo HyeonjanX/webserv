@@ -192,7 +192,7 @@ Client clientInit(Server &s)
     return c;
 }
 
-void readClientData(Client &c)
+int readClientData(Client &c)
 {
     ssize_t bytes_read;
 
@@ -222,8 +222,9 @@ void readClientData(Client &c)
             // 바디 체크: content-length를 초과했는지 검사
             if (c.data.length() > c.content_length)
             {
-                std::cerr << "바디길이가 정해진 길이를 초과하였습니다." << std::endl;
-                break;
+                std::cerr << "바디길이(" << c.data.length() << ") 가 정해진 길이()" << c.content_length << ")를 초과하였습니다." << std::endl;
+                std::cerr << "컨텐츠: |" << c.content_length << "|" << std::endl;
+                return -1;
             }
             else if (c.data.length() == c.content_length)
             {
@@ -239,7 +240,7 @@ void readClientData(Client &c)
         {
             // 클라이언트가 연결을 종료한 경우 => 클라이언트에서 ctrl+c로 연결을 끊으면.
             std::cout << "클라이언트의 연결이 종료되었습니다." << std::endl;
-            break;
+            return 1;
         }
         else
         {
@@ -253,10 +254,12 @@ void readClientData(Client &c)
                 // read() 함수 에러
                 std::cerr << "Read error: " << strerror(errno) << std::endl;
             }
-            break;
+            return -1;
         }
 
     } while (bytes_read > 0);
+
+    return 0;
 }
 
 std::string createHeader(const std::vector<std::string> &headers)
@@ -351,7 +354,7 @@ int main()
 
         while (true)
         {
-            std::cout << "루프 1초후 시작합니다." << std::endl;
+            std::cout << "**********************루프 1초후 시작합니다.**********************" << std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(1));
             
             struct kevent evList[10];
@@ -389,53 +392,60 @@ int main()
                 int client_sock_fd = evList[i].ident;
                 std::map<int, Client>::iterator cit = clients.find(client_sock_fd);
 
-                if (cit != clients.end())
+                if (cit == clients.end())
                 {
-                    // 동기적으로 한번에 다 수신
-                    readClientData(cit->second);
+                    // 못찾음(아마 에러?) => 처리 어떻게?
+                    continue;
+                }
 
-                    std::cout << "==============최종 수신 데이터================" << std::endl;
-                    std::cout << cit->second.header << std::endl;
-                    std::cout << std::endl; // "\r\n\r\n" 형상화
-                    std::cout << cit->second.data << std::endl;
-                    std::cout << "==========================================" << std::endl;
+                Client *c = &cit->second;
+                
+                // 동기적으로 한번에 다 수신
+                int result = readClientData(*c);
+                // 0 정상수신, -1 에러, 1클라이언트 종료
 
-                    // 동기적으로 한번에 다 전송
-                    sendDataToClient(cit->second);
-
-                    // 클린업 => 클라이언트 소켓 하나 정리
-                    try
+                if (result == 1)
+                {
+                    // readClientData 결과1: 클라이언트 종료
+                    std::cout << "클라이언트 종료 이후 클린업 1" << std::endl;
+                    updateEvent(kq, c->sock, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+                    if (close(c->sock))
                     {
-                        std::cerr << "사전체크" << errno << ", 내용: " << std::string(strerror(errno)) << std::endl;
-                        std::cerr << cit->second.sock << std::endl;
-                        close(cit->second.sock);
+                        std::cerr << "Fail to close." <<
+                            " errno: " << errno <<
+                            ", msg: " << std::string(strerror(errno)) << std::endl;
                     }
-                    catch(const std::exception& e)
-                    {
-                        // No such file or directory
-                        std::cerr << e.what() << '\n';
-                    }
-                    // client_sock_fd == cit->second.sock
-                    std::cout << "전송후 클린업 완료 1" << std::endl;
-                    updateEvent(kq, cit->second.sock, EVFILT_READ, EV_DELETE, 0, 0, NULL);
-                    std::cout << "전송후 클린업 완료 2" << std::endl;
+                    std::cout << "클라이언트 종료 이후 클린업 2" << std::endl;
+                    clients.erase(c->sock);
+                }
+                else if (result == -1)
+                {
+                    // readClientData 결과2: 에러 핸들링
                 }
                 else
                 {
-                    // 못찾음(아마 에러?) => 처리 어떻게?
+                    // readClientData 결과3: 정상 수신
+                    std::cout << "==============최종 수신 데이터================" << std::endl;
+                    std::cout << c->header << std::endl;
+                    std::cout << std::endl; // "\r\n\r\n" 형상화
+                    std::cout << c->data << std::endl;
+                    std::cout << "==========================================" << std::endl;
+
+                    // 동기적으로 한번에 다 전송
+                    sendDataToClient(*c);
                 }
             }
         }
 
         // 클립업 => 클라이언트 소켓들 정리 && 서버 소켓들 정리
-        // for (std::map<int, Client>::iterator cit = clients.begin(); cit != clients.end(); ++cit)
-        // {
-        //     close(cit->second.sock);
-        // }
-        // for (std::vector<Server>::iterator sit = servers.begin(); sit != servers.end(); ++sit)
-        // {
-        //     close(sit->sock);
-        // }
+        for (std::map<int, Client>::iterator cit = clients.begin(); cit != clients.end(); ++cit)
+        {
+            close(cit->second.sock);
+        }
+        for (std::vector<Server>::iterator sit = servers.begin(); sit != servers.end(); ++sit)
+        {
+            close(sit->sock);
+        }
     }
     catch (const std::exception &e)
     {
