@@ -130,13 +130,13 @@ int updateEvent(kqueue_fd_t kq, sock_fd_t sock, short filter, u_short flags, u_i
 int loadEvents(kqueue_fd_t kq, struct kevent *eventlist, int nevents)
 {
     // 임시용
-    struct timespec timeout;
-    timeout.tv_sec = 1;  // 1초
-    timeout.tv_nsec = 0; // 0 나노초
-    int result = kevent(kq, NULL, 0, eventlist, nevents, &timeout);
+    // struct timespec timeout;
+    // timeout.tv_sec = 1;  // 1초
+    // timeout.tv_nsec = 0; // 0 나노초
+    // int result = kevent(kq, NULL, 0, eventlist, nevents, &timeout);
 
     // 무한대기
-    // int result = kevent(kq, NULL, 0, eventlist, nevents, NULL);
+    int result = kevent(kq, NULL, 0, eventlist, nevents, NULL);
     if (result == -1)
     {
         switch (errno)
@@ -315,6 +315,15 @@ void sendDataToClient(Client &c)
         std::cerr << "Not all data sent. Sent " << bytes_sent << " bytes out of " << response.length() << std::endl;
         // 필요에 따라 추가적인 로직
     }
+    else if (static_cast<size_t>(bytes_sent) == response.length())
+    {
+        // 송신 끝.
+        std::cout << "전송 완료" << std::endl;
+    }
+    else
+    {
+        std::cout << "여긴 어디지?" << std::endl;
+    }
 }
 
 int main()
@@ -395,9 +404,21 @@ int main()
                     sendDataToClient(cit->second);
 
                     // 클린업 => 클라이언트 소켓 하나 정리
-                    close(cit->second.sock);
+                    try
+                    {
+                        std::cerr << "사전체크" << errno << ", 내용: " << std::string(strerror(errno)) << std::endl;
+                        std::cerr << cit->second.sock << std::endl;
+                        close(cit->second.sock);
+                    }
+                    catch(const std::exception& e)
+                    {
+                        // No such file or directory
+                        std::cerr << e.what() << '\n';
+                    }
                     // client_sock_fd == cit->second.sock
+                    std::cout << "전송후 클린업 완료 1" << std::endl;
                     updateEvent(kq, cit->second.sock, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+                    std::cout << "전송후 클린업 완료 2" << std::endl;
                 }
                 else
                 {
@@ -407,14 +428,14 @@ int main()
         }
 
         // 클립업 => 클라이언트 소켓들 정리 && 서버 소켓들 정리
-        for (std::map<int, Client>::iterator cit = clients.begin(); cit != clients.end(); ++cit)
-        {
-            close(cit->second.sock);
-        }
-        for (std::vector<Server>::iterator sit = servers.begin(); sit != servers.end(); ++sit)
-        {
-            close(sit->sock);
-        }
+        // for (std::map<int, Client>::iterator cit = clients.begin(); cit != clients.end(); ++cit)
+        // {
+        //     close(cit->second.sock);
+        // }
+        // for (std::vector<Server>::iterator sit = servers.begin(); sit != servers.end(); ++sit)
+        // {
+        //     close(sit->sock);
+        // }
     }
     catch (const std::exception &e)
     {
@@ -431,7 +452,7 @@ int main()
     }
     catch (...)
     {
-        std::cerr << "Unknown exception occurred" << std::endl;
+        std::cerr << "Unknown exception occurred: errno" << errno << ", 내용: " << std::string(strerror(errno)) << std::endl;
     }
 
     return 0;

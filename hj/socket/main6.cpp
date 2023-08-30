@@ -203,6 +203,8 @@ void sendDataToClient(Client &c)
     // \r\n\r\n을 연결자로 잘못 사용해서 2바이트가 크게 되었을때 보게 되었던 로그
     // Excess found in a non pipelined read: excess = 2, size = 39, maxdownload = 39, bytecount = 0
     // 뒤애 2바이트가 짤리게 됨
+
+    // 헤더를 \r\n로 끝나도록 관리하는데 여러모로 이점이 있다.
     std::string response = createHeader(headers) + "\r\n" + body;
 
     ssize_t bytes_sent = send(c.sock, response.c_str(), response.length(), 0);
