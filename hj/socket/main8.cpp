@@ -31,9 +31,6 @@ struct Client
     sock_fd_t sock;
     struct sockaddr_in addr;
 
-    int buffer_size;
-    char buffer[1024];
-
     std::string header;
     std::string data;
 
@@ -157,13 +154,62 @@ Client clientInit(Server &s)
     fcntl(c.sock, F_SETFL, O_NONBLOCK);
 
     // 임시
-    c.buffer_size = 1024;
-    c.content_length = 4;
+    c.content_length = 0;
 
     return c;
 }
 
 int readClientData(Client &c)
+{
+    ssize_t bytes_read;
+    static int buffer_size = 1024;
+    static char buffer[1024] = {};
+
+    bytes_read = read(c.sock, &buffer, buffer_size);
+
+    // 클라이언트가 연결을 종료
+    if (bytes_read == 0)
+    {
+        std::cout << "클라이언트의 연결이 종료되었습니다." << std::endl;
+        return 0;
+    }
+
+    // 읽기 실패
+    if (bytes_read == -1)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        {
+            // 더 이상 읽을 데이터 없음
+            std::cout << "더 이상 읽을 데이터 없음. errno: " << errno << ", 메시지: " << std::string(strerror(errno)) << std::endl;
+            return -1;
+        }
+        else
+        {
+            // read() 함수 에러
+            // from GPT errno == EBADF는 잘못된 파일 디스크립터, errno == EINTR는 시그널에 의해 read()가 중단
+            throw "Read error: " + std::string(strerror(errno));
+        }
+    }
+
+    // 읽기 성공
+    c.data.append(buffer, bytes_read);
+    // std::cout << "------------------버퍼 데이터------------------" << std::endl;
+    // std::cout << buffer << std::endl;
+    // std::cout << "--------------------------------------------" << std::endl;
+
+    // 이번 read시 헤더까지 모두 읽음
+    size_t pos;
+    if ((c.header.empty()) && ((pos = c.data.find("\r\n\r\n")) != std::string::npos))
+    {
+        c.header = c.data.substr(0, pos);
+        c.data = c.data.substr(pos + 4);
+        std::cout << "헤더를 끝까지 읽었습니다." << std::endl;
+    }
+
+    return bytes_read;
+}
+
+int readClientData_old(Client &c)
 {
     ssize_t bytes_read;
     static int buffer_size = 1024;
@@ -307,15 +353,13 @@ void sendDataToClient(Client &c)
 /**
  * main8.cpp
  * socket
-*/
+ */
 
 int main()
 {
     int max_clients = 5;
-    int nservers = 3;
-    // Server  servers[3];
-    std::vector<Server> servers;
 
+    std::vector<Server> servers;
     std::map<int, Client> clients;
 
     try
@@ -327,16 +371,16 @@ int main()
 
         // 비동기 코드 트라이
         kqueue_fd_t kq = kqueueInit();
-        for (int i = 0; i < nservers; i++)
+        for (size_t i = 0; i < servers.size(); i++)
         {
             updateEvent(kq, servers[i].sock, EVFILT_READ, EV_ADD, 0, 0, NULL);
         }
 
         while (true)
         {
-            std::cout << "**********************루프 0초후 시작합니다.**********************" << std::endl;
+            // std::cout << "**********************루프 0초후 시작합니다.**********************" << std::endl;
             // std::this_thread::sleep_for(std::chrono::seconds(1));
-            
+
             struct kevent evList[10];
             int nevents = loadEvents(kq, evList, 10);
 
@@ -360,10 +404,11 @@ int main()
                 if (sit != servers.end())
                 {
                     std::cout << "서버 소켓 READ => 클라이언트 소켓 생성" << nevents << std::endl;
-                    
+
                     // 서버 소켓 READ => 클라이언트 소켓 생성 O.K
                     Client client = clientInit(*sit);
-                    updateEvent(kq, client.sock, EVFILT_READ, EV_ADD, 0, 0, NULL);
+                    updateEvent(kq, client.sock, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
+                    updateEvent(kq, client.sock, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, NULL);
                     clients.insert(std::make_pair(client.sock, client));
                     continue;
                 }
@@ -379,40 +424,62 @@ int main()
                 }
 
                 Client *c = &cit->second;
-                
-                // 동기적으로 한번에 다 수신
-                int result = readClientData(*c);
-                // 0 정상수신, -1 에러, 1클라이언트 종료
 
-                if (result == 1)
+                if (evList[i].filter == EVFILT_READ)
                 {
-                    // readClientData 결과1: 클라이언트 종료
-                    std::cout << "클라이언트 종료 이후 클린업 1" << std::endl;
-                    updateEvent(kq, c->sock, EVFILT_READ, EV_DELETE, 0, 0, NULL);
-                    if (close(c->sock))
+                    // 읽기 이벤트 처리
+                    // 동기적으로 한번에 다 수신
+                    int read_bytes = readClientData(*c);
+
+                    if (read_bytes == 0)
                     {
-                        std::cerr << "Fail to close." <<
-                            " errno: " << errno <<
-                            ", msg: " << std::string(strerror(errno)) << std::endl;
+                        // 클라이언트 종료
+                        std::cout << "클라이언트 종료 이후 클린업 1" << std::endl;
+                        // 명시적인 종료가 필요없다는 GPT4님의 썰이.....
+                        updateEvent(kq, c->sock, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+                        updateEvent(kq, c->sock, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+                        if (close(c->sock))
+                        {
+                            std::cerr << "Fail to close."
+                                      << " errno: " << errno << ", msg: " << std::string(strerror(errno)) << std::endl;
+                        }
+                        std::cout << "클라이언트 종료 이후 클린업 2" << std::endl;
+                        clients.erase(c->sock);
                     }
-                    std::cout << "클라이언트 종료 이후 클린업 2" << std::endl;
-                    clients.erase(c->sock);
-                }
-                else if (result == -1)
-                {
-                    // readClientData 결과2: 에러 핸들링
-                }
-                else
-                {
-                    // readClientData 결과3: 정상 수신
-                    std::cout << "============== 현재까지 수신한 데이터 ================" << std::endl;
-                    std::cout << c->header << std::endl;
-                    std::cout << std::endl; // "\r\n\r\n" 형상화
-                    std::cout << c->data << std::endl;
-                    std::cout << "==========================================" << std::endl;
+                    else if (read_bytes == -1)
+                    {
+                        // 에러 핸들링, 위와 같이 클린업 하면 될 수도
+                    }
+                    else if (!c->header.empty() && c->data.length() > c->content_length)
+                    {
+                        // 본문 초과 수신 => 에러처리
+                    }
+                    else if (!c->header.empty() && c->data.length() == c->content_length)
+                    {
+                        // 정상 수신
+                        std::cout << "============  수신 데이터 시작  ================" << std::endl;
+                        std::cout << c->header << std::endl;
+                        std::cout << std::endl; // "\r\n\r\n" 형상화
+                        std::cout << c->data << std::endl;
+                        std::cout << "============   수신 데이터 끝   ===================" << std::endl;
 
-                    // 동기적으로 한번에 다 전송
+                        // 읽기 비활성화 & 쓰기 활성화
+                        updateEvent(kq, c->sock, EVFILT_READ, EV_DISABLE, 0, 0, NULL);
+                        updateEvent(kq, c->sock, EVFILT_WRITE, EV_ENABLE, 0, 0, NULL);
+                    }
+                    else
+                    {
+                        // 계속 읽어들이기.
+                    }
+                }
+                else if (evList[i].filter == EVFILT_WRITE)
+                {
+                    // 쓰기 이벤트 처리
                     sendDataToClient(*c);
+
+                    // 읽기 활성화 & 쓰기 비활성화
+                    updateEvent(kq, c->sock, EVFILT_READ, EV_ENABLE, 0, 0, NULL);
+                    updateEvent(kq, c->sock, EVFILT_WRITE, EV_DISABLE, 0, 0, NULL);
                 }
             }
         }
