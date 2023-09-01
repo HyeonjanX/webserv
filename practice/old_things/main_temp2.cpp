@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/08/28 16:02:04 by gychoi            #+#    #+#             */
-/*   Updated: 2023/08/31 21:58:32 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/01 18:20:14 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,6 +21,9 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+
+#include <vector>
+#include <map>
 
 #define PORT 8080
 #define CLIENT_MAX 5
@@ -118,6 +121,16 @@ static Server	_setServer(void)
 	int	enable = 1;
 	if (setsockopt(s.sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) == -1)
 		errorExit("Server Error: setsockopt failed");
+	struct timeval	timeout;
+	timeout.tv_sec = 5;
+	timeout.tv_usec = 0;
+	if (setsockopt(s.sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1)
+		errorExit("Server Error: setsockopt failed");
+//	struct linger	linger_option;
+//	linger_option.l_onoff = 1;
+//	linger_option.l_linger = 0;
+//	if (setsockopt(s.sock, SOL_SOCKET, SO_LINGER, &linger_option, sizeof(linger_option)) == -1)
+//		errorExit("Server Error: setsockopt failed");
 
 	if (bind(s.sock, reinterpret_cast<struct sockaddr*>(&(s.addr)), sizeof(s.addr)) == -1)
 		errorExit("Server Error: bind failed");
@@ -136,8 +149,10 @@ static Client	_connectNewClient(int serverSocket)
 	if (c.sock == -1)
 		errorExit("Client Error: create client socket failed");
 
+	std::cout << "[INFO] : Client Connected, connect count: " << count++ << std::endl;
+
 //	struct linger	lingerOpt = { 1, 0 };
-//	if (setsockopt(c->sock, SOL_SOCKET, SO_LINGER, &lingerOpt, sizeof(lingerOpt)) == -1)
+//	if (setsockopt(c.sock, SOL_SOCKET, SO_LINGER, &lingerOpt, sizeof(lingerOpt)) == -1)
 //			errorExit("Client Error: setsockopt failed");
 
 //	if (getsockname(c->sock, reinterpret_cast<struct sockaddr*>(&(c->addr)), &(c->addrlen)) == -1)
@@ -148,21 +163,25 @@ static Client	_connectNewClient(int serverSocket)
 	return c;
 }
 
-static void	_readClientData(Client& client)
+static int	_readClientData(Client& client)
 {
 	ssize_t		retval;
 	char		buffer[BUFFER_SIZE] = { 0, };
 
-	retval = recv(client.sock, buffer, sizeof(buffer), 0);
-	if (retval == -1)
-		errorExit("Error: recv failed");
-	else if (retval == 0)
-		return;
-	else
+	while (true)
 	{
-		client.data.append(buffer, static_cast<std::size_t>(retval));
-		if (isAllReceived(client.data))
-			return;
+		retval = recv(client.sock, buffer, sizeof(buffer), 0);
+		std::cout << retval << std::endl;
+		if (retval == -1)
+			errorExit("Error: recv failed");
+		else if (retval == 0)
+			return 1;
+		else
+		{
+			client.data.append(buffer, static_cast<std::size_t>(retval));
+			if (isAllReceived(client.data))
+				return 0;
+		}
 	}
 }
 
@@ -325,12 +344,16 @@ static void	_runServer(Server server)
 {
 	Client		client;
 	int			retval;
+	int			status;
 
 	while (true)
 	{
 		client = _connectNewClient(server.sock);
-		std::cout << "[INFO] : Client Connected, connect count: " << count++ << std::endl;
-		_readClientData(client);
+		status = _readClientData(client);
+		if (status == 1)
+			std::cout << "read finished" << std::endl;
+		else
+			std::cout << "read all buffers" << std::endl;
 		retval = _verifyClientData(client.data);
 		if (retval == -1)
 			std::cout << "[INFO] : Malformed HTTP Data" << std::endl;
@@ -340,6 +363,7 @@ static void	_runServer(Server server)
 			_handlePostRequest(client);
 		else
 			std::cout << "[INFO] : Other HTTP Request Received" << std::endl;
+		close(client.sock);
 	}
 	close(server.sock);
 }
