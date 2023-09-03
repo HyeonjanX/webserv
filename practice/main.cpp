@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/08/28 16:02:04 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/03 23:43:33 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/03 23:58:03 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -334,7 +334,7 @@ void	runServer(int kq, std::vector<struct kevent>& updateList,
 
 	while (true)
 	{
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		//std::this_thread::sleep_for(std::chrono::milliseconds(500));
 		std::cout << "[INFO] : Connect clients: " << clients.size()
 			<< std::endl;
 
