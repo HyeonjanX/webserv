@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/08/28 16:02:04 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/01 23:15:34 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/03 23:43:33 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,6 +19,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <chrono>
+#include <thread>
 #include <cstdlib>
 #include <cstring>
 #include <cerrno>
@@ -66,6 +68,8 @@ void	closeServers(std::vector<Server>& servers)
 {
 	std::vector<Server>::iterator	iter;
 
+	std::cout << "[INFO] : Closing " << servers.size() << " servers"
+		<< std::endl;
 	for (iter = servers.begin(); iter != servers.end(); ++iter)
 	{
 		std::cout << "Delete Server fd: " << iter->sock << std::endl;
@@ -77,6 +81,8 @@ void	closeClients(std::map<int, Client>& clients)
 {
 	std::map<int, Client>::iterator	iter;
 
+	std::cout << "[INFO] : Closing " << clients.size() << " clients"
+		<< std::endl;
 	for (iter = clients.begin(); iter != clients.end(); ++iter)
 	{
 		std::cout << "Delete Client fd: " << iter->second.sock << std::endl;
@@ -84,9 +90,9 @@ void	closeClients(std::map<int, Client>& clients)
 	}
 }
 
-void	disconnectClient(int fd, std::map<int, Client>& clients)
+void	disconnectClient(int fd, int port, std::map<int, Client>& clients)
 {
-	std::cout << "[INFO] : Client disconnected: " << fd << std::endl;
+	std::cout << "[INFO] : Client disconnected: " << port << std::endl;
 	close(fd);
 	clients.erase(fd);
 }
@@ -99,6 +105,50 @@ void	updateEvents(std::vector<struct kevent>& updateList, uintptr_t ident,
 
 	EV_SET(&temp, ident, filter, flags, fflags, data, udata);
 	updateList.push_back(temp);
+}
+
+std::size_t	getContentLength(std::string const& receivedData)
+{
+	std::string const	key = "Content-Length:";
+	std::string			value;
+	std::string const	CRLF = "\r\n";
+	std::size_t			startPos = receivedData.find(key);
+	std::size_t			endPos;
+
+	if (startPos != std::string::npos)
+	{
+		startPos += key.length();
+		endPos = receivedData.find(CRLF, startPos);
+		if (endPos != std::string::npos)
+		{
+			value = receivedData.substr(startPos, endPos - startPos);
+			return static_cast<std::size_t>(stoi(value)); // C++11
+		}
+	}
+	return 0;
+}
+
+std::string	extractHttpBody(std::string const& httpMessage)
+{
+	std::string const	doubleCRLF = "\r\n\r\n";
+	std::size_t			bodyPos = httpMessage.find(doubleCRLF);
+
+	if (bodyPos != std::string::npos)
+	{
+		bodyPos += doubleCRLF.length();
+		return httpMessage.substr(bodyPos);
+	}
+	return "";
+}
+
+bool	isAllReceived(std::string const& receivedData)
+{
+	std::size_t	contentLength = getContentLength(receivedData);
+	std::string	httpBody = extractHttpBody(receivedData);
+
+	if (contentLength == httpBody.length())
+		return (true);
+	return (false);
 }
 
 /*******************************************************************************
@@ -140,6 +190,7 @@ Server	setServer(int port)
 		close(s.sock);
 		throwError("Server error: listen");
 	}
+	// fcntl을 해줘야 하는 이유가 뭘까?
 	if (fcntl(s.sock, F_SETFL, O_NONBLOCK) == -1)
 	{
 		close(s.sock);
@@ -163,52 +214,130 @@ Client	setClient(int serverSocket)
 
 	if (!memset(&c, 0x0, sizeof(c)))
 		throwError("Client error: memset");
-	if ((c.sock = accept(serverSocket, 
-		reinterpret_cast<struct sockaddr*>(&c.addr), sizeof(c.addr))) == -1)
+	c.addrlen = sizeof(c.addr);
+	if ((c.sock = accept(serverSocket,
+		reinterpret_cast<struct sockaddr*>(&c.addr), &c.addrlen)) == -1)
 		throwError("Client error: accept");
-	// 여기서부터
+	c.port = ntohs(c.addr.sin_port);
+	std::cout << "[INFO] : Client connected: " << c.port << std::endl;
+	// fcntl을 해줘야 하는 이유가 뭘까?
+	if (fcntl(c.sock, F_SETFL, O_NONBLOCK) == -1)
+	{
+		close(c.sock);
+		throwError("Client error: fcntl");
+	}
+	return c;
 }
 
 /*******************************************************************************
  * Main Functions
  ******************************************************************************/
 
+void	readClientData(Client& client, std::map<int, Client>& clients)
+{
+	ssize_t	readByte;
+
+	while (true)
+	{
+		if ((readByte = recv(client.sock, client.buffer,
+						sizeof(client.buffer), 0)) == -1)
+			throwError("recv failed");
+		else if (readByte == 0)
+		{
+			disconnectClient(client.sock, client.port, clients);
+			return ;
+		}
+		else
+		{
+			client.data.append(client.buffer,
+						static_cast<std::size_t>(readByte));
+			if (isAllReceived(client.data))
+				return ;
+		}
+	}
+}
+
+void	writeClientData(Client& client, std::map<int, Client>& clients)
+{
+	ssize_t		sendByte;
+	std::string	header;
+	std::string	body;
+	std::string	response;
+
+	body = "<html><head><title>Response</title></head><body><h1>\
+			Hello!</h1></body></html>";
+	header += "HTTP/1.1 200 OK\r\n";
+	header += "Content-Type: text/html; charset=utf-8\r\n";
+	header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+	header += "\r\n";
+	response = header + body;
+
+	if ((sendByte = send(client.sock, response.c_str(),
+				response.size(), 0)) == -1)
+		throwError("send failed");
+	else
+		disconnectClient(client.sock, client.port, clients);
+}
+
 void	handleReadEvent(struct kevent* currEvent,
 		std::vector<struct kevent>& updateList,
-		std::vector<Server> servers, std::map<int, Client> clients)
+		std::vector<Server>& servers, std::map<int, Client>& clients)
 {
 	Client	client;
 
 	for (std::vector<Server>::iterator sit = servers.begin();
-		sit != servers.end(); ++sit)
+			sit != servers.end(); ++sit)
 	{
 		if (sit->sock == static_cast<int>(currEvent->ident))
-			throwError("Server Error in kevent");
+		{
+			client = setClient(sit->sock);
+			updateEvents(updateList, static_cast<uintptr_t>(client.sock),
+					EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
+			updateEvents(updateList, static_cast<uintptr_t>(client.sock),
+					EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, 0);
+			clients.insert(std::make_pair(client.sock, client));
+			return ;
+		}
+	}
+	for (std::map<int, Client>::iterator cit = clients.begin();
+			cit != clients.end(); ++cit)
+	{
+		if (cit->second.sock == static_cast<int>(currEvent->ident))
+		{
+			readClientData(cit->second, clients);
+			//std::cout << cit->second.data << std::endl;
+			return ;
+		}
 	}
 }
 
 void	handleWriteEvent(struct kevent* currEvent,
-		std::vector<struct kevent> updateList,
-		std::vector<Server> servers, std::map<int, Client> clients)
+		std::map<int, Client>& clients)
 {
-	(void)updateList;
-	(void)servers;
-	(void)clients;
-	std::cout << "Write Event! " << currEvent->ident << std::endl;
+	for (std::map<int, Client>::iterator cit = clients.begin();
+			cit != clients.end(); ++cit)
+	{
+		if (cit->second.sock == static_cast<int>(currEvent->ident))
+		{
+			writeClientData(cit->second, clients);
+			return ;
+		}
+	}
 }
 
-void	runServer(int kq, std::vector<struct kevent> updateList,
-		std::vector<Server> servers, std::map<int, Client> clients)
+void	runServer(int kq, std::vector<struct kevent>& updateList,
+		std::vector<Server>& servers, std::map<int, Client>& clients)
 {
 	int						newEvents;
 	struct kevent			eventList[8];
 	struct kevent*			currEvent;
 
-	(void)servers;
-	(void)clients;
-	(void)currEvent;
 	while (true)
 	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+		std::cout << "[INFO] : Connect clients: " << clients.size()
+			<< std::endl;
+
 		if ((newEvents = kevent(kq, &updateList[0],
 			static_cast<int>(updateList.size()), eventList, 8, 0)) == -1)
 			throwError("Kqueue error: kevent");
@@ -228,13 +357,14 @@ void	runServer(int kq, std::vector<struct kevent> updateList,
 					cit != clients.end(); ++cit)
 				{
 					if (cit->second.sock == static_cast<int>(currEvent->ident))
-						disconnectClient(cit->second.sock, clients);
+						disconnectClient(cit->second.sock, cit->second.port,
+								clients);
 				}
 			}
 			else if (currEvent->filter == EVFILT_READ)
 				handleReadEvent(currEvent, updateList, servers, clients);
 			else if (currEvent->filter == EVFILT_WRITE)
-				handleWriteEvent(currEvent, updateList, servers, clients);
+				handleWriteEvent(currEvent, clients);
 		}
 	}
 	throwError("Unexpected loop break");
