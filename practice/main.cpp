@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/08/28 16:02:04 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/04 17:25:37 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/04 20:24:25 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -237,24 +237,14 @@ void	readClientData(Client& client, std::map<int, Client>& clients)
 {
 	ssize_t	readByte;
 
-	while (true)
-	{
-		if ((readByte = recv(client.sock, client.buffer,
-						sizeof(client.buffer), 0)) == -1)
-			throwError("recv failed");
-		else if (readByte == 0)
-		{
-			disconnectClient(client.sock, client.port, clients);
-			return ;
-		}
-		else
-		{
-			client.data.append(client.buffer,
-						static_cast<std::size_t>(readByte));
-			if (isAllReceived(client.data))
-				return ;
-		}
-	}
+	if ((readByte = recv(client.sock, client.buffer,
+					sizeof(client.buffer), 0)) == -1)
+		throwError("recv failed");
+	else if (readByte == 0)
+		disconnectClient(client.sock, client.port, clients);
+	else
+		client.data.append(client.buffer,
+					static_cast<std::size_t>(readByte));
 }
 
 void	writeClientData(Client& client, std::map<int, Client>& clients)
@@ -264,8 +254,7 @@ void	writeClientData(Client& client, std::map<int, Client>& clients)
 	std::string	body;
 	std::string	response;
 
-	body = "<html><head><title>Response</title></head><body><h1>\
-			Hello!</h1></body></html>";
+	body = client.data;
 	header += "HTTP/1.1 200 OK\r\n";
 	header += "Content-Type: text/html; charset=utf-8\r\n";
 	header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
@@ -294,7 +283,7 @@ void	handleReadEvent(struct kevent* currEvent,
 			updateEvents(updateList, static_cast<uintptr_t>(client.sock),
 					EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
 			updateEvents(updateList, static_cast<uintptr_t>(client.sock),
-					EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, 0);
+					EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, 0);
 			clients.insert(std::make_pair(client.sock, client));
 			return ;
 		}
@@ -305,8 +294,14 @@ void	handleReadEvent(struct kevent* currEvent,
 		if (cit->second.sock == static_cast<int>(currEvent->ident))
 		{
 			readClientData(cit->second, clients);
-			//std::cout << cit->second.data << std::endl;
-			return ;
+			// std::cout << cit->second.data << std::endl;
+			if (isAllReceived(cit->second.data))
+			{
+				updateEvents(updateList, static_cast<uintptr_t>
+				(cit->second.sock), EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, 0);
+				updateEvents(updateList, static_cast<uintptr_t>
+				(cit->second.sock), EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, 0);
+			}
 		}
 	}
 }
