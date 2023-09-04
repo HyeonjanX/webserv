@@ -463,6 +463,8 @@ int main()
                         std::cout << c->data << std::endl;
                         std::cout << "============   수신 데이터 끝   ===================" << std::endl;
 
+                        // 응답을 만들어내고.
+
                         // 읽기 비활성화 & 쓰기 활성화
                         updateEvent(kq, c->sock, EVFILT_READ, EV_DISABLE, 0, 0, NULL);
                         updateEvent(kq, c->sock, EVFILT_WRITE, EV_ENABLE, 0, 0, NULL);
@@ -477,9 +479,13 @@ int main()
                     // 쓰기 이벤트 처리
                     sendDataToClient(*c);
 
-                    // 읽기 활성화 & 쓰기 비활성화
-                    updateEvent(kq, c->sock, EVFILT_READ, EV_ENABLE, 0, 0, NULL);
-                    updateEvent(kq, c->sock, EVFILT_WRITE, EV_DISABLE, 0, 0, NULL);
+                    // 다 보냈으면
+                    if (true)
+                    {
+                        // 읽기 활성화 & 쓰기 비활성화
+                        updateEvent(kq, c->sock, EVFILT_READ, EV_ENABLE, 0, 0, NULL);
+                        updateEvent(kq, c->sock, EVFILT_WRITE, EV_DISABLE, 0, 0, NULL);
+                    }
                 }
             }
         }

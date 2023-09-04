@@ -62,7 +62,12 @@ int main()
     std::cout << rawHeaders << std::endl;
     std::cout << "=================================" << std::endl;
 
-    parseMultiLineHeaders(rawHeaders);
+    std::vector<std::string> headers = parseMultiLineHeaders(rawHeaders);
+
+    for (std::vector<std::string>::iterator it = headers.begin(); it != headers.end(); ++it)
+    {
+        std::cout << "헤더: " << *it << std::endl;
+    }
 
     return 0;
 }
