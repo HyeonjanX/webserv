@@ -21,26 +21,13 @@ std::vector<Header> HeaderParser::parseHeaders(const std::string &rawHeaders)
     {
         std::string line = rawHeaders.substr(old_pos, pos - old_pos);
 
-        if (line[0] == ' ' || line[0] == '\t')
+        std::string::size_type colon_pos = line.find(":");
+        if (colon_pos != std::string::npos)
         {
-            if (headers.empty())
-            {
-                throw "잘못된 멀티라인 헤더 시도";
-            }
-            std::string value = trimLeadingWhitespace(line);
-            headers.back().setValue(headers.back().getValue() + " " + value);
+            std::string name = line.substr(0, colon_pos);
+            std::string value = line.substr(colon_pos + 1);
+            headers.push_back(Header(name, value));
         }
-        else if (!line.empty())
-        {
-            std::string::size_type colon_pos = line.find(":");
-            if (colon_pos != std::string::npos)
-            {
-                std::string name = line.substr(0, colon_pos);
-                std::string value = line.substr(colon_pos + 1);
-                headers.push_back(Header(name, value));
-            }
-        }
-
         old_pos = pos + 2;
     }
 
