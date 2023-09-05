@@ -1,4 +1,4 @@
 NAME = test
-SRCS = time.cpp
+SRCS = main.cpp Util.cpp
 
 include ../template.mk
