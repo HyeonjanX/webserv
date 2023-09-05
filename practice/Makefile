@@ -6,7 +6,7 @@
 #    By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/08/28 16:01:14 by gychoi            #+#    #+#              #
-#    Updated: 2023/09/03 21:57:22 by gychoi           ###   ########.fr        #
+#    Updated: 2023/09/05 17:18:41 by gychoi           ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -18,7 +18,8 @@ CXXFLAGS += -std=c++98 -MMD -MP
 CPPFLAGS = -I.
 RM = rm -rf
 
-SRCS = main.cpp
+SRCS = main.cpp \
+	   Request.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 DEPS = $(SRCS:.cpp=.d)

@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/08/28 16:02:04 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/05 22:58:36 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/04 20:24:25 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,8 +31,6 @@
 #include <map>
 #include <vector>
 
-#include "Request.hpp"
-
 #define CLIENT_MAX 5
 #define BUFFER_SIZE 1024
 
@@ -52,7 +50,6 @@ struct	Client
 	socklen_t			addrlen;
 	char				buffer[BUFFER_SIZE];
 	std::string			data;
-	Request				req;
 };
 
 /*******************************************************************************
@@ -114,14 +111,14 @@ std::size_t	getContentLength(std::string const& receivedData)
 {
 	std::string const	key = "Content-Length:";
 	std::string			value;
-	std::string const	crlf = "\r\n";
+	std::string const	CRLF = "\r\n";
 	std::size_t			startPos = receivedData.find(key);
 	std::size_t			endPos;
 
 	if (startPos != std::string::npos)
 	{
 		startPos += key.length();
-		endPos = receivedData.find(crlf, startPos);
+		endPos = receivedData.find(CRLF, startPos);
 		if (endPos != std::string::npos)
 		{
 			value = receivedData.substr(startPos, endPos - startPos);
@@ -146,16 +143,12 @@ std::string	extractHttpBody(std::string const& httpMessage)
 
 bool	isAllReceived(std::string const& receivedData)
 {
-	Request	req(receivedData);
-//	std::size_t	contentLength = getContentLength(receivedData);
-//	std::string	httpBody = extractHttpBody(receivedData);
-//
-//	if (contentLength == httpBody.length())
-//		return (true);
-//	return (false);
-	if (req.getContentLength() == req.getHttpBody().length())
-		return true;
-	return false;
+	std::size_t	contentLength = getContentLength(receivedData);
+	std::string	httpBody = extractHttpBody(receivedData);
+
+	if (contentLength == httpBody.length())
+		return (true);
+	return (false);
 }
 
 /*******************************************************************************
@@ -240,7 +233,7 @@ Client	setClient(int serverSocket)
  * Main Functions
  ******************************************************************************/
 
-bool	readClientData(Client& client, std::map<int, Client>& clients)
+void	readClientData(Client& client, std::map<int, Client>& clients)
 {
 	ssize_t	readByte;
 
@@ -248,16 +241,10 @@ bool	readClientData(Client& client, std::map<int, Client>& clients)
 					sizeof(client.buffer), 0)) == -1)
 		throwError("recv failed");
 	else if (readByte == 0)
-	{
 		disconnectClient(client.sock, client.port, clients);
-		return false;
-	}
 	else
-	{
 		client.data.append(client.buffer,
 					static_cast<std::size_t>(readByte));
-	}
-	return true;
 }
 
 void	writeClientData(Client& client, std::map<int, Client>& clients)
@@ -267,7 +254,7 @@ void	writeClientData(Client& client, std::map<int, Client>& clients)
 	std::string	body;
 	std::string	response;
 
-	body = client.req.getHttpBody();
+	body = client.data;
 	header += "HTTP/1.1 200 OK\r\n";
 	header += "Content-Type: text/html; charset=utf-8\r\n";
 	header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
@@ -306,8 +293,7 @@ void	handleReadEvent(struct kevent* currEvent,
 	{
 		if (cit->second.sock == static_cast<int>(currEvent->ident))
 		{
-			if (!readClientData(cit->second, clients))
-				continue;
+			readClientData(cit->second, clients);
 			// std::cout << cit->second.data << std::endl;
 			if (isAllReceived(cit->second.data))
 			{
@@ -381,87 +367,28 @@ void	runServer(int kq, std::vector<struct kevent>& updateList,
 
 int	main(void)
 {
-	std::string	header;
-	std::string	body;
-	std::string	response;
+	std::vector<Server>			servers;
+	std::map<int, Client>		clients;
+	int							kq;
+	std::vector<struct kevent>	updateList;
 
-	body = "HELLO WORLD";
-	header += "GET /example HTTP/1.1\r\n";
-	header += "Content-Type: text/html; charset=utf-8\r\n";
-	header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-	header += "\r\n";
-	response = header + body;
-
-	Request	req(response);
-	std::cout << req.getRawData() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getHttpHeader() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getHttpBody() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getContentLength() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getHttpMethod() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getRequestUrl() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getHttpVersion() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.isAllSet() << std::endl;
-
-	body = "";
-	header = "";
-	response = "";
-
-	body = "HELLO WORLD";
-	header += "GE /example HTTP/1.1\r\n";
-	header += "Content-Type: text/html; charset=utf-8\r\n";
-	header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-	header += "\r\n";
-	response = header + body;
-
-	req.setRawData(response);
-	req.updateRequest();
-
-	std::cout << req.getRawData() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getHttpHeader() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getHttpBody() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getContentLength() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getHttpMethod() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getRequestUrl() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.getHttpVersion() << std::endl;
-	std::cout << "-----------" << std::endl;
-	std::cout << req.isAllSet() << std::endl;
-
-
-//	std::vector<Server>			servers;
-//	std::map<int, Client>		clients;
-//	int							kq;
-//	std::vector<struct kevent>	updateList;
-//
-//	try
-//	{
-//		servers.push_back(setServer(8080));
-//		servers.push_back(setServer(8081));
-//		servers.push_back(setServer(8082));
-//		kq = setKqueue();
-//		for (std::vector<Server>::iterator iter = servers.begin();
-//			iter != servers.end(); ++iter)
-//			updateEvents(updateList, static_cast<uintptr_t>(iter->sock),
-//						EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
-//		runServer(kq, updateList, servers, clients);
-//	}
-//	catch (const std::exception& e)
-//	{
-//		std::cerr << e.what() << std::endl;
-//		closeServers(servers);
-//		closeClients(clients);
-//	}
-//	return 0;
+	try
+	{
+		servers.push_back(setServer(8080));
+		servers.push_back(setServer(8081));
+		servers.push_back(setServer(8082));
+		kq = setKqueue();
+		for (std::vector<Server>::iterator iter = servers.begin();
+			iter != servers.end(); ++iter)
+			updateEvents(updateList, static_cast<uintptr_t>(iter->sock),
+						EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
+		runServer(kq, updateList, servers, clients);
+	}
+	catch (const std::exception& e)
+	{
+		std::cerr << e.what() << std::endl;
+		closeServers(servers);
+		closeClients(clients);
+	}
+	return 0;
 }
