@@ -43,6 +43,8 @@ int EventHandler::newEvents()
                     NULL);
   if (_nevents == -1)
     throw "kevent error on newEvents" + std::string(strerror(errno));
+  else
+    std::cout << "newEvents: " << _nevents << std::endl;
   _changeList.clear();
 
   return (_nevents);
@@ -62,6 +64,7 @@ void EventHandler::registerReadWriteEvents(int clientSocket)
 {
   addKeventToChangeList(clientSocket, EVFILT_READ, EV_ADD, 0, 0, NULL);
   addKeventToChangeList(clientSocket, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, NULL);
+  std::cout << "등록" << std::endl;
 }
 
 /**

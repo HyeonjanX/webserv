@@ -35,8 +35,8 @@ Webserver::Webserver(int ac, char **av)
   }
   else
   {
-    _configPath = "./default/path/to/config" std::cout << "디폴트 위치"
-                                                       << "에서 config 읽어옵니다." << std::endl;
+    _configPath = "./default/path/to/config";
+    std::cout << "디폴트 위치" << "에서 config 읽어옵니다." << std::endl;
   }
   // config 파싱 코드 들어갈 자리
 }
@@ -68,17 +68,20 @@ void Webserver::initServer(int port, std::string host,
 {
   Server s(port, host, sockreuse, backlog);
 
-  // _servers.insert(std::make_pair(s.getSocket(), s));
-  _servers[s.getSocket()] = s;
+  _servers.erase(s.getSocket());
+  _servers.insert(std::make_pair(s.getSocket(), s));
   _eventHandler.registerReadEvent(s.getSocket());
+  std::cout << port << "서버생성" << std::endl;
 }
 
 void Webserver::initClient(int serverSocket)
 {
   Client c(serverSocket);
 
-  _clients[c.getSocket()] = c;
+  _clients.erase(c.getSocket());
+  _clients.insert(std::make_pair(c.getSocket(), c));
   _eventHandler.registerReadWriteEvents(c.getSocket());
+  std::cout << "init: " << c.getSocket() << std::endl;
 }
 
 void Webserver::runWebserver(void)
@@ -87,36 +90,91 @@ void Webserver::runWebserver(void)
   {
     while (1)
     {
-      int nevents = _eventQueue.newEvents();
+      int nevents = _eventHandler.newEvents();
+      std::cout << "nevents: " << nevents << std::endl;
+      std::cout << "_clients: " << _clients.size() << std::endl;
+      std::cout << "_servers: " << _servers.size() << std::endl;
       for (int i = 0; i < nevents; ++i)
       {
-        struct kevent curr = evList[i];
+        struct kevent curr = _eventHandler.getEvent(i);
         int sock = static_cast<int>(curr.ident);
+        Util::print_kevent_info(curr);
+        // std::cout << "sock: " << sock << std::endl;
 
         std::map<int, Server>::iterator sit = _servers.find(sock);
-        if (sit != servers.end())
+        if (sit != _servers.end())
         {
           Server *s = &sit->second;
           initClient(s->getSocket());
+          std::cout << "소켓생성" << std::endl;
           continue;
         }
 
-        std::map<int, Server>::iterator cit = _clients.find(sock);
+        std::map<int, Client>::iterator cit = _clients.find(sock);
         if (cit == _clients.end())
         {
           // 알맞은 소켓을 찾지 못했다(가능한건가?) => 에러 핸들링 필요
         }
-        Client *c = &cit->second;
+        std::cout << "============ 클라이언트 ============" << std::endl;
+
+        Client *c = &(cit->second);
         if (curr.filter == EVFILT_READ)
         {
+          std::cout << "============** READ **============" << std::endl;
           // 0: 클라이언트 종료 => nothing
           // >0: data += 읽은것.
           // <0: 에러 핸들링
-          c->read();
+          char buf[10000];
+          std::string d;
+          ssize_t b;
+          b = read(c->getSocket(), buf, 10000);
+          // while ((b = read(c->getSocket(), buf, 10000)) > 0)
+          // {
+          //   d.append(buf, b);
+          //   std::cout << "read loop" << std::endl;
+          // }
+          if (b > 0 )
+          {
+            d.append(buf, b);
+            std::cout << "read: " << d << std::endl;
+
+            c->makeResponse("./lorem_ipsum.txt");
+
+            _eventHandler.switchToWriteState(c->getSocket());
+
+          }
+          else if (b == 0)
+          {
+            std::cout << "클라이언트 연결 종료" << std::endl;
+            // close(c->getSocket());
+            // _clients.erase(c->getSocket());
+            continue;
+            // throw "끝";
+          }
+          else
+          {
+            std::cout << "????" << std::endl;
+          }
+          // c->readProcess();
+          // if (true) // 다 읽었다면
+          // {
+          //   c->makeResponse();
+          // }
         }
         else if (curr.filter == EVFILT_WRITE)
         {
-          // >=0: 해당 처리
+          std::cout << "============** WRITE **============" << std::endl;
+          int result = c->sendProcess();
+          (void)result;
+          if (c->checkSendBytes() >= 0)
+          {
+            // 전송 완료
+            std::cout << "전송 완료1" << std::endl;
+            // _eventHandler.switchToReadState(c->getSocket());
+            _eventHandler.switchToReadState(c->getSocket());
+            c->cleanRequestReponse();
+            std::cout << "전송 완료2" << std::endl;
+          }
           // <0: 에러핸들링?
         }
         else
@@ -171,8 +229,8 @@ void Webserver::clientReadProcess(Client &c)
     if (c._header.empty())
     {
       // 1. 헤더 끝까지 읽기
-
-      if ((size_t pos = c._data.find("\r\n\r\n")) == std::string::npos)
+      size_t pos = c._data.find("\r\n\r\n");
+      if (pos == std::string::npos)
       {
         c._header.append(buffer, bytes_read);
       }
@@ -211,10 +269,11 @@ void Webserver::clientReadProcess(Client &c)
         // 바디 길이 초과 체크 => 응답 전송후 클라이언트 연결 종료
       }
 
-      if (c._readMode == READ_CHUNKED)
+      if (c._ischunk)
       {
         // 2.1 chuncked 처리
-        if ((size_t pos = c._body.find("\r\n\r\n")) != std::string::npos)
+        size_t pos = c._body.find("\r\n\r\n");
+        if ((pos = c._body.find("\r\n\r\n")) != std::string::npos)
         {
           // 끝을 찾음
           if (pos + 4 == c._body.size())
@@ -250,5 +309,5 @@ void Webserver::clientReadProcess(Client &c)
     }
   }
 
-  return bytes_read;
+  // return bytes_read;
 }
