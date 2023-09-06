@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/08/28 16:02:04 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/05 22:58:36 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/06 15:31:52 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -311,6 +311,9 @@ void	handleReadEvent(struct kevent* currEvent,
 			// std::cout << cit->second.data << std::endl;
 			if (isAllReceived(cit->second.data))
 			{
+				/*
+				 * disconnect하면 close, 이벤트를 바꾸면 keep-Alive
+				 */
 				updateEvents(updateList, static_cast<uintptr_t>
 				(cit->second.sock), EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, 0);
 				updateEvents(updateList, static_cast<uintptr_t>
@@ -351,6 +354,10 @@ void	runServer(int kq, std::vector<struct kevent>& updateList,
 			static_cast<int>(updateList.size()), eventList, 8, 0)) == -1)
 			throwError("Kqueue error: kevent");
 		updateList.clear();
+		/*
+		 * std::map<int, Server>::iterator sit = servers.find(fd);
+		 * if (sit != servers.end()) ... 
+		 */
 		for (int i = 0; i < newEvents; ++i)
 		{
 			currEvent = &eventList[i];
