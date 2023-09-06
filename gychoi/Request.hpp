@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:09 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/06 15:52:32 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/06 23:05:48 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -39,7 +39,7 @@ class	Request
 
 	public:
 		std::string const&	getRawData(void) const;
-		void				setRawData(std::string const& rawData);
+		void				setRawData(std::string const rawData);
 		std::string const&	getHttpHeader(void) const;
 		std::string const&	getHttpBody(void) const;
 		unsigned int		getContentLength(void) const;
@@ -50,6 +50,7 @@ class	Request
 	public:
 		void	updateRequest(void);
 		bool	isAllSet(void) const;
+		void	resetRequest(void);
 };
 
 #endif	/* __REQUEST_HPP__ */

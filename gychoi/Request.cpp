@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:39 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/06 15:59:12 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/06 23:08:47 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -67,7 +67,7 @@ std::string const&	Request::getRawData(void) const
 	return this->_rawData;
 }
 
-void	Request::setRawData(std::string const& rawData)
+void	Request::setRawData(std::string const rawData)
 {
 	this->_rawData = rawData;
 }
@@ -137,6 +137,25 @@ bool	Request::isAllSet(void) const
 	return !this->_rawData.empty() && !this->_header.empty() &&
 		!this->_method.empty() && !this->_requestUrl.empty() &&
 		!this->_httpVersion.empty();
+}
+
+/**
+ * @brief resetRequest
+ *
+ * Reqeust를 초기화합니다.
+ *
+ * @param void
+ * @return void
+ */
+void	Request::resetRequest(void)
+{
+	this->_rawData.clear();
+	this->_header.clear();
+	this->_body.clear();
+	this->_contentLength = 0;
+	this->_method.clear();
+	this->_requestUrl.clear();
+	this->_httpVersion.clear();
 }
 
 /**

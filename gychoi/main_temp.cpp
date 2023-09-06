@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/08/28 16:02:04 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/06 15:31:52 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/06 19:48:30 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,15 +20,14 @@
 #include <unistd.h>
 
 #include <chrono>
-#include <thread>
 #include <cstdlib>
 #include <cstring>
 #include <cerrno>
 #include <iostream>
+#include <map>
 #include <stdexcept>
 #include <string>
-
-#include <map>
+#include <thread>
 #include <vector>
 
 #include "Request.hpp"

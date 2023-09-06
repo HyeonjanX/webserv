@@ -6,7 +6,7 @@
 #    By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/08/28 16:01:14 by gychoi            #+#    #+#              #
-#    Updated: 2023/09/05 17:18:41 by gychoi           ###   ########.fr        #
+#    Updated: 2023/09/06 20:47:24 by gychoi           ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -19,6 +19,7 @@ CPPFLAGS = -I.
 RM = rm -rf
 
 SRCS = main.cpp \
+	   Client.cpp \
 	   Request.cpp
 
 OBJS = $(SRCS:.cpp=.o)
