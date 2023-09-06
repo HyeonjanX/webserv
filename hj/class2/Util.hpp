@@ -6,9 +6,14 @@
 #include <iostream>
 #include <sstream>
 #include <sys/event.h>
+#include <map>
 
 class Util
 {
+public:
+    static std::map<int, std::string> _httpErrorMap;
+    static void initHttpErrorMap(void);
+    static std::string getErrorMessage(int statusCode);
 
 public:
     // trim

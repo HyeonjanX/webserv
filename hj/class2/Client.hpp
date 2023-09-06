@@ -24,6 +24,9 @@
 
 #define BACKLOG 128
 
+class Server;
+class EventHandler;
+
 typedef enum CLIENT_STATUS {
   BEFORE_READ,
   READ_HEADER,
@@ -43,8 +46,11 @@ public:
 
 private:
     
-    int _socket;
-    struct sockaddr_in _addr;
+    int                 _socket;
+    struct sockaddr_in  _addr;
+
+    Server              _server;
+    EventHandler        _eventHandler;
 
 public:
   
@@ -65,6 +71,7 @@ public:
 public:
     // 레퍼런스와 디폴트값을 함께 사용하지 않기.
     Client(int serverSocket);
+    Client(int serverSocket, const &Server s, const &EventHandler e);
     virtual ~Client(void);
 
 public:
@@ -85,6 +92,7 @@ public:
 
 public:
     int getSocket(void) const;
+    std::string& getData(void);
     std::string& getData(void);
 };
 

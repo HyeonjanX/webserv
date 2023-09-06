@@ -67,38 +67,17 @@ std::string Response::getHttpVersion() const
     return _httpVersion;
 }
 
-// Getter and Setter for statusCode
-void Response::setStatusCode(int code)
-{
-    _statusCode = code;
-}
+void Response::setStatusCode(int code) { _statusCode = code; }
 
-int Response::getStatusCode() const
-{
-    return _statusCode;
-}
+int Response::getStatusCode() const { return _statusCode; }
 
-// Getter and Setter for statusMessage
-void Response::setStatusMessage(const std::string &message)
-{
-    _statusMessage = message;
-}
+void Response::setStatusMessage(const std::string &message) { _statusMessage = message; }
 
-std::string Response::getStatusMessage() const
-{
-    return _statusMessage;
-}
+std::string Response::getStatusMessage() const { return _statusMessage; }
 
-// Getter and Setter for headers
-void Response::setHeader(const std::string &key, const std::string &value)
-{
-    _headers[key] = value;
-}
+void Response::setHeader(const std::string &key, const std::string &value) { _headers[key] = value; }
 
-bool Response::hasHeader(const std::string &key) const
-{
-    return _headers.find(key) != _headers.end();
-}
+bool Response::hasHeader(const std::string &key) const { return _headers.find(key) != _headers.end(); }
 
 std::string Response::getHeader(const std::string &key) const
 {
@@ -109,42 +88,19 @@ std::string Response::getHeader(const std::string &key) const
     return "";
 }
 
-// Getter and Setter for body
-void Response::setBody(const std::string &b)
-{
-    _body = b;
-}
+void Response::setBody(const std::string &b) { _body = b; }
 
-std::string Response::getBody() const
-{
-    return _body;
-}
+std::string Response::getBody(void) const { return _body; }
 
-// Getter for data
-std::string Response::getData() const
-{
-    return _data;
-}
+std::string Response::getData(void) const { return _data; }
+std::string &Response::getData2(void) { return _data; }
 
-// Update sendedBytes
-void Response::updateSendedBytes(size_t bytes)
-{
-    _sendedBytes += bytes;
-}
+size_t Response::getDataLength(void) const { return _data.size(); }
 
-// Getter for totalBytes
-size_t Response::getTotalBytes() const
-{
-    return _totalBytes;
-}
+void Response::updateSendedBytes(size_t bytes) {  _sendedBytes += bytes; }
 
-// Getter for sendedBytes
-size_t Response::getSendedBytes() const
-{
-    return _sendedBytes;
-}
+size_t Response::getTotalBytes(void) const { return _totalBytes; }
 
-void Response::setFilePath(const std::string &filePath)
-{
-    _filePath = filePath;
-}
+size_t Response::getSendedBytes(void) const { return _sendedBytes; }
+
+void Response::setFilePath(const std::string &filePath) { _filePath = filePath; }

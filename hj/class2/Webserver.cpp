@@ -36,7 +36,8 @@ Webserver::Webserver(int ac, char **av)
   else
   {
     _configPath = "./default/path/to/config";
-    std::cout << "디폴트 위치" << "에서 config 읽어옵니다." << std::endl;
+    std::cout << "디폴트 위치"
+              << "에서 config 읽어옵니다." << std::endl;
   }
   // config 파싱 코드 들어갈 자리
 }
@@ -97,60 +98,57 @@ void Webserver::runWebserver(void)
       for (int i = 0; i < nevents; ++i)
       {
         struct kevent curr = _eventHandler.getEvent(i);
-        int sock = static_cast<int>(curr.ident);
-        Util::print_kevent_info(curr);
-        // std::cout << "sock: " << sock << std::endl;
 
-        std::map<int, Server>::iterator sit = _servers.find(sock);
+        // 디버깅용 정보 출력
+        Util::print_kevent_info(curr);
+
+        std::map<int, Server>::iterator sit = _servers.find(static_cast<int>(curr.ident));
         if (sit != _servers.end())
         {
+          // 1. 서버소켓의 READ 이벤트
+          std::cout << "-------------- 소켓생성 -----------------" << std::endl;
+          
           Server *s = &sit->second;
+          
           initClient(s->getSocket());
-          std::cout << "--------------소켓생성 -----------------" << std::endl;
+          
           continue;
         }
 
-        std::map<int, Client>::iterator cit = _clients.find(sock);
-        if (cit == _clients.end())
+        std::map<int, Client>::iterator cit = _clients.find(static_cast<int>(curr.ident));
+
+        // 클라이언트가 FIN요청을 보내서, 연결이 종료됨 => 재사용 불가 => 이미 닫힌 연결 => 안 닫으면 계속해서 READ 이벤트가 발생.
+        if (cit != _clients.end() && curr.filter == EVFILT_READ && curr.filter & EV_EOF)
         {
-          // 알맞은 소켓을 찾지 못했다(가능한건가?) => 에러 핸들링 필요
+          // 2. 클라이언트의 소켓 연결 종료 이벤트
+          std::cout << "***************** 클라이언트부터 소켓 연결 종료 *****************" << std::endl;
+
+          Client *c = &(cit->second);
+
+          close(c->getSocket());          // kqueue 이벤트는 명시적으로 삭제할 필요 없다.
+          _clients.erase(c->getSocket());
+
+          continue;
         }
-        std::cout << "============ 클라이언트 ============" << std::endl;
 
-        Client *c = &(cit->second);
-        if (curr.filter == EVFILT_READ)
+        if (cit != _clients.end() && curr.filter == EVFILT_READ)
         {
-          std::cout << "============** READ **============" << std::endl;
+          // 3. 클라이언트 소켓의 READ 이벤트
+          std::cout << "***************** Client READ *****************" << std::endl;
 
-          if (curr.filter & EV_EOF)
-          {
-            // 클라이언트가 FIN요청을 보내서, 연결이 종료됨 => 재사용 불가 => 이미 닫힌 연결
-            // 안 닫으면 계속해서 READ 이벤트가 발생.
-            std::cout << "클라이언트 연결 종료" << std::endl;
-            close(c->getSocket());
-            _clients.erase(c->getSocket());
-            continue;
-          }
-          // 0: 클라이언트 종료 => nothing
-          // >0: data += 읽은것.
-          // <0: 에러 핸들링
+          Client *c = &(cit->second);
+
           char buf[10000];
           std::string d;
-          ssize_t b;
-          b = read(c->getSocket(), buf, 10000);
-          // while ((b = read(c->getSocket(), buf, 10000)) > 0)
-          // {
-          //   d.append(buf, b);
-          //   std::cout << "read loop" << std::endl;
-          // }
-          // throw "끝";
+          ssize_t b = read(c->getSocket(), buf, 10000);
+
           if (b > 0)
           {
             // temp code.리퀘스트 완성되었다고 가정하고, 응답생성 시도
             d.append(buf, b);
             std::cout << "read: " << d << std::endl;
             c->makeResponse("./lorem_ipsum.txt");
-            
+
             /**
              *  1. READ 끝까지 => Request 생성
                 2. Request에 담긴 행동을 수행
@@ -161,12 +159,12 @@ void Webserver::runWebserver(void)
                 - 미니쉘에 exec, 입출력pipe 연결 & exec("/usr/bin/python3", "123.py")
                 - 입력 - 프로그램 - 출력 => kevent(read) 모니터링
                 - 응답의 끝: EOF확인 (read == 0, ke.flag & EV_EOF)
-                
+
                 Request => 무엇을 해야할지 결정 => body 생성 (status)
                 - index.html => 정상적으로 잘 읽혔으면 200
                 - no.html => 없는 파일 400번대
 
-                이번 read 결과가 
+                이번 read 결과가
 
                 if (리퀘스트가 비정상이면)
                 {
@@ -188,41 +186,58 @@ void Webserver::runWebserver(void)
                   c->메이크_응답전체데이터();
                   소켓 W 켜주기.
                 }
-             * 
-            */ 
+             *
+            */
           }
           else
           {
-            // 1. b == 0 은 발생되지 않을 것으로 기대
-            // 2. b < 0 은 에러 => 에러 핸들링
             std::cout << "에러 핸들링" << std::endl;
           }
-          // c->readProcess();
-          // if (true) // 다 읽었다면
-          // {
-          //   c->makeResponse();
-          // }
+
+          continue;
         }
-        else if (curr.filter == EVFILT_WRITE)
+
+        
+
+        if (cit != _clients.end() && EVFILT_WRITE)
         {
-          std::cout << "============** WRITE **============" << std::endl;
-          int result = c->sendProcess();
-          (void)result;
+          // 4. 클라이언트 소켓의 WRITE 이벤트
+          std::cout << "***************** Client WRITE *****************" << std::endl;
+
+          Client *c = &(cit->second);
+          
+          c->sendProcess();
+          
           if (c->checkSendBytes() >= 0)
           {
-            // 전송 완료
-            std::cout << "전송 완료1" << std::endl;
-            // _eventHandler.switchToReadState(c->getSocket());
+            // HTTP 통신 한 사이클 종료
             _eventHandler.switchToReadState(c->getSocket());
-            c->cleanRequestReponse();
-            std::cout << "전송 완료2" << std::endl;
+            c->cleanRequestReponse(); 
           }
-          // <0: 에러핸들링?
+
+          continue;
         }
-        else
-        {
-          // 도달 하지 않을 곳.
-        }
+
+        /**
+         * File의 이벤트가 도달할 곳
+         * 
+         * std::map<int, File>::iterator fit = _files.find(static_cast<int>(curr.ident));
+         * if (fit != _files.end() && EVFILT_READ && curr.filter & EV_EOF)
+         * {
+         *   // file eof
+         * }
+         * if (fit != _files.end() && EVFILT_READ)
+         * {
+         *   // file read
+         * }
+         * if (fit != _files.end() && EVFILT_WRITE)
+         * {
+         *   // file write
+         * }
+        */
+        // 
+        
+        // 도달 하지 않을 곳.
       }
     }
   }

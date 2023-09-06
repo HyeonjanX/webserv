@@ -1,8 +1,8 @@
 
 #include "Client.hpp"
 
-Client::Client(int serverSocket)
-    : _contentLength(0), _status(0), _ischunk(0)
+Client::Client(int serverSocket, const &Server s, const &EventHandler e)
+    : _contentLength(0), _status(0), _ischunk(0), _server(s), _eventHandler(e) 
 {
     std::memset(&_addr, 0, sizeof(_addr));
     socklen_t addr_size = static_cast<socklen_t>(sizeof(_addr));
@@ -172,26 +172,26 @@ int change(const char *hexString)
     return 0;
 }
 
+// 현재 리턴값을 활용하고 있진 않음
+// EVFILT_WRITE 이벤트에 의해 트리거 되는 곳.
 int Client::sendProcess(void)
 {
-    // read => 응답 생성 => 여기는 보내는 곳.
-    const std::string data = _response.getData();
-    ssize_t bytes_sent = send(_socket, data.c_str(), data.length(), 0);
+    ssize_t bytes_sent = send(_socket, &_response.getData2(), _response.getDataLength(), 0);
+    
     std::cout << "bytes_sent :" << bytes_sent << std::endl;
+    
     if (bytes_sent == -1)
     {
-        // error 핸들링 필요
-    }
-    else
-    {
-        _response.updateSendedBytes(bytes_sent);
+        throw -1;
     }
 
-    if (_response.getSendedBytes() >= _response.getTotalBytes())
+    _response.updateSendedBytes(bytes_sent);
+
+    if (checkSendBytes() >= 0)
     {
-        //  전송 끝.
-        return 1;
+        // 상태를 바꾼다거나 할 수도 있음
     }
+    
     return 0;
 }
 
