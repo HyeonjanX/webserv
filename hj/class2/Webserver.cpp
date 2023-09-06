@@ -106,7 +106,7 @@ void Webserver::runWebserver(void)
         {
           Server *s = &sit->second;
           initClient(s->getSocket());
-          std::cout << "소켓생성" << std::endl;
+          std::cout << "--------------소켓생성 -----------------" << std::endl;
           continue;
         }
 
@@ -121,6 +121,16 @@ void Webserver::runWebserver(void)
         if (curr.filter == EVFILT_READ)
         {
           std::cout << "============** READ **============" << std::endl;
+
+          if (curr.filter & EV_EOF)
+          {
+            // 클라이언트가 FIN요청을 보내서, 연결이 종료됨 => 재사용 불가 => 이미 닫힌 연결
+            // 안 닫으면 계속해서 READ 이벤트가 발생.
+            std::cout << "클라이언트 연결 종료" << std::endl;
+            close(c->getSocket());
+            _clients.erase(c->getSocket());
+            continue;
+          }
           // 0: 클라이언트 종료 => nothing
           // >0: data += 읽은것.
           // <0: 에러 핸들링
@@ -133,27 +143,59 @@ void Webserver::runWebserver(void)
           //   d.append(buf, b);
           //   std::cout << "read loop" << std::endl;
           // }
-          if (b > 0 )
+          // throw "끝";
+          if (b > 0)
           {
+            // temp code.리퀘스트 완성되었다고 가정하고, 응답생성 시도
             d.append(buf, b);
             std::cout << "read: " << d << std::endl;
-
             c->makeResponse("./lorem_ipsum.txt");
+            
+            /**
+             *  1. READ 끝까지 => Request 생성
+                2. Request에 담긴 행동을 수행
+                3.1 Request.path => 정적파일 제공
+                - 파일 O: 정적파일 read해서 body에 추가
+                - 파일 X: body가 없거나, 다른 로직에 의해 body 생성
+                3.2 Request.path => .py 파일 => CGI 수행
+                - 미니쉘에 exec, 입출력pipe 연결 & exec("/usr/bin/python3", "123.py")
+                - 입력 - 프로그램 - 출력 => kevent(read) 모니터링
+                - 응답의 끝: EOF확인 (read == 0, ke.flag & EV_EOF)
+                
+                Request => 무엇을 해야할지 결정 => body 생성 (status)
+                - index.html => 정상적으로 잘 읽혔으면 200
+                - no.html => 없는 파일 400번대
 
-            _eventHandler.switchToWriteState(c->getSocket());
+                이번 read 결과가 
 
-          }
-          else if (b == 0)
-          {
-            std::cout << "클라이언트 연결 종료" << std::endl;
-            // close(c->getSocket());
-            // _clients.erase(c->getSocket());
-            continue;
-            // throw "끝";
+                if (리퀘스트가 비정상이면)
+                {
+                  c->리퀘스트->파일 = error파일;
+                }
+                if (정적파일)
+                {
+                  c->메이크_바디();
+                  c->메이크_응답전체데이터();
+                  _eventHandler.switchToWriteState(c->getSocket());
+                }
+                else
+                {
+                  c->CGI실행좀();
+                  _eventHandler.리드이벤트만멈추기();
+                  Client => File R W => File W 켜주고 => 본문을 pipe를 통해 넘겨주고
+                  File W 꺼주고, R 켜주고 => CGI 프로세스가 응답을 생성해서 => pipe를 통해 넘겨주면
+                  FILE R를 통해 응답을 합치고 => EOF close(File_fd)
+                  c->메이크_응답전체데이터();
+                  소켓 W 켜주기.
+                }
+             * 
+            */ 
           }
           else
           {
-            std::cout << "????" << std::endl;
+            // 1. b == 0 은 발생되지 않을 것으로 기대
+            // 2. b < 0 은 에러 => 에러 핸들링
+            std::cout << "에러 핸들링" << std::endl;
           }
           // c->readProcess();
           // if (true) // 다 읽었다면
