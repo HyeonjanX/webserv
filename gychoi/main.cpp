@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:46:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/06 23:10:38 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/08 17:23:18 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -101,8 +101,9 @@ bool	isAllReceived(Client& client)
 {
 	//std::cout << client.getRawData() << std::endl;
 	//std::cout << client.isAllSet() << std::endl;
-	if (client.isAllSet()
-		&& (client.getContentLength() == client.getHttpBody().length()))
+	if (client.getClientRequest().isAllSet()
+		&& (client.getClientRequest().getContentLength()
+			== client.getClientRequest().getHttpBody().length()))
 		return true;
 	return false;
 }
@@ -179,11 +180,11 @@ bool	readClientData(Client& client)
 		return false;
 	else
 	{
-		std::string	s = client.getRawData();
+		std::string	s = client.getClientRequest().getRawData();
 		s.append(client.getClientBuffer(),
 					static_cast<std::size_t>(readByte));
-		client.setRawData(s);
-		client.updateRequest();
+		client.getClientRequest().setRawData(s);
+		client.getClientRequest().updateRequest();
 	}
 	return true;
 }
@@ -211,9 +212,16 @@ void	handleReadEvent(struct kevent* currEvent,
 	for (std::map<int, Client>::iterator cit = clients.begin();
 			cit != clients.end(); ++cit)
 	{
+		// 나는 이미 read에서 0으로 체크하고 있기 때문에 필요 없을 듯...
+//		if (currEvent->flags & EV_EOF)
+//		{
+//			disconnectClient(cit->second.getClientSocket(),
+//							cit->second.getClientPort(), clients);
+//			break;
+//		}
 		if (cit->second.getClientSocket() == static_cast<int>(currEvent->ident))
 		{
-			if (!readClientData(cit->second))
+			if (!cit->second.readRequest())
 			{
 				disconnectClient(cit->second.getClientSocket(),
 								cit->second.getClientPort(), clients);
@@ -240,7 +248,7 @@ bool	writeClientData(Client& client)
 	std::string	body;
 	std::string	response;
 
-	body = client.getHttpBody();
+	body = client.getClientRequest().getHttpBody();
 	header += "HTTP/1.1 200 OK\r\n";
 	header += "Content-Type: text/html; charset=utf-8\r\n";
 	header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
@@ -275,7 +283,7 @@ void	handleWriteEvent(struct kevent* currEvent,
 				updateEvents(updateList, static_cast<uintptr_t>
 				(cit->second.getClientSocket()),
 				EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, 0);
-				cit->second.resetRequest();
+				cit->second.getClientRequest().resetRequest();
 			}
 			break;
 		}
@@ -299,6 +307,7 @@ void	runServer(int kq, std::vector<struct kevent>& updateList,
 			static_cast<int>(updateList.size()), eventList, 8, 0)) == -1)
 			throwError("Kqueue error: kevent");
 		updateList.clear();
+
 		for (int i = 0; i < newEvents; ++i)
 		{
 			currEvent = &eventList[i];
