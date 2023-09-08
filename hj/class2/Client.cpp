@@ -81,23 +81,6 @@ int Client::chunkRead(void)
     return 0;
 }
 
-int change(const char *hexString)
-{
-    char *end;
-
-    long num = std::strtol(hexString, &end, 16);
-
-    if (*end == 0)
-    {
-        std::cout << "Parsed number: " << num << std::endl; // Output: 26
-    }
-    else
-    {
-        std::cout << "Parsing failed. Remaining string: " << end << std::endl;
-    }
-    return 0;
-}
-
 // 현재 리턴값을 활용하고 있진 않음
 // EVFILT_WRITE 이벤트에 의해 트리거 되는 곳.
 // send 호출후, 모두 보냈는지 확인할 수 있는 값을 리턴,
@@ -172,7 +155,7 @@ int Client::readFile(const std::string &filePath)
     file.close();
 
     _response.setBody(content);
-    _response.setHeader(std::string("Content-Length"), std::string(Util::itoa(_response.getBody().length())));
+    _response.setHeader(std::string("Content-Length"), std::string(Util::ft_itoa(_response.getBody().length())));
     setResponseStatus(200, std::string("OK"));
     return 200;
 }
@@ -190,7 +173,7 @@ int Client::makeResponse(const std::string &filePath)
     }
     else
     {
-        _response.setHeader(std::string("Content-Length"), std::string(Util::itoa(_response.getBody().length())));
+        _response.setHeader(std::string("Content-Length"), std::string(Util::ft_itoa(_response.getBody().length())));
     }
 
     // 3.

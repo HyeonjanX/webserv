@@ -53,11 +53,25 @@ void Util::print_kevent_info(const struct kevent &ke)
     std::cout << "  udata:  " << ke.udata << std::endl;
 }
 
-std::string Util::itoa(size_t value)
+std::string Util::ft_itoa(size_t value)
 {
     std::ostringstream o;
     o << value;
-    return std::string(o.str());
+    return o.str();
+}
+
+long Util::ft_atol(const char *str, int base)
+{
+    char *end;
+
+    long num = std::strtol(str, &end, base);
+
+    if (*end != 0)
+    {
+        throw "Parsing failed. Remaining string: " + std::string(end);
+    }
+
+    return num;
 }
 
 // void Util::initHttpErrorMap(void)

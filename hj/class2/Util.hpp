@@ -33,7 +33,8 @@ public:
     static std::string getDateString(void);
 
     static void print_kevent_info(const struct kevent &ke);
-    static std::string itoa(size_t value);
+    static std::string ft_itoa(size_t value);
+    static ssize_t ft_atol(const char *str, int base);
 
 public:
 };
