@@ -39,6 +39,11 @@ public:
   void switchToWriteState(int clientSocket);
   void switchToReadState(int clientSocket);
 
+  void turnOnRead(int clientSocket);
+  void turnOffRead(int clientSocket);
+  void turnOnWrite(int clientSocket);
+  void turnOffWrite(int clientSocket);
+
 public:
   const struct kevent &getEvent(int index) const;
 };

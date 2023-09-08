@@ -62,7 +62,7 @@ public:
     std::string getBody(void) const;
 
     std::string getData(void) const;
-    std::string &getData2(void);
+    // std::string &getData2(void);
     size_t getDataLength(void) const;
 
     void updateSendedBytes(size_t bytes);
@@ -70,6 +70,10 @@ public:
     size_t getSendedBytes(void) const;
 
     void setFilePath(const std::string& filePath);
+
+    size_t getTotalBytes(void) { return _totalBytes; }
+    size_t getSendBytes(void) { return _sendedBytes; }
+
 };
 
 #endif

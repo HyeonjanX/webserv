@@ -23,6 +23,7 @@ void Response::init(const std::string &httpVersion, int statusCode, const std::s
 }
 void Response::clean(void)
 {
+    std::cout << "clean" << std::endl;
     _httpVersion.clear();
     _statusCode = 0;
     _statusMessage.clear();
@@ -93,11 +94,11 @@ void Response::setBody(const std::string &b) { _body = b; }
 std::string Response::getBody(void) const { return _body; }
 
 std::string Response::getData(void) const { return _data; }
-std::string &Response::getData2(void) { return _data; }
+// std::string &Response::getData2(void) { return _data; }
 
 size_t Response::getDataLength(void) const { return _data.size(); }
 
-void Response::updateSendedBytes(size_t bytes) {  _sendedBytes += bytes; }
+void Response::updateSendedBytes(size_t bytes) { _sendedBytes += bytes; }
 
 size_t Response::getTotalBytes(void) const { return _totalBytes; }
 

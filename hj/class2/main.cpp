@@ -5,7 +5,7 @@
 
 int main(int ac, char **av)
 {
-    Util::initHttpErrorMap();
+    // Util::initHttpErrorMap();
 
     try
     {
