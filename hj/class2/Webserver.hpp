@@ -12,6 +12,7 @@
 #include <map>
 
 // #include <vector> at EventHandler.hpp
+class Client;
 
 class Webserver
 {
@@ -35,10 +36,12 @@ private:
 
   void initServer(int port, std::string host = "",
                   int sockreuse = 1, int backlog = 16);
-  void initClient(int serverSocket);
+  void initClient(int serverSocket, Server *s = NULL);
 
   void clientReadProcess(Client &c);
 
+public:
+  void closeClient(int clientsocket);
 };
 
 #endif

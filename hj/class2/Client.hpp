@@ -24,10 +24,20 @@
 
 #define BACKLOG 128
 
+class Server;
+class EventHandler;
+class Webserver;
+#include "Webserver.hpp"
+#include "EventHandler.hpp"
+#include "Server.hpp"
+
 typedef enum CLIENT_STATUS {
   BEFORE_READ,
+  READ_REQUESTLINE,
   READ_HEADER,
   READ_BODY,
+  BODY_LIMIT_OVER,
+  BODY_SIZE_OVER,
   READ_END,
   ERROR_400,
   BEFORE_WRITE,
@@ -43,13 +53,19 @@ public:
 
 private:
     
-    int _socket;
-    struct sockaddr_in _addr;
+    int                 _socket;
+    struct sockaddr_in  _addr;
+
+    Webserver*          _ws;
+    Server*             _server;
+    EventHandler*       _eventHandler;
 
 public:
   
     std::string _data;
+    std::string _requestLine;
     std::string _header;
+    std::vector<std::pair<std::string, std::string>> _header2;
     std::string _body;
 
     // ssize_t _bytes_read;
@@ -64,13 +80,16 @@ public:
 
 public:
     // 레퍼런스와 디폴트값을 함께 사용하지 않기.
-    Client(int serverSocket);
+    // Client(int serverSocket);
+    Client(int serverSocket, Webserver *ws = NULL, Server *s = NULL, EventHandler *e = NULL);
     virtual ~Client(void);
 
 public:
     int readProcess(void);
 
-
+    void readRequestLine(void);
+    void readHeader(void);
+    void readBody(void);
 
 public:
     int sendProcess(void);
@@ -86,6 +105,9 @@ public:
 public:
     int getSocket(void) const;
     std::string& getData(void);
+    // size_t getDataLength(void);
+
+
 };
 
 #endif
