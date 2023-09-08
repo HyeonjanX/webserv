@@ -36,7 +36,8 @@ Webserver::Webserver(int ac, char **av)
   else
   {
     _configPath = "./default/path/to/config";
-    std::cout << "디폴트 위치" << "에서 config 읽어옵니다." << std::endl;
+    std::cout << "디폴트 위치"
+              << "에서 config 읽어옵니다." << std::endl;
   }
   // config 파싱 코드 들어갈 자리
 }
@@ -74,9 +75,9 @@ void Webserver::initServer(int port, std::string host,
   std::cout << port << "서버생성" << std::endl;
 }
 
-void Webserver::initClient(int serverSocket)
+void Webserver::initClient(int serverSocket, Server *s)
 {
-  Client c(serverSocket);
+  Client c(serverSocket, this, s, &_eventHandler);
 
   _clients.erase(c.getSocket());
   _clients.insert(std::make_pair(c.getSocket(), c));
@@ -97,132 +98,82 @@ void Webserver::runWebserver(void)
       for (int i = 0; i < nevents; ++i)
       {
         struct kevent curr = _eventHandler.getEvent(i);
-        int sock = static_cast<int>(curr.ident);
-        Util::print_kevent_info(curr);
-        // std::cout << "sock: " << sock << std::endl;
 
-        std::map<int, Server>::iterator sit = _servers.find(sock);
+        // 디버깅용 정보 출력
+        // Util::print_kevent_info(curr);
+
+        std::map<int, Server>::iterator sit = _servers.find(static_cast<int>(curr.ident));
         if (sit != _servers.end())
         {
+          // 1. 서버소켓의 READ 이벤트
+          std::cout << GREEN << "-------------- 소켓생성 -----------------" << RESET << std::endl;
+
           Server *s = &sit->second;
-          initClient(s->getSocket());
-          std::cout << "--------------소켓생성 -----------------" << std::endl;
+
+          initClient(s->getSocket(), s);
+
           continue;
         }
 
-        std::map<int, Client>::iterator cit = _clients.find(sock);
-        if (cit == _clients.end())
-        {
-          // 알맞은 소켓을 찾지 못했다(가능한건가?) => 에러 핸들링 필요
-        }
-        std::cout << "============ 클라이언트 ============" << std::endl;
+        std::map<int, Client>::iterator cit = _clients.find(static_cast<int>(curr.ident));
 
-        Client *c = &(cit->second);
-        if (curr.filter == EVFILT_READ)
+        // 클라이언트가 FIN요청을 보내서, 연결이 종료됨 => 재사용 불가 => 이미 닫힌 연결 => 안 닫으면 계속해서 READ 이벤트가 발생.
+        if (cit != _clients.end() && curr.filter == EVFILT_READ && (curr.flags & EV_EOF))
         {
-          std::cout << "============** READ **============" << std::endl;
+          // 2. 클라이언트의 소켓 연결 종료 이벤트
+          std::cout << MAGENTA << "***************** 클라이언트부터 소켓 연결 종료 *****************" << RESET << std::endl;
 
-          if (curr.filter & EV_EOF)
-          {
-            // 클라이언트가 FIN요청을 보내서, 연결이 종료됨 => 재사용 불가 => 이미 닫힌 연결
-            // 안 닫으면 계속해서 READ 이벤트가 발생.
-            std::cout << "클라이언트 연결 종료" << std::endl;
-            close(c->getSocket());
-            _clients.erase(c->getSocket());
-            continue;
-          }
-          // 0: 클라이언트 종료 => nothing
-          // >0: data += 읽은것.
-          // <0: 에러 핸들링
-          char buf[10000];
-          std::string d;
-          ssize_t b;
-          b = read(c->getSocket(), buf, 10000);
-          // while ((b = read(c->getSocket(), buf, 10000)) > 0)
-          // {
-          //   d.append(buf, b);
-          //   std::cout << "read loop" << std::endl;
-          // }
-          // throw "끝";
-          if (b > 0)
-          {
-            // temp code.리퀘스트 완성되었다고 가정하고, 응답생성 시도
-            d.append(buf, b);
-            std::cout << "read: " << d << std::endl;
-            c->makeResponse("./lorem_ipsum.txt");
-            
-            /**
-             *  1. READ 끝까지 => Request 생성
-                2. Request에 담긴 행동을 수행
-                3.1 Request.path => 정적파일 제공
-                - 파일 O: 정적파일 read해서 body에 추가
-                - 파일 X: body가 없거나, 다른 로직에 의해 body 생성
-                3.2 Request.path => .py 파일 => CGI 수행
-                - 미니쉘에 exec, 입출력pipe 연결 & exec("/usr/bin/python3", "123.py")
-                - 입력 - 프로그램 - 출력 => kevent(read) 모니터링
-                - 응답의 끝: EOF확인 (read == 0, ke.flag & EV_EOF)
-                
-                Request => 무엇을 해야할지 결정 => body 생성 (status)
-                - index.html => 정상적으로 잘 읽혔으면 200
-                - no.html => 없는 파일 400번대
+          Client *c = &(cit->second);
 
-                이번 read 결과가 
+          closeClient(c->getSocket());
 
-                if (리퀘스트가 비정상이면)
-                {
-                  c->리퀘스트->파일 = error파일;
-                }
-                if (정적파일)
-                {
-                  c->메이크_바디();
-                  c->메이크_응답전체데이터();
-                  _eventHandler.switchToWriteState(c->getSocket());
-                }
-                else
-                {
-                  c->CGI실행좀();
-                  _eventHandler.리드이벤트만멈추기();
-                  Client => File R W => File W 켜주고 => 본문을 pipe를 통해 넘겨주고
-                  File W 꺼주고, R 켜주고 => CGI 프로세스가 응답을 생성해서 => pipe를 통해 넘겨주면
-                  FILE R를 통해 응답을 합치고 => EOF close(File_fd)
-                  c->메이크_응답전체데이터();
-                  소켓 W 켜주기.
-                }
-             * 
-            */ 
-          }
-          else
-          {
-            // 1. b == 0 은 발생되지 않을 것으로 기대
-            // 2. b < 0 은 에러 => 에러 핸들링
-            std::cout << "에러 핸들링" << std::endl;
-          }
-          // c->readProcess();
-          // if (true) // 다 읽었다면
-          // {
-          //   c->makeResponse();
-          // }
+          continue;
         }
-        else if (curr.filter == EVFILT_WRITE)
+
+        if (cit != _clients.end() && curr.filter == EVFILT_READ)
         {
-          std::cout << "============** WRITE **============" << std::endl;
-          int result = c->sendProcess();
-          (void)result;
-          if (c->checkSendBytes() >= 0)
-          {
-            // 전송 완료
-            std::cout << "전송 완료1" << std::endl;
-            // _eventHandler.switchToReadState(c->getSocket());
-            _eventHandler.switchToReadState(c->getSocket());
-            c->cleanRequestReponse();
-            std::cout << "전송 완료2" << std::endl;
-          }
-          // <0: 에러핸들링?
+          // 3. 클라이언트 소켓의 READ 이벤트
+          std::cout << CYAN << "***************** Client READ *****************" << RESET << std::endl;
+
+          Client *c = &(cit->second);
+
+          c->readProcess();
+
+          continue;
         }
-        else
+
+        if (cit != _clients.end() && EVFILT_WRITE)
         {
-          // 도달 하지 않을 곳.
+          // 4. 클라이언트 소켓의 WRITE 이벤트
+          std::cout << BLUE << "***************** Client WRITE *****************" << RESET << std::endl;
+
+          Client *c = &(cit->second);
+
+          c->sendProcess();
+
+          continue;
         }
+
+        /**
+         * File의 이벤트가 도달할 곳
+         *
+         * std::map<int, File>::iterator fit = _files.find(static_cast<int>(curr.ident));
+         * if (fit != _files.end() && EVFILT_READ && curr.flags & EV_EOF)
+         * {
+         *   // file eof
+         * }
+         * if (fit != _files.end() && EVFILT_READ)
+         * {
+         *   // file read
+         * }
+         * if (fit != _files.end() && EVFILT_WRITE)
+         * {
+         *   // file write
+         * }
+         */
+        //
+
+        // 도달 하지 않을 곳.
       }
     }
   }
@@ -352,4 +303,11 @@ void Webserver::clientReadProcess(Client &c)
   }
 
   // return bytes_read;
+}
+
+// kqueue 이벤트는 명시적으로 삭제할 필요 없다.
+void Webserver::closeClient(int clientsocket)
+{
+  close(clientsocket);
+  _clients.erase(clientsocket);
 }

@@ -90,6 +90,26 @@ void EventHandler::switchToReadState(int clientSocket)
   addKeventToChangeList(clientSocket, EVFILT_WRITE, EV_DISABLE, 0, 0, NULL);
 }
 
+void EventHandler::turnOnRead(int clientSocket)
+{
+  addKeventToChangeList(clientSocket, EVFILT_READ, EV_ENABLE, 0, 0, NULL);
+}
+
+void EventHandler::turnOffRead(int clientSocket)
+{
+  addKeventToChangeList(clientSocket, EVFILT_READ, EV_DISABLE, 0, 0, NULL);
+}
+
+void EventHandler::turnOnWrite(int clientSocket)
+{
+  addKeventToChangeList(clientSocket, EVFILT_WRITE, EV_ENABLE, 0, 0, NULL);
+}
+
+void EventHandler::turnOffWrite(int clientSocket)
+{
+  addKeventToChangeList(clientSocket, EVFILT_WRITE, EV_DISABLE, 0, 0, NULL);
+}
+
 const struct kevent &EventHandler::getEvent(int index) const
 {
   return (_eventList[index]);

@@ -1,9 +1,12 @@
 #include <iostream>
 
+#include "Util.hpp"
 #include "Webserver.hpp"
 
 int main(int ac, char **av)
 {
+    // Util::initHttpErrorMap();
+
     try
     {
         Webserver ws(ac, av);
