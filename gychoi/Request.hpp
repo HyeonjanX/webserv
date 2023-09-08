@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:09 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/06 23:05:48 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/08 23:12:35 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,12 +23,13 @@ class	Request
 {
 	private:
 		std::string		_rawData;
-		std::string		_header;
+		std::string		_header; // map으로 키밸류 값 저장
 		std::string		_body;
 		unsigned int	_contentLength;
 		std::string		_method;
 		std::string		_requestUrl;
 		std::string		_httpVersion;
+		// transfer encoding 
 
 	public:
 		Request(void);

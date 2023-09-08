@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:52:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/06 20:52:28 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/08 23:15:57 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,13 +18,15 @@ static void	throwError(std::string const& msg);
  * Constructor & Destroctor
  */
 
-Client::Client(void) : _sock(0), _port(0), _addrlen(sizeof(this->_addr))
+Client::Client(void) : _sock(0), _port(0), _addrlen(sizeof(this->_addr)),
+						_status(0)
 {
 	memset(&(this->_addr), 0x0, sizeof(this->_addr));
 	memset(this->_buffer, 0x0, sizeof(this->_buffer));
 }
 
-Client::Client(int serverSocket) : _addrlen(sizeof(this->_addr))
+Client::Client(int serverSocket) : _addrlen(sizeof(this->_addr)),
+									_status(0)
 {
 	if ((this->_sock = accept(serverSocket,
 			reinterpret_cast<struct sockaddr*>(&(this->_addr)),
@@ -36,6 +38,7 @@ Client::Client(int serverSocket) : _addrlen(sizeof(this->_addr))
 		throwError("Client Error: fcntl");
 	}
 	this->_port = ntohs(this->_addr.sin_port);
+	memset(this->_buffer, 0x0, sizeof(this->_buffer));
 	std::cout << "[INFO] : Client connected: " << this->_port << std::endl;
 }
 
@@ -54,6 +57,8 @@ Client&	Client::operator=(Client const& target)
 		this->_addrlen = target.getClientAddrlen();
 		std::copy(target.getClientBuffer(), 
 			target.getClientBuffer() + BUFFER_SIZE, this->_buffer);
+		this->_request = target.getClientRequest();
+		this->_status = target.getClientStatus();
 	}
 	return *this;
 }
@@ -94,9 +99,59 @@ void	Client::setClientBuffer(char* buffer)
 	std::copy(buffer, buffer + BUFFER_SIZE, this->_buffer);
 }
 
+Request const&	Client::getClientRequest(void) const
+{
+	return this->_request;
+}
+
+Request&	Client::getClientRequest(void)
+{
+	return this->_request;
+}
+
+void	Client::setClientRequest(Request request)
+{
+	this->_request = request;
+}
+
+short	Client::getClientStatus(void) const
+{
+	return this->_status;
+}
+
 /**
  * Member Function
  */
+
+/**
+ * @brief readRequest
+ *
+ * Client 객체가 recv로 받아온 정보를 바탕으로,
+ * _request 멤버 구조체 내 정보를 업데이트합니다.
+ *
+ * @param void
+ * @return bool
+ */
+bool	Client::readRequest(void)
+{
+	ssize_t	readByte;
+
+	if ((readByte = recv(this->getClientSocket(),
+					const_cast<char*>(this->getClientBuffer()),
+					sizeof(this->getClientBuffer()), 0)) == -1)
+		throwError("recv failed"); // need to change
+	else if (readByte == 0)
+		return false;
+	else
+	{
+		std::string	s = this->getClientRequest().getRawData();
+		s.append(this->getClientBuffer(),
+					static_cast<std::size_t>(readByte));
+		this->getClientRequest().setRawData(s);
+		this->getClientRequest().updateRequest();
+	}
+	return true;
+}
 
 /**
  * Initialize Function
