@@ -6,7 +6,7 @@
 #    By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/08/28 16:01:14 by gychoi            #+#    #+#              #
-#    Updated: 2023/09/06 20:47:24 by gychoi           ###   ########.fr        #
+#    Updated: 2023/09/10 21:45:36 by gychoi           ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -20,7 +20,8 @@ RM = rm -rf
 
 SRCS = main.cpp \
 	   Client.cpp \
-	   Request.cpp
+	   Request.cpp \
+	   Util.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 DEPS = $(SRCS:.cpp=.d)

@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:39 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/10 22:59:44 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/10 17:25:44 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -119,10 +119,10 @@ void	Request::updateRequest(void)
 {
 	this->_header = extractHttpHeader(this->_rawData);
 	this->_body = extractHttpBody(this->_rawData);
-	this->_contentLength = extractContentLength(this->_rawData);
-	this->_method = extractHttpMethod(this->_rawData);
-	this->_requestUrl = extractRequestUrl(this->_rawData);
-	this->_httpVersion = extractHttpVersion(this->_rawData);
+	this->_contentLength = extractContentLength(this->_header);
+	this->_method = extractHttpMethod(this->_header);
+	this->_requestUrl = extractRequestUrl(this->_header);
+	this->_httpVersion = extractHttpVersion(this->_header);
 }
 
 /**
@@ -150,38 +150,10 @@ void	Request::updateRequestLine(void)
  * @param void
  * @return void
  */
-#include <iostream>
 void	Request::updateHttpHeader(void)
 {
-	std::size_t	pos;
-	std::size_t	oldPos;
-	std::size_t	colPos;
-	std::string	line;
-	std::string	key;
-	std::string	value;
-
 	this->_header = extractHttpHeader(this->_rawData);
-	this->_contentLength = extractContentLength(this->_rawData);
-
-	oldPos = 0;
-	while ((pos = this->_header.find(DOUBLE_CRLF, oldPos)) != std::string::npos)
-	{
-		if (!pos)
-			return;
-		line = this->_header.substr(oldPos, pos - oldPos);
-		colPos = line.find(":");
-		if (colPos != std::string::npos)
-		{
-			key = line.substr(0, colPos);
-			value = Util::lrtrim(line.substr(colPos + 1));
-			this->_headers.insert(std::make_pair(key, value));
-		}
-		oldPos = pos + 2;
-	}
-	for (std::map<std::string, std::string>::iterator it = this->_headers.begin();
-		it != this->_headers.end(); ++it)
-		std::cout << "(" << it->first << ")(" << it->second << ")" << std::endl;
-	// 지금 이 부분이 메롱이다.
+	this->_contentLength = extractContentLength(this->_header);
 }
 
 /**

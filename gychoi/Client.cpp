@@ -6,12 +6,16 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:52:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/08 23:15:57 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/10 20:26:50 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Client.hpp"
 
+static void	checkRequestLine(Client& client);
+static void	checkHttpHeader(Client& client);
+static void	checkHttpBody(Client& client);
+static void	validateReadStatus(Client& client);
 static void	throwError(std::string const& msg);
 
 /**
@@ -19,14 +23,14 @@ static void	throwError(std::string const& msg);
  */
 
 Client::Client(void) : _sock(0), _port(0), _addrlen(sizeof(this->_addr)),
-						_status(0)
+						_status(BEFORE_READ)
 {
 	memset(&(this->_addr), 0x0, sizeof(this->_addr));
 	memset(this->_buffer, 0x0, sizeof(this->_buffer));
 }
 
 Client::Client(int serverSocket) : _addrlen(sizeof(this->_addr)),
-									_status(0)
+									_status(BEFORE_READ)
 {
 	if ((this->_sock = accept(serverSocket,
 			reinterpret_cast<struct sockaddr*>(&(this->_addr)),
@@ -119,6 +123,11 @@ short	Client::getClientStatus(void) const
 	return this->_status;
 }
 
+void	Client::setClientStatus(short status)
+{
+	this->_status = status;
+}
+
 /**
  * Member Function
  */
@@ -127,7 +136,7 @@ short	Client::getClientStatus(void) const
  * @brief readRequest
  *
  * Client 객체가 recv로 받아온 정보를 바탕으로,
- * _request 멤버 구조체 내 정보를 업데이트합니다.
+ * _request 멤버 구조체 내 정보를 업데이트하고, Client의 _status를 갱신합니다.
  *
  * @param void
  * @return bool
@@ -136,26 +145,87 @@ bool	Client::readRequest(void)
 {
 	ssize_t	readByte;
 
-	if ((readByte = recv(this->getClientSocket(),
-					const_cast<char*>(this->getClientBuffer()),
-					sizeof(this->getClientBuffer()), 0)) == -1)
+	if ((readByte = recv(this->_sock, const_cast<char*>(this->_buffer),
+					sizeof(this->_buffer), 0)) == -1)
+	{
 		throwError("recv failed"); // need to change
+		// status = 500?
+	}
 	else if (readByte == 0)
 		return false;
 	else
 	{
-		std::string	s = this->getClientRequest().getRawData();
-		s.append(this->getClientBuffer(),
-					static_cast<std::size_t>(readByte));
-		this->getClientRequest().setRawData(s);
-		this->getClientRequest().updateRequest();
+		std::string	s = this->_request.getRawData();
+		s.append(this->_buffer, static_cast<std::size_t>(readByte));
+		this->_request.setRawData(s);
+		if (this->_status == BEFORE_READ)
+			checkRequestLine(*this);
+		if (this->_status == READ_REQUESTLINE)
+			checkHttpHeader(*this);
+		if (this->_status == READ_HEADER || this->_status == READING)
+			checkHttpBody(*this);
+		if (this->_status == READ_BODY)
+			validateReadStatus(*this);
 	}
 	return true;
 }
 
+//bool	Client::writeRequest(void)
+//{
+//	// Response에서 구현해야 하는 부분.
+//	// status code에 따라 다른 페이지 반환.
+//}
+
 /**
- * Initialize Function
+ * Helper Function
  */
+
+static void	checkRequestLine(Client& client)
+{
+	Request&	request = client.getClientRequest();
+
+	request.updateRequestLine();
+	if (request.getHttpMethod().empty() || request.getRequestUrl().empty()
+		|| request.getHttpVersion().empty())
+		return;
+	client.setClientStatus(READ_REQUESTLINE);
+}
+
+static void	checkHttpHeader(Client& client)
+{
+	Request&	request = client.getClientRequest();
+
+	request.updateHttpHeader();
+	if (request.getHttpHeader().empty())
+		return;
+	client.setClientStatus(READ_HEADER);
+}
+
+static void	checkHttpBody(Client& client)
+{
+	Request&	request = client.getClientRequest();
+
+	request.updateHttpBody();
+	client.setClientStatus(READ_BODY);
+}
+
+static void	validateReadStatus(Client& client)
+{
+	Request const&		request = client.getClientRequest();
+	std::string const&	httpBody = request.getHttpBody();
+	unsigned int		contentLength = request.getContentLength();
+
+	if (httpBody.size() >= BODY_LIMIT)
+		client.setClientStatus(BODY_LIMIT_OVER);
+	else if (httpBody.size() > contentLength)
+		client.setClientStatus(BODY_SIZE_OVER); // Error 400?
+	else if (httpBody.size() == contentLength)
+		client.setClientStatus(READ_END);
+	else if (httpBody.size() < contentLength)
+		client.setClientStatus(READING);
+	else {}
+		// client.setClientStatus(ERROR_400);
+}
 
 /**
  * Utility Function

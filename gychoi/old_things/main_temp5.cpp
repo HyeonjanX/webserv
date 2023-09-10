@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:46:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/10 20:28:18 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/10 19:17:33 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -168,8 +168,27 @@ int	setKqueue(void)
  * Main Functions
  ******************************************************************************/
 
-// handle Read Event는 Client 객체를 포함하는 Webserve 내에서
-// 진행하는 것이 좋다고 생각했다.
+bool	readClientData(Client& client)
+{
+	ssize_t	readByte;
+
+	if ((readByte = recv(client.getClientSocket(),
+					const_cast<char*>(client.getClientBuffer()),
+					sizeof(client.getClientBuffer()), 0)) == -1)
+		throwError("recv failed");
+	else if (readByte == 0)
+		return false;
+	else
+	{
+		std::string	s = client.getClientRequest().getRawData();
+		s.append(client.getClientBuffer(),
+					static_cast<std::size_t>(readByte));
+		client.getClientRequest().setRawData(s);
+		client.getClientRequest().updateRequest();
+	}
+	return true;
+}
+
 void	handleReadEvent(struct kevent* currEvent,
 		std::vector<struct kevent>& updateList,
 		std::vector<Server>& servers, std::map<int, Client>& clients)
@@ -210,8 +229,7 @@ void	handleReadEvent(struct kevent* currEvent,
 				break;
 			}
 			if (cit->second.getClientStatus() == BODY_LIMIT_OVER
-				|| cit->second.getClientStatus() == BODY_SIZE_OVER
-				|| cit->second.getClientStatus() == ERROR_400)
+				|| cit->second.getClientStatus() == BODY_SIZE_OVER)
 			{
 				// 우선은 READ_END와 동작이 동일하지만 추가적인 처리가 필요
 				std::cout << "BODY_LIMIT_OVER || BODY_SIZE_OVER" << std::endl;
@@ -242,27 +260,6 @@ void	handleReadEvent(struct kevent* currEvent,
 	}
 }
 
-std::string	tempResponseException(short status)
-{
-	std::string	header;
-	std::string	body;
-
-	if (status == BODY_LIMIT_OVER)
-	{
-		header += "HTTP/1.1 413 Payload Too Large\r\n";
-		body += "413 Payload Too Large";
-	}
-	else if (status == BODY_SIZE_OVER)
-	{
-		header += "HTTP/1.1 400 Bad Request\r\n";
-		body += "400 Bad Request";
-	}
-	header += "Content-Type: text/html; charset=utf-8\r\n";
-	header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-	header += "\r\n";
-	return header + body;
-}
-
 bool	writeClientData(Client& client)
 {
 	ssize_t		sendByte;
@@ -270,25 +267,19 @@ bool	writeClientData(Client& client)
 	std::string	body;
 	std::string	response;
 
-	if (client.getClientStatus() == READ_END)
-	{
-		body = client.getClientRequest().getHttpBody();
-		header += "HTTP/1.1 200 OK\r\n";
-		header += "Content-Type: text/html; charset=utf-8\r\n";
-		header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-		header += "\r\n";
-		response = header + body;
-	}
-	else
-		response = tempResponseException(client.getClientStatus());
+	body = client.getClientRequest().getHttpBody();
+	header += "HTTP/1.1 200 OK\r\n";
+	header += "Content-Type: text/html; charset=utf-8\r\n";
+	header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
+	header += "\r\n";
+	response = header + body;
+	std::cout << response.size() << ", " << body.size() << std::endl;
 
 	if ((sendByte = send(client.getClientSocket(), response.c_str(),
 				response.size(), 0)) == -1)
 		throwError("send failed");
-	else if (sendByte == 0
-			|| client.getClientStatus() == BODY_LIMIT_OVER
-			|| client.getClientStatus() == BODY_SIZE_OVER)
-		return false; // MAY close the connection
+	else if (sendByte == 0 || client.getClientStatus() == BODY_LIMIT_OVER || client.getClientStatus() == BODY_SIZE_OVER)
+		return false;
 	return true;
 }
 
