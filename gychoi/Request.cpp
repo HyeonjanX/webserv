@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:39 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/10 22:59:44 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/12 00:51:37 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,9 +15,11 @@
 static std::string	extractHttpHeader(std::string const& rawData);
 static std::string	extractHttpBody(std::string const& rawData);
 static unsigned int	extractContentLength(std::string const& header);
+static std::string	extractTransferEncoding(std::string const& header);
 static std::string	extractHttpMethod(std::string const& header);
 static std::string	extractRequestUrl(std::string const& header);
 static std::string	extractHttpVersion(std::string const& header);
+static std::string	extractChunkedBody(std::string const& body);
 
 /**
  * Constructor & Destroctor
@@ -31,9 +33,10 @@ Request::Request(std::string const& data)
 	this->_header = extractHttpHeader(this->_rawData);
 	this->_body = extractHttpBody(this->_rawData);
 	this->_contentLength = extractContentLength(this->_header);
-	this->_method = extractHttpMethod(this->_header);
-	this->_requestUrl = extractRequestUrl(this->_header);
-	this->_httpVersion = extractHttpVersion(this->_header);
+	this->_transferEncoding = extractTransferEncoding(this->_header);
+	this->_method = extractHttpMethod(this->_rawData);
+	this->_requestUrl = extractRequestUrl(this->_rawData);
+	this->_httpVersion = extractHttpVersion(this->_rawData);
 }
 
 Request::Request(Request const& target)
@@ -49,6 +52,7 @@ Request&	Request::operator=(Request const& target)
 		this->_header = target.getHttpHeader();
 		this->_body = target.getHttpBody();
 		this->_contentLength = target.getContentLength();
+		this->_transferEncoding = target.getTransferEncoding();
 		this->_method = target.getHttpMethod();
 		this->_requestUrl = target.getRequestUrl();
 		this->_httpVersion = target.getHttpVersion();
@@ -77,6 +81,11 @@ std::string const&	Request::getHttpHeader(void) const
 	return this->_header;
 }
 
+std::map<std::string, std::string> const&	Request::getHttpHeaders(void) const
+{
+	return this->_headers;
+}
+
 std::string const&	Request::getHttpBody(void) const
 {
 	return this->_body;
@@ -85,6 +94,11 @@ std::string const&	Request::getHttpBody(void) const
 unsigned int	Request::getContentLength(void) const
 {
 	return this->_contentLength;
+}
+
+std::string const&	Request::getTransferEncoding(void) const
+{
+	return this->_transferEncoding;
 }
 
 std::string const&	Request::getHttpMethod(void) const
@@ -150,7 +164,6 @@ void	Request::updateRequestLine(void)
  * @param void
  * @return void
  */
-#include <iostream>
 void	Request::updateHttpHeader(void)
 {
 	std::size_t	pos;
@@ -161,10 +174,11 @@ void	Request::updateHttpHeader(void)
 	std::string	value;
 
 	this->_header = extractHttpHeader(this->_rawData);
-	this->_contentLength = extractContentLength(this->_rawData);
+	this->_contentLength = extractContentLength(this->_header);
+	this->_transferEncoding = extractTransferEncoding(this->_header);
 
 	oldPos = 0;
-	while ((pos = this->_header.find(DOUBLE_CRLF, oldPos)) != std::string::npos)
+	while ((pos = this->_header.find(CRLF, oldPos)) != std::string::npos)
 	{
 		if (!pos)
 			return;
@@ -178,10 +192,6 @@ void	Request::updateHttpHeader(void)
 		}
 		oldPos = pos + 2;
 	}
-	for (std::map<std::string, std::string>::iterator it = this->_headers.begin();
-		it != this->_headers.end(); ++it)
-		std::cout << "(" << it->first << ")(" << it->second << ")" << std::endl;
-	// 지금 이 부분이 메롱이다.
 }
 
 /**
@@ -196,6 +206,12 @@ void	Request::updateHttpHeader(void)
 void	Request::updateHttpBody(void)
 {
 	this->_body = extractHttpBody(this->_rawData);
+	if (this->_transferEncoding == "chunked")
+	{
+		this->_body = extractChunkedBody(this->_body);
+		// body size가 아니라 모든 chunked 값 더하기?
+		this->_contentLength = static_cast<unsigned int>(this->_body.size());
+	}
 }
 
 /**
@@ -226,6 +242,7 @@ void	Request::resetRequest(void)
 	this->_header.clear();
 	this->_body.clear();
 	this->_contentLength = 0;
+	this->_transferEncoding.clear();
 	this->_method.clear();
 	this->_requestUrl.clear();
 	this->_httpVersion.clear();
@@ -271,6 +288,26 @@ static unsigned int	extractContentLength(std::string const& header)
 		}
 	}
 	return 0;
+}
+
+static std::string	extractTransferEncoding(std::string const& header)
+{
+	std::string	value;
+	std::size_t	startPos;
+	std::size_t	endPos;
+
+	startPos = header.find("Transfer-Encoding:");
+	if (startPos != std::string::npos)
+	{
+		startPos += 18;
+		endPos = header.find(CRLF, startPos);
+		if (endPos != std::string::npos)
+		{
+			value = Util::lrtrim(header.substr(startPos, endPos - startPos));
+			return value;
+		}
+	}
+	return std::string();
 }
 
 static std::string	extractHttpMethod(std::string const& header)
@@ -323,4 +360,56 @@ static std::string	extractHttpVersion(std::string const& header)
 			return httpVersion;
 	}
 	return std::string();
+}
+
+static std::size_t	readChunkSize(std::string& line)
+{
+	std::size_t				chunkSize = 0;
+	std::string::iterator	it;
+	char					hexChar;
+
+	for (it = line.begin(); it != line.end(); ++it)
+	{
+		hexChar = *it;
+		if (hexChar >= '0' && hexChar <= '9')
+			chunkSize = chunkSize * 16
+						+ static_cast<unsigned int>(hexChar - '0');
+		else if (hexChar >= 'a' && hexChar <= 'f')
+			chunkSize = chunkSize * 16
+				+ static_cast<unsigned int>(hexChar - 'a' + 10);
+		else if (hexChar >= 'A' && hexChar <= 'F')
+			chunkSize = chunkSize * 16
+				+ static_cast<unsigned int>(hexChar - 'A' + 10);
+		else {
+			// Malformed Data
+			// 어떻게 처리할까?
+		}
+	}
+	return chunkSize;
+}
+
+static std::string	extractChunkedBody(std::string const& body)
+{
+	std::string	chunkedBody;
+	std::string	line;
+	std::size_t	chunkSize;
+	std::size_t	pos;
+	std::size_t	oldPos = 0;
+	std::size_t	readCount = 1;
+
+	while ((pos = body.find(CRLF, oldPos)) != std::string::npos)
+	{
+		line = body.substr(oldPos, pos - oldPos);
+		if (readCount & 1)
+		{
+			chunkSize = readChunkSize(line);
+			if (chunkSize == 0)
+				break;
+		}
+		else
+			chunkedBody.append(line);
+		oldPos = pos + 2;
+		readCount++;
+	}
+	return chunkedBody;
 }
