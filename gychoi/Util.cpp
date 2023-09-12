@@ -74,6 +74,14 @@ long Util::ft_atol(const char *str, int base)
     return num;
 }
 
+std::string	Util::toLowerCase(std::string const& input)
+{
+	std::string	result = input;
+	for (std::size_t i = 0; i < result.length(); ++i)
+		result[i] = static_cast<char>(std::tolower(result[i]));
+	return result;
+}
+
 // void Util::initHttpErrorMap(void)
 // {
 //     // 1xx Informational responses

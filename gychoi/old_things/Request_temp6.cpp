@@ -6,19 +6,16 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:39 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 23:20:01 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/12 00:51:37 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Request.hpp"
 
 static std::string	extractHttpHeader(std::string const& rawData);
-static std::map<std::string, std::string>
-extractHttpHeaders(std::string const& header);
 static std::string	extractHttpBody(std::string const& rawData);
 static unsigned int	extractContentLength(std::string const& header);
 static std::string	extractTransferEncoding(std::string const& header);
-static std::string	extractContentType(std::string const& header);
 static std::string	extractHttpMethod(std::string const& header);
 static std::string	extractRequestUrl(std::string const& header);
 static std::string	extractHttpVersion(std::string const& header);
@@ -34,11 +31,9 @@ Request::Request(std::string const& data)
 {
 	this->_rawData = data;
 	this->_header = extractHttpHeader(this->_rawData);
-	this->_headers = extractHttpHeaders(this->_header);
 	this->_body = extractHttpBody(this->_rawData);
 	this->_contentLength = extractContentLength(this->_header);
 	this->_transferEncoding = extractTransferEncoding(this->_header);
-	this->_contentType = extractContentType(this->_header);
 	this->_method = extractHttpMethod(this->_rawData);
 	this->_requestUrl = extractRequestUrl(this->_rawData);
 	this->_httpVersion = extractHttpVersion(this->_rawData);
@@ -55,11 +50,9 @@ Request&	Request::operator=(Request const& target)
 	{
 		this->_rawData = target.getRawData();
 		this->_header = target.getHttpHeader();
-		this->_headers = target.getHttpHeaders();
 		this->_body = target.getHttpBody();
 		this->_contentLength = target.getContentLength();
 		this->_transferEncoding = target.getTransferEncoding();
-		this->_contentType = target.getContentType();
 		this->_method = target.getHttpMethod();
 		this->_requestUrl = target.getRequestUrl();
 		this->_httpVersion = target.getHttpVersion();
@@ -108,11 +101,6 @@ std::string const&	Request::getTransferEncoding(void) const
 	return this->_transferEncoding;
 }
 
-std::string const&	Request::getContentType(void) const
-{
-	return this->_contentType;
-}
-
 std::string const&	Request::getHttpMethod(void) const
 {
 	return this->_method;
@@ -131,6 +119,25 @@ std::string const&	Request::getHttpVersion(void) const
 /**
  * Member Function
  */
+
+/**
+ * @brief updateRequest
+ *
+ * _rawData에 저장된 HTTP 문자열을 바탕으로
+ * Request 멤버 변수를 모두 업데이트 합니다.
+ *
+ * @param void
+ * @return void
+ */
+void	Request::updateRequest(void)
+{
+	this->_header = extractHttpHeader(this->_rawData);
+	this->_body = extractHttpBody(this->_rawData);
+	this->_contentLength = extractContentLength(this->_rawData);
+	this->_method = extractHttpMethod(this->_rawData);
+	this->_requestUrl = extractRequestUrl(this->_rawData);
+	this->_httpVersion = extractHttpVersion(this->_rawData);
+}
 
 /**
  * @brief updateRequestLine
@@ -159,11 +166,32 @@ void	Request::updateRequestLine(void)
  */
 void	Request::updateHttpHeader(void)
 {
+	std::size_t	pos;
+	std::size_t	oldPos;
+	std::size_t	colPos;
+	std::string	line;
+	std::string	key;
+	std::string	value;
+
 	this->_header = extractHttpHeader(this->_rawData);
-	this->_headers = extractHttpHeaders(this->_header);
 	this->_contentLength = extractContentLength(this->_header);
 	this->_transferEncoding = extractTransferEncoding(this->_header);
-	this->_contentType = extractContentType(this->_header);
+
+	oldPos = 0;
+	while ((pos = this->_header.find(CRLF, oldPos)) != std::string::npos)
+	{
+		if (!pos)
+			return;
+		line = this->_header.substr(oldPos, pos - oldPos);
+		colPos = line.find(":");
+		if (colPos != std::string::npos)
+		{
+			key = line.substr(0, colPos);
+			value = Util::lrtrim(line.substr(colPos + 1));
+			this->_headers.insert(std::make_pair(key, value));
+		}
+		oldPos = pos + 2;
+	}
 }
 
 /**
@@ -182,7 +210,6 @@ void	Request::updateHttpBody(void)
 	{
 		this->_body = extractChunkedBody(this->_body);
 		// body size가 아니라 모든 chunked 값 더하기?
-		// 일단 나중에...
 		this->_contentLength = static_cast<unsigned int>(this->_body.size());
 	}
 }
@@ -216,7 +243,6 @@ void	Request::resetRequest(void)
 	this->_body.clear();
 	this->_contentLength = 0;
 	this->_transferEncoding.clear();
-	this->_contentType.clear();
 	this->_method.clear();
 	this->_requestUrl.clear();
 	this->_httpVersion.clear();
@@ -235,33 +261,6 @@ static std::string	extractHttpHeader(std::string const& rawData)
 	return std::string();
 }
 
-static std::map<std::string, std::string>
-extractHttpHeaders(std::string const& header)
-{
-	std::map<std::string, std::string>	headers;
-	std::size_t							pos;
-	std::size_t							oldPos;
-	std::size_t							colPos;
-	std::string							line;
-	std::string							key;
-	std::string							value;
-
-	oldPos = 0;
-	while ((pos = header.find(CRLF, oldPos)) != std::string::npos)
-	{
-		line = header.substr(oldPos, pos - oldPos);
-		colPos = line.find(":");
-		if (colPos != std::string::npos)
-		{
-			key = Util::toLowerCase(line.substr(0, colPos));
-			value = Util::lrtrim(line.substr(colPos + 1));
-			headers.insert(std::make_pair(key, value));
-		}
-		oldPos = pos + 2;
-	}
-	return headers;
-}
-
 static std::string	extractHttpBody(std::string const& rawData)
 {
 	std::size_t	bodyPos = rawData.find(DOUBLE_CRLF);
@@ -271,8 +270,6 @@ static std::string	extractHttpBody(std::string const& rawData)
 	return std::string();
 }
 
-// header에서 찾는 내용들을 모두 headers로 변경해야 한다.
-// 소문자로 찾아야 하는 것은 덤.
 static unsigned int	extractContentLength(std::string const& header)
 {
 	std::string	value;
@@ -303,26 +300,6 @@ static std::string	extractTransferEncoding(std::string const& header)
 	if (startPos != std::string::npos)
 	{
 		startPos += 18;
-		endPos = header.find(CRLF, startPos);
-		if (endPos != std::string::npos)
-		{
-			value = Util::lrtrim(header.substr(startPos, endPos - startPos));
-			return value;
-		}
-	}
-	return std::string();
-}
-
-static std::string	extractContentType(std::string const& header)
-{
-	std::string	value;
-	std::size_t	startPos;
-	std::size_t	endPos;
-
-	startPos = header.find("Content-Type:");
-	if (startPos != std::string::npos)
-	{
-		startPos += 13;
 		endPos = header.find(CRLF, startPos);
 		if (endPos != std::string::npos)
 		{
@@ -436,36 +413,3 @@ static std::string	extractChunkedBody(std::string const& body)
 	}
 	return chunkedBody;
 }
-
-/*
- *	extractMultipart(std::string body, std::string delim)
- *	{
- *		std::map<std::string, std::string> contents;
- *
- *		while (pos = body.find(CRLF, oldPos) != npos)
- *		{
- *			line = body.substr(oldPos, pos - oldPos)
- *			// validation
- *			if (line == delim)
- *			{
- *				if (checkDelim == false)
- *					throw error;
- *				else checkDelim is end
- *					break;
- *				oldPos = pos + 2;
- *				continue;
- *			}
- *			filename = line.find(filename)
- *			if filename == npos
- *				makepair<"", text>
- *			else filename == ""
- *				filename = makerandomfilename();
- *			oldPos += line.length();
- *			pos = body.find(CRLF, oldPos)
- *			data = substr(oldPos, pos - oldPos)
- *			contents.insert(make_pair<filename, data>);
- *			oldPos += pos + 2;
- *		}
- *	}
- *
- */

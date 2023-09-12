@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:46:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 22:05:29 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/10 20:28:18 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -209,20 +209,9 @@ void	handleReadEvent(struct kevent* currEvent,
 								cit->second.getClientPort(), clients);
 				break;
 			}
-			// method 별로 요청을 처리해야 함.
-			if (cit->second.getClientRequest().getHttpMethod() == "POST"
-				&& !cit->second.uploadFile())
-			{
-				// 어떻게 파일 업로드랑 일반 메세지 요청이랑 구분하지?
-				std::cout << "[INFO] : Failed to upload File" << std::endl;
-				std::cout << strerror(errno) << std::endl;
-
-				disconnectClient(cit->second.getClientSocket(),
-								cit->second.getClientPort(), clients);
-				break;
-			}
 			if (cit->second.getClientStatus() == BODY_LIMIT_OVER
-				|| cit->second.getClientStatus() == BODY_SIZE_OVER)
+				|| cit->second.getClientStatus() == BODY_SIZE_OVER
+				|| cit->second.getClientStatus() == ERROR_400)
 			{
 				// 우선은 READ_END와 동작이 동일하지만 추가적인 처리가 필요
 				std::cout << "BODY_LIMIT_OVER || BODY_SIZE_OVER" << std::endl;
@@ -283,14 +272,7 @@ bool	writeClientData(Client& client)
 
 	if (client.getClientStatus() == READ_END)
 	{
-		if (client.getClientRequest().getHttpMethod() == "GET")
-		{
-			body = client.getClientRequest().getHttpBody();
-		}
-		else if (client.getClientRequest().getHttpMethod() == "POST")
-		{
-			body = "upload success";
-		}
+		body = client.getClientRequest().getHttpBody();
 		header += "HTTP/1.1 200 OK\r\n";
 		header += "Content-Type: text/html; charset=utf-8\r\n";
 		header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
@@ -389,67 +371,28 @@ void	runServer(int kq, std::vector<struct kevent>& updateList,
 
 int	main(void)
 {
-	std::string	header;
-	std::string	body;
-	std::string	response;
+	std::vector<Server>			servers;
+	std::map<int, Client>		clients;
+	int							kq;
+	std::vector<struct kevent>	updateList;
 
-	body = "----------------------------216945188184884858289989\r\n";
-	body += "Content-Disposition: form-data; name=\"filename\"; filename=\"cat.jpg\"\r\n";
-	body += "<cat.jpg> binary\r\n";
-	body += "----------------------------216945188184884858289989\r\n";
-	body += "Content-Disposition: form-data; name=\"filename\"; filename=\"dog.jpg\"\r\n";
-	body += "<dog.jpg> binary\r\n";
-	body += "----------------------------216945188184884858289989\r\n";
-	body += "Content-Disposition: form-data; name=\"text\"\r\n";
-	body += "test text\r\n";
-	body += "----------------------------216945188184884858289989--\r\n";
-
-	header += "GET /example HTTP/1.1\r\n";
-//	header += "Content-Type: text/html; charset=utf-8\r\n";
-	header += "Content-Type: multipart/form-data; boundary=--------------------------216945188184884858289989\r\n";
-	header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
-	header += "\r\n";
-	response = header + body;
-
-	Request	req(response);
-	std::cout << req.getHttpHeader() << std::endl;
-	std::cout << "<===============>" << std::endl;
-	std::cout << req.getHttpBody() << std::endl;
-	std::cout << "<===============>" << std::endl;
-	std::cout << req.getContentLength() << std::endl;
-	std::cout << "<===============>" << std::endl;
-	std::cout << req.getContentType() << std::endl;
-	std::cout << "<===============>" << std::endl;
-	std::cout << req.getHttpMethod() << ", " << req.getRequestUrl() << ", "
-		<< req.getHttpVersion() << std::endl;
-	std::cout << "<===============>" << std::endl;
-	std::map<std::string, std::string>	headers = req.getHttpHeaders();
-	for (std::map<std::string, std::string>::iterator it = headers.begin();
-		it != headers.end(); ++it)
-		std::cout << it->first << ": " << it->second << std::endl;
-
-//	std::vector<Server>			servers;
-//	std::map<int, Client>		clients;
-//	int							kq;
-//	std::vector<struct kevent>	updateList;
-//
-//	try
-//	{
-//		servers.push_back(setServer(8080));
-//		servers.push_back(setServer(8081));
-//		servers.push_back(setServer(8082));
-//		kq = setKqueue();
-//		for (std::vector<Server>::iterator iter = servers.begin();
-//			iter != servers.end(); ++iter)
-//			updateEvents(updateList, static_cast<uintptr_t>(iter->sock),
-//						EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
-//		runServer(kq, updateList, servers, clients);
-//	}
-//	catch (const std::exception& e)
-//	{
-//		std::cerr << e.what() << std::endl;
-//		closeServers(servers);
-//		closeClients(clients);
-//	}
-//	return 0;
+	try
+	{
+		servers.push_back(setServer(8080));
+		servers.push_back(setServer(8081));
+		servers.push_back(setServer(8082));
+		kq = setKqueue();
+		for (std::vector<Server>::iterator iter = servers.begin();
+			iter != servers.end(); ++iter)
+			updateEvents(updateList, static_cast<uintptr_t>(iter->sock),
+						EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
+		runServer(kq, updateList, servers, clients);
+	}
+	catch (const std::exception& e)
+	{
+		std::cerr << e.what() << std::endl;
+		closeServers(servers);
+		closeClients(clients);
+	}
+	return 0;
 }

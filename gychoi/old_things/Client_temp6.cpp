@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:52:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 18:33:47 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/12 00:04:00 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -168,22 +168,6 @@ bool	Client::readRequest(void)
 			validateReadStatus(*this);
 	}
 	return true;
-}
-
-bool	Client::uploadFile(void)
-{
-	std::string		path = ROOT_PATH + this->_request.getRequestUrl();// X
-	std::ofstream	uploadFile(path.c_str(), std::ios::binary);
-
-	if (uploadFile.is_open())
-	{
-		uploadFile.write(this->_request.getHttpBody().c_str(),
-						static_cast<std::streamsize>
-						(this->_request.getHttpBody().size()));
-		uploadFile.close();
-		return true;
-	}
-	return false;
 }
 
 //bool	Client::writeRequest(void)

@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:09 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 22:03:30 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/11 23:52:44 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,13 +25,11 @@ class	Request
 {
 	private:
 		std::string							_rawData;
-		std::string							_header; // need to remove
+		std::string							_header;
 		std::map<std::string, std::string>	_headers;
-		std::map<std::string, std::string>	_contents;
 		std::string							_body;
 		unsigned int						_contentLength;
 		std::string							_transferEncoding;
-		std::string							_contentType;
 		std::string							_method;
 		std::string							_requestUrl;
 		std::string							_httpVersion;
@@ -52,12 +50,12 @@ class	Request
 		std::string const&				getHttpBody(void) const;
 		unsigned int					getContentLength(void) const;
 		std::string const&				getTransferEncoding(void) const;
-		std::string const&				getContentType(void) const;
 		std::string const&				getHttpMethod(void) const;
 		std::string const&				getRequestUrl(void) const;
 		std::string const&				getHttpVersion(void) const;
 
 	public:
+		void							updateRequest(void);
 		void							updateRequestLine(void);
 		void							updateHttpHeader(void);
 		void							updateHttpBody(void);

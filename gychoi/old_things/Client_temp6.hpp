@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:48:45 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 18:29:10 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/10 20:43:14 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,12 +14,10 @@
 #define __CLIENT_HPP__
 
 #define BUFFER_SIZE 1024
-#define BODY_LIMIT 4294967295
-#define ROOT_PATH "/data"
+#define BODY_LIMIT 1024
 
 #include <algorithm>
 #include <fcntl.h>
-#include <fstream>
 #include <iostream>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -77,7 +75,6 @@ class	Client
 
 	public:
 		bool						readRequest(void);
-		bool						uploadFile(void);
 };
 
 #endif	/* __CLIENT_HPP__ */
