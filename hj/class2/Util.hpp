@@ -17,13 +17,26 @@
 #include <sstream>
 #include <sys/event.h>
 #include <map>
+#include <cctype> // for isalnum
+#include <algorithm>
+
+#define B_CHAR_NO_SPACE "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'()+_,-./:=?"; // for boundary
+
+struct ReplaceInvalidChar
+{
+    bool operator()(char c)
+    {
+        return !std::isalnum(static_cast<unsigned char>(c)) && c != '.' && c != '-';
+    }
+};
 
 class Util
 {
+
 public:
-    // static std::map<int, std::string> _httpErrorMap;
-    // static void initHttpErrorMap(void);
-    // static std::string getErrorMessage(int statusCode);
+    static std::map<int, std::string> _httpErrorMap;
+    static void initHttpErrorMap(void);
+    static std::string getStatusCodeMessage(int statusCode);
 
 public:
     // trim
@@ -35,6 +48,8 @@ public:
     static void print_kevent_info(const struct kevent &ke);
     static std::string ft_itoa(size_t value);
     static ssize_t ft_atol(const char *str, int base);
+
+    static std::string sanitizeFilename(const std::string &filename);
 
 public:
 };
