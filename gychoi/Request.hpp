@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:09 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 22:03:30 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/13 22:54:14 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,25 +16,32 @@
 #define CRLF "\r\n"
 #define DOUBLE_CRLF "\r\n\r\n"
 
+#include <iostream> // for debug
 #include <cstdlib>
 #include <string>
 #include <map>
+#include <vector>
 #include "Util.hpp"
+
+struct Header
+{
+	std::string	key;
+	std::string	value;
+};
 
 class	Request
 {
 	private:
-		std::string							_rawData;
-		std::string							_header; // need to remove
-		std::map<std::string, std::string>	_headers;
-		std::map<std::string, std::string>	_contents;
-		std::string							_body;
-		unsigned int						_contentLength;
-		std::string							_transferEncoding;
-		std::string							_contentType;
-		std::string							_method;
-		std::string							_requestUrl;
-		std::string							_httpVersion;
+		std::string			_rawData;
+		std::string			_header; // need to remove
+		std::vector<Header>	_headers;
+		std::string			_body;
+		unsigned int		_contentLength;
+		std::string			_transferEncoding;
+		std::string			_contentType;
+		std::string			_method;
+		std::string			_requestUrl;
+		std::string			_httpVersion;
 
 	public:
 		Request(void);
@@ -44,25 +51,28 @@ class	Request
 		Request&						operator=(Request const& target);
 
 	public:
-		std::string const&				getRawData(void) const;
-		void							setRawData(std::string const rawData);
-		std::string const&				getHttpHeader(void) const;
-		std::map<std::string, std::string> const&
-										getHttpHeaders(void) const;
-		std::string const&				getHttpBody(void) const;
-		unsigned int					getContentLength(void) const;
-		std::string const&				getTransferEncoding(void) const;
-		std::string const&				getContentType(void) const;
-		std::string const&				getHttpMethod(void) const;
-		std::string const&				getRequestUrl(void) const;
-		std::string const&				getHttpVersion(void) const;
+		std::string const&			getRawData(void) const;
+		void						setRawData(std::string const rawData);
+		std::string const&			getHttpHeader(void) const;
+		std::vector<Header> const&	getHttpHeaders(void) const;
+		std::string const&			getHttpBody(void) const;
+		unsigned int				getContentLength(void) const;
+		std::string const&			getTransferEncoding(void) const;
+		std::string const&			getContentType(void) const;
+		std::string const&			getHttpMethod(void) const;
+		std::string const&			getRequestUrl(void) const;
+		std::string const&			getHttpVersion(void) const;
 
 	public:
-		void							updateRequestLine(void);
-		void							updateHttpHeader(void);
-		void							updateHttpBody(void);
-		bool							isAllSet(void) const;
-		void							resetRequest(void);
+		void						updateRequestLine(void);
+		void						updateHttpHeader(void);
+		void						updateHeaderValue(std::string const& key,
+									std::string const& value);
+		void						updateHttpBody(void);
+		void						handleChunkedBody(void);
+		void						handleMultipartBody(void);
+		bool						isAllSet(void) const;
+		void						resetRequest(void);
 };
 
 #endif	/* __REQUEST_HPP__ */

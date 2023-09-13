@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:52:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 18:33:47 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/13 23:07:14 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,6 +16,7 @@ static void	checkRequestLine(Client& client);
 static void	checkHttpHeader(Client& client);
 static void	checkHttpBody(Client& client);
 static void	validateReadStatus(Client& client);
+static void	purifyHttpBody(Client& client);
 static void	throwError(std::string const& msg);
 
 /**
@@ -55,14 +56,14 @@ Client&	Client::operator=(Client const& target)
 {
 	if (this != &target)
 	{
-		this->_sock = target.getClientSocket();
-		this->_port = target.getClientPort();
-		this->_addr = target.getClientAddr();
-		this->_addrlen = target.getClientAddrlen();
-		std::copy(target.getClientBuffer(), 
-			target.getClientBuffer() + BUFFER_SIZE, this->_buffer);
-		this->_request = target.getClientRequest();
-		this->_status = target.getClientStatus();
+//		this->_sock = target.getClientSocket();
+//		this->_port = target.getClientPort();
+//		this->_addr = target.getClientAddr();
+//		this->_addrlen = target.getClientAddrlen();
+//		std::copy(target.getClientBuffer(), 
+//			target.getClientBuffer() + BUFFER_SIZE, this->_buffer);
+//		this->_request = target.getClientRequest();
+//		this->_status = target.getClientStatus();
 	}
 	return *this;
 }
@@ -166,6 +167,8 @@ bool	Client::readRequest(void)
 			checkHttpBody(*this);
 		if (this->_status == READ_BODY)
 			validateReadStatus(*this);
+		if (this->_status == READ_END)
+			purifyHttpBody(*this);
 	}
 	return true;
 }
@@ -231,16 +234,36 @@ static void	validateReadStatus(Client& client)
 	std::string const&	httpBody = request.getHttpBody();
 	unsigned int		contentLength = request.getContentLength();
 
-	if (httpBody.size() >= BODY_LIMIT)
-		client.setClientStatus(BODY_LIMIT_OVER);
-	else if (httpBody.size() > contentLength)
-		client.setClientStatus(BODY_SIZE_OVER); // Error 400?
-	else if (httpBody.size() == contentLength)
-		client.setClientStatus(READ_END);
-	else if (httpBody.size() < contentLength)
-		client.setClientStatus(READING);
-	else {}
-		// client.setClientStatus(ERROR_400);
+	if (request.getTransferEncoding() == "chunked")
+	{
+		// last chunk 후 CRLF 또 체크하기.
+		if (httpBody.rfind("0\r\n") != std::string::npos)
+			client.setClientStatus(READ_END);
+		else
+			client.setClientStatus(READING);
+	}
+	else
+	{
+		if (httpBody.size() >= BODY_LIMIT)
+			client.setClientStatus(BODY_LIMIT_OVER);
+		else if (httpBody.size() > contentLength)
+			client.setClientStatus(BODY_SIZE_OVER); // Error 400?
+		else if (httpBody.size() == contentLength)
+			client.setClientStatus(READ_END);
+		else if (httpBody.size() < contentLength)
+			client.setClientStatus(READING);
+		else {}
+			// client.setClientStatus(ERROR_400);
+	}
+}
+
+static void	purifyHttpBody(Client& client)
+{
+	Request&	request = client.getClientRequest();
+
+	request.handleChunkedBody();
+	request.handleMultipartBody();
+	// Working...
 }
 
 /**

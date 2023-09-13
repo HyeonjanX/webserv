@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:46:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 22:05:29 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/13 23:08:14 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -393,6 +393,18 @@ int	main(void)
 	std::string	body;
 	std::string	response;
 
+//	body += "20\r\n";
+//	body += "--xyz:abc:foobar\r\n";
+//	body += "Content-Dispos\r\n";
+//	body += "20\r\n";
+//	body += "ition: form-data; name=\"field1\"\r\r\n";
+//	body += "20\r\n";
+//	body += "\nBonjour.\r\n";
+//	body += "--xyz:abc:foobar--\r\r\n";
+//	body += "1\r\n";
+//	body += "\n\r\n";
+//	body += "0\r\n";
+
 	body = "----------------------------216945188184884858289989\r\n";
 	body += "Content-Disposition: form-data; name=\"filename\"; filename=\"cat.jpg\"\r\n";
 	body += "<cat.jpg> binary\r\n";
@@ -406,6 +418,7 @@ int	main(void)
 
 	header += "GET /example HTTP/1.1\r\n";
 //	header += "Content-Type: text/html; charset=utf-8\r\n";
+//	header += "Transfer-Encoding: chunked\r\n";
 	header += "Content-Type: multipart/form-data; boundary=--------------------------216945188184884858289989\r\n";
 	header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
 	header += "\r\n";
@@ -418,15 +431,24 @@ int	main(void)
 	std::cout << "<===============>" << std::endl;
 	std::cout << req.getContentLength() << std::endl;
 	std::cout << "<===============>" << std::endl;
+	std::cout << req.getTransferEncoding() << std::endl;
+	std::cout << "<===============>" << std::endl;
 	std::cout << req.getContentType() << std::endl;
 	std::cout << "<===============>" << std::endl;
 	std::cout << req.getHttpMethod() << ", " << req.getRequestUrl() << ", "
 		<< req.getHttpVersion() << std::endl;
 	std::cout << "<===============>" << std::endl;
-	std::map<std::string, std::string>	headers = req.getHttpHeaders();
-	for (std::map<std::string, std::string>::iterator it = headers.begin();
+	req.handleChunkedBody();
+	std::cout << "<===============>" << std::endl;
+	req.handleMultipartBody();
+	std::cout << "<===============>" << std::endl;
+
+	std::vector<Header>	headers = req.getHttpHeaders();
+	for (std::vector<Header>::iterator it = headers.begin();
 		it != headers.end(); ++it)
-		std::cout << it->first << ": " << it->second << std::endl;
+		std::cout << it->key << ": " << it->value << std::endl;
+
+
 
 //	std::vector<Server>			servers;
 //	std::map<int, Client>		clients;
