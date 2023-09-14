@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:39 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/15 00:07:58 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/15 02:52:39 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,7 +23,7 @@ static std::string			extractRequestUrl(std::string const& header);
 static std::string			extractHttpVersion(std::string const& header);
 static std::string			extractChunkedBody(std::string const& body);
 static std::vector<Content>	extractMultipartBody
-(std::string const& body, std::string const& boundary);
+(std::string const& body, std::string& boundary);
 
 /**
  * Constructor & Destroctor
@@ -484,7 +484,7 @@ static std::string	extractChunkedBody(std::string const& body)
 }
 
 static std::vector<Content>	extractMultipartBody
-(std::string const& body, std::string const& boundary)
+(std::string const& body, std::string& boundary)
 {
 	std::vector<Content>		contents;
 	std::vector<std::string>	tokens;
@@ -492,86 +492,82 @@ static std::vector<Content>	extractMultipartBody
 	std::string					line;
 	std::size_t					pos;
 	std::size_t					oldPos = 0;
+	bool						flag = true;
 
-	// body에 CRLF가 들어온다면?
-	// content-type가 없다면?
-	// 일단 내일 하자...
-	while ((pos = body.find(CRLF, oldPos)) != std::string::npos)
+	// 이게 맞나...
+	// boundary validation check
+	boundary = "--" + boundary;
+	while (((pos = body.find(boundary, oldPos)) != std::string::npos)
+			&& flag == true)
 	{
 		Content	entry;
-		line = body.substr(oldPos, pos - oldPos);
-		if (line.find(boundary) != std::string::npos)
+		pos += boundary.length();
+		line = body.substr(oldPos, pos - oldPos + 2);
+//		std::cout << "[" << line << "]" << std::endl;
+		if (line == boundary + "--")
 		{
-			if (line == ("--" + boundary))
-			{
-				oldPos = pos + 2;
-				continue;
-			}
-			else if (line == ("--" + boundary + "--"))
-				break;
-			else
-			{
-				// throw error
-				std::cout << "[INFO] : boundary Error" << std::endl;
-			}
+			break;
 		}
-		else if (line.find("Content-Disposition") != std::string::npos)
+		oldPos = pos + 2;
+		pos = body.find(CRLF, oldPos);
+		if (pos == std::string::npos)
+		{
+			std::cout << "Malformed body data" << std::endl;
+			break;
+		}
+		line = body.substr(oldPos, pos - oldPos);
+//		std::cout << "[" << line << "]" << std::endl;
+		if (line.find("Content-Disposition") != std::string::npos)
 		{
 			tokens = Util::splitString(line, ';');
 			for (std::vector<std::string>::iterator it = tokens.begin();
 				it != tokens.end(); ++it)
 			{
 				pair = Util::splitString(*it, '=');
+				if (pair.size() < 1)
+				{
+					std::cout << "Malformed Content Disposition" << std::endl;
+					flag = false; // throw error
+					break;
+				}
 				if (Util::lrtrim(pair[0]) == "name")
-					entry.name = Util::lrtrim(pair[1]);
+					entry.name = Util::lrdtrim(pair[1], "\"");
 				else if (Util::lrtrim(pair[0]) == "filename")
-					entry.filename = Util::lrtrim(pair[1]);
+					entry.filename = Util::lrdtrim(pair[1], "\"");
 			}
 		}
-		else if (line.find("Content-Type") != std::string::npos)
+		oldPos = pos + 2;
+		pos = body.find(CRLF, oldPos);
+		if (pos == std::string::npos)
+		{
+			std::cout << "Malformed body data" << std::endl;
+			break;
+		}
+		line = body.substr(oldPos, pos - oldPos);
+//		std::cout << "[" << line << "]" << std::endl;
+		if (line.find("Content-Type") != std::string::npos)
 		{
 			pair = Util::splitString(line, ':');
+			if (pair.size() < 2)
+			{
+				std::cout << "Malformed body data" << std::endl;
+				flag = false;
+				break;
+			}
 			entry.type = Util::lrtrim(pair[1]);
+			oldPos = pos + 2;
 		}
-		else
+		pos = body.find(boundary, oldPos);
+		if (pos == std::string::npos)
 		{
-			entry.data += line;
+			std::cout << "Malformed body data" << std::endl;
+			break;
 		}
+		line = body.substr(oldPos, pos - oldPos);
+//		std::cout << "[" << line << "]" << std::endl;
+		entry.data += line;
 		contents.push_back(entry);
-		oldPos = pos + 2;
+		oldPos = pos;
 	}
 	return contents;
 }
-
-/*
- *	extractMultipart(std::string body, std::string delim)
- *	{
- *		std::map<std::string, std::string> contents;
- *
- *		while (pos = body.find(CRLF, oldPos) != npos)
- *		{
- *			line = body.substr(oldPos, pos - oldPos)
- *			// validation
- *			if (line == delim)
- *			{
- *				if (checkDelim == false)
- *					throw error;
- *				else checkDelim is end
- *					break;
- *				oldPos = pos + 2;
- *				continue;
- *			}
- *			filename = line.find(filename)
- *			if filename == npos
- *				makepair<"", text>
- *			else filename == ""
- *				filename = makerandomfilename();
- *			oldPos += line.length();
- *			pos = body.find(CRLF, oldPos)
- *			data = substr(oldPos, pos - oldPos)
- *			contents.insert(make_pair<filename, data>);
- *			oldPos += pos + 2;
- *		}
- *	}
- *
- */

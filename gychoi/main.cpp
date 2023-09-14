@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:46:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/15 00:07:03 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/15 02:51:14 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -397,13 +397,15 @@ int	main(void)
 
 	body = "----------------------------216945188184884858289989\r\n";
 	body += "Content-Disposition: form-data; name=\"filename\"; filename=\"cat.jpg\"\r\n";
+	body += "Content-Type: image/jpg\r\n";
 	body += "<cat.jpg> binary\r\n";
 	body += "----------------------------216945188184884858289989\r\n";
 	body += "Content-Disposition: form-data; name=\"filename\"; filename=\"dog.jpg\"\r\n";
+	body += "Content-Type: image/jpg\r\n";
 	body += "<dog.jpg> binary\r\n";
 	body += "----------------------------216945188184884858289989\r\n";
 	body += "Content-Disposition: form-data; name=\"text\"\r\n";
-	body += "test text\r\n";
+	body += "test text\r\ntroll haha\r\n";
 	body += "----------------------------216945188184884858289989--\r\n";
 
 	header += "GET /example HTTP/1.1\r\n";
