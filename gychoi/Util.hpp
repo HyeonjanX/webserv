@@ -32,6 +32,11 @@ public:
     static std::string lrtrim(const std::string &str);
     static std::string getDateString(void);
     static std::string toLowerCase(std::string const& input);
+	static std::vector<std::string>
+	splitString(std::string const& input, char delimiter);
+    static std::string ldtrim(const std::string &str, const std::string& delim);
+    static std::string rdtrim(const std::string &str, const std::string& delim);
+    static std::string lrdtrim(const std::string &str, const std::string& delim);
 
     static void print_kevent_info(const struct kevent &ke);
     static std::string ft_itoa(size_t value);

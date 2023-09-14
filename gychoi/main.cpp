@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:46:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/13 23:08:14 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/15 00:07:03 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -95,17 +95,6 @@ void	updateEvents(std::vector<struct kevent>& updateList, uintptr_t ident,
 
 	EV_SET(&temp, ident, filter, flags, fflags, data, udata);
 	updateList.push_back(temp);
-}
-
-bool	isAllReceived(Client& client)
-{
-	//std::cout << client.getRawData() << std::endl;
-	//std::cout << client.isAllSet() << std::endl;
-	if (client.getClientRequest().isAllSet()
-		&& (client.getClientRequest().getContentLength()
-			== client.getClientRequest().getHttpBody().length()))
-		return true;
-	return false;
 }
 
 /*******************************************************************************
@@ -404,6 +393,7 @@ int	main(void)
 //	body += "1\r\n";
 //	body += "\n\r\n";
 //	body += "0\r\n";
+//	body += "\r\n";
 
 	body = "----------------------------216945188184884858289989\r\n";
 	body += "Content-Disposition: form-data; name=\"filename\"; filename=\"cat.jpg\"\r\n";
@@ -425,24 +415,47 @@ int	main(void)
 	response = header + body;
 
 	Request	req(response);
+	std::cout << "<======raw header======>" << std::endl;
 	std::cout << req.getHttpHeader() << std::endl;
-	std::cout << "<===============>" << std::endl;
+
+	std::cout << "<======raw body======>" << std::endl;
 	std::cout << req.getHttpBody() << std::endl;
-	std::cout << "<===============>" << std::endl;
+
+	std::cout << "<======raw content length======>" << std::endl;
 	std::cout << req.getContentLength() << std::endl;
-	std::cout << "<===============>" << std::endl;
+
+	std::cout << "<======transfer encoding======>" << std::endl;
 	std::cout << req.getTransferEncoding() << std::endl;
-	std::cout << "<===============>" << std::endl;
+
+	std::cout << "<======content type======>" << std::endl;
 	std::cout << req.getContentType() << std::endl;
-	std::cout << "<===============>" << std::endl;
+
+	std::cout << "<======request line======>" << std::endl;
 	std::cout << req.getHttpMethod() << ", " << req.getRequestUrl() << ", "
 		<< req.getHttpVersion() << std::endl;
-	std::cout << "<===============>" << std::endl;
-	req.handleChunkedBody();
-	std::cout << "<===============>" << std::endl;
-	req.handleMultipartBody();
-	std::cout << "<===============>" << std::endl;
+	std::cout << "<=======chunked======>" << std::endl;
 
+	if (req.getTransferEncoding() == "chunked")
+	{
+		std::cout << req.isLastChunk() << std::endl;
+		req.handleChunkedBody();
+	}
+	std::cout << "<=======muitlpart======>" << std::endl;
+	if (req.getContentType().find("multipart/form-data") != std::string::npos)
+	{
+		req.handleMultipartBody();
+		std::vector<Content> contents = req.getContents();
+		for (std::vector<Content>::iterator it = contents.begin();
+			it != contents.end(); ++it)
+			std::cout << it->name << ", " << it->filename << ", "
+			<< it->type << ", " << it->data << std::endl;
+	}
+
+	std::cout << std::endl;
+	std::cout << "<======FINAL BODY======>" << std::endl;
+	std::cout << req.getHttpBody() << std::endl;
+
+	std::cout << "<======FINAL HEADER======>" << std::endl;
 	std::vector<Header>	headers = req.getHttpHeaders();
 	for (std::vector<Header>::iterator it = headers.begin();
 		it != headers.end(); ++it)

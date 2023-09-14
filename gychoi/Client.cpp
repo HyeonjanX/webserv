@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:52:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/13 23:07:14 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/14 22:18:14 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -234,10 +234,11 @@ static void	validateReadStatus(Client& client)
 	std::string const&	httpBody = request.getHttpBody();
 	unsigned int		contentLength = request.getContentLength();
 
+	// 계속되는 Reading 상태로 머물 수 있음.
+	// Timeout 세팅 필요.
 	if (request.getTransferEncoding() == "chunked")
 	{
-		// last chunk 후 CRLF 또 체크하기.
-		if (httpBody.rfind("0\r\n") != std::string::npos)
+		if (request.isLastChunk())
 			client.setClientStatus(READ_END);
 		else
 			client.setClientStatus(READING);

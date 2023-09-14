@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:39 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/13 23:09:27 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/15 00:07:58 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,6 +22,8 @@ static std::string			extractHttpMethod(std::string const& header);
 static std::string			extractRequestUrl(std::string const& header);
 static std::string			extractHttpVersion(std::string const& header);
 static std::string			extractChunkedBody(std::string const& body);
+static std::vector<Content>	extractMultipartBody
+(std::string const& body, std::string const& boundary);
 
 /**
  * Constructor & Destroctor
@@ -105,6 +107,11 @@ std::string const&	Request::getTransferEncoding(void) const
 std::string const&	Request::getContentType(void) const
 {
 	return this->_contentType;
+}
+
+std::vector<Content> const&	Request::getContents(void) const
+{
+	return this->_contents;
 }
 
 std::string const&	Request::getHttpMethod(void) const
@@ -212,31 +219,36 @@ void	Request::handleMultipartBody(void)
 {
 	std::string	boundary;
 	std::size_t	pos;
-	if (this->_contentType.find("multipart/form-data") != std::string::npos)
+
+	if (this->_contentType.find("multipart/form-data;") != std::string::npos)
 	{
 		if ((pos = this->_contentType.find("boundary=")) != std::string::npos)
 		{
 			boundary = this->_contentType.substr(pos + 9);
-			std::cout << boundary << std::endl;
-			// Working...
-			// this->_contents = extractMultipartBody(this->_body);
+			this->_contents = extractMultipartBody(this->_body, boundary);
 		}
 	}
 }
 
-
-/**
- * @brief isAllSet
- *
- * HTTP Request에 필수적인 헤더들이 모두 설정되었는지 확인합니다.
- *
- * @param void
- * @return bool
- */
-bool	Request::isAllSet(void) const
+bool	Request::isLastChunk(void) const
 {
-	return !this->_header.empty() && !this->_method.empty()
-		&& !this->_requestUrl.empty() && !this->_httpVersion.empty();
+	std::size_t	pos = this->_body.rfind("\r\n0\r\n");
+	std::string	line;
+	std::string	lastChunkSize;
+	std::string	lastCrlf;
+
+	if (pos != std::string::npos)
+	{
+		pos += 2;
+		line = this->_body.substr(pos);
+		if (line.length() < 5)
+			return false;
+		lastChunkSize = line.substr(0, 3);
+		lastCrlf = line.substr(line.length() - 2, 2);
+		if ((lastChunkSize == "0\r\n" && lastCrlf == "\r\n"))
+			return true;
+	}
+	return false;
 }
 
 /**
@@ -469,6 +481,66 @@ static std::string	extractChunkedBody(std::string const& body)
 		oldPos += chunkSize + 2;
 	}
 	return chunkedBody;
+}
+
+static std::vector<Content>	extractMultipartBody
+(std::string const& body, std::string const& boundary)
+{
+	std::vector<Content>		contents;
+	std::vector<std::string>	tokens;
+	std::vector<std::string>	pair;
+	std::string					line;
+	std::size_t					pos;
+	std::size_t					oldPos = 0;
+
+	// body에 CRLF가 들어온다면?
+	// content-type가 없다면?
+	// 일단 내일 하자...
+	while ((pos = body.find(CRLF, oldPos)) != std::string::npos)
+	{
+		Content	entry;
+		line = body.substr(oldPos, pos - oldPos);
+		if (line.find(boundary) != std::string::npos)
+		{
+			if (line == ("--" + boundary))
+			{
+				oldPos = pos + 2;
+				continue;
+			}
+			else if (line == ("--" + boundary + "--"))
+				break;
+			else
+			{
+				// throw error
+				std::cout << "[INFO] : boundary Error" << std::endl;
+			}
+		}
+		else if (line.find("Content-Disposition") != std::string::npos)
+		{
+			tokens = Util::splitString(line, ';');
+			for (std::vector<std::string>::iterator it = tokens.begin();
+				it != tokens.end(); ++it)
+			{
+				pair = Util::splitString(*it, '=');
+				if (Util::lrtrim(pair[0]) == "name")
+					entry.name = Util::lrtrim(pair[1]);
+				else if (Util::lrtrim(pair[0]) == "filename")
+					entry.filename = Util::lrtrim(pair[1]);
+			}
+		}
+		else if (line.find("Content-Type") != std::string::npos)
+		{
+			pair = Util::splitString(line, ':');
+			entry.type = Util::lrtrim(pair[1]);
+		}
+		else
+		{
+			entry.data += line;
+		}
+		contents.push_back(entry);
+		oldPos = pos + 2;
+	}
+	return contents;
 }
 
 /*

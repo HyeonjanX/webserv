@@ -82,6 +82,47 @@ std::string	Util::toLowerCase(std::string const& input)
 	return result;
 }
 
+std::vector<std::string>	Util::splitString
+(std::string const& input, char delimiter)
+{
+	std::vector<std::string>	result;
+	std::stringstream			ss(input);
+	std::string					item;
+
+	while (std::getline(ss, item, delimiter))
+		result.push_back(item);
+	return result;
+}
+
+std::string Util::ldtrim(const std::string &str, const std::string& delim)
+{
+	std::string	delimiter = " \t" + delim;
+
+    std::string::size_type pos = str.find_first_not_of(delimiter);
+    if (pos == std::string::npos)
+    {
+        return "";
+    }
+    return str.substr(pos);
+}
+
+std::string Util::rdtrim(const std::string &str, const std::string& delim)
+{
+	std::string	delimiter = " \t" + delim;
+
+    std::string::size_type pos = str.find_last_not_of(delimiter);
+    if (pos == std::string::npos)
+    {
+        return "";
+    }
+    return str.substr(0, pos + 1);
+}
+
+std::string Util::lrdtrim(const std::string &str, const std::string& delim)
+{
+    return ldtrim(rdtrim(str, delim), delim);
+}
+
 // void Util::initHttpErrorMap(void)
 // {
 //     // 1xx Informational responses
