@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:52:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/14 22:18:14 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/15 23:03:35 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -56,14 +56,14 @@ Client&	Client::operator=(Client const& target)
 {
 	if (this != &target)
 	{
-//		this->_sock = target.getClientSocket();
-//		this->_port = target.getClientPort();
-//		this->_addr = target.getClientAddr();
-//		this->_addrlen = target.getClientAddrlen();
-//		std::copy(target.getClientBuffer(), 
-//			target.getClientBuffer() + BUFFER_SIZE, this->_buffer);
-//		this->_request = target.getClientRequest();
-//		this->_status = target.getClientStatus();
+		this->_sock = target.getClientSocket();
+		this->_port = target.getClientPort();
+		this->_addr = target.getClientAddr();
+		this->_addrlen = target.getClientAddrlen();
+		std::copy(target.getClientBuffer(), 
+			target.getClientBuffer() + BUFFER_SIZE, this->_buffer);
+		this->_request = target.getClientRequest();
+		this->_status = target.getClientStatus();
 	}
 	return *this;
 }
@@ -142,7 +142,7 @@ void	Client::setClientStatus(short status)
  * @param void
  * @return bool
  */
-bool	Client::readRequest(void)
+bool	Client::readClientRequest(void)
 {
 	ssize_t	readByte;
 
@@ -153,7 +153,7 @@ bool	Client::readRequest(void)
 		// status = 500?
 	}
 	else if (readByte == 0)
-		return false;
+		return true;
 	else
 	{
 		std::string	s = this->_request.getRawData();
@@ -173,20 +173,36 @@ bool	Client::readRequest(void)
 	return true;
 }
 
-bool	Client::uploadFile(void)
+bool	Client::uploadClientFile(void)
 {
-	std::string		path = ROOT_PATH + this->_request.getRequestUrl();// X
-	std::ofstream	uploadFile(path.c_str(), std::ios::binary);
+	Request					req = this->_request;
+	std::vector<Content>	contents = req.getContents();
 
-	if (uploadFile.is_open())
-	{
-		uploadFile.write(this->_request.getHttpBody().c_str(),
-						static_cast<std::streamsize>
-						(this->_request.getHttpBody().size()));
-		uploadFile.close();
+	std::cout << contents.size() << std::endl;
+	if (contents.empty())
 		return true;
+
+	for (std::vector<Content>::iterator cit = contents.begin();
+		cit != contents.end(); ++cit)
+	{
+		if (!cit->filename.empty())
+		{
+			std::ofstream	uploadFile(cit->filename.c_str(), std::ios::binary);
+
+			if (uploadFile.is_open())
+			{
+				uploadFile.write(cit->data.c_str(), static_cast<std::streamsize>
+								(cit->data.size()));
+				uploadFile.close();
+			}
+			else
+			{
+				std::cout << "ERROR: Cannot create " << cit->filename << std::endl;
+				return false;
+			}
+		}
 	}
-	return false;
+	return true;
 }
 
 //bool	Client::writeRequest(void)
@@ -264,7 +280,16 @@ static void	purifyHttpBody(Client& client)
 
 	request.handleChunkedBody();
 	request.handleMultipartBody();
-	// Working...
+//
+//	std::vector<Content> contents = request.getContents();
+//	for (std::vector<Content>::iterator cit = contents.begin();
+//		cit != contents.end(); ++cit)
+//	{
+//		std::cout << "[" << cit->name << "]" << std::endl;
+//		std::cout << "[" << cit->filename << "]" << std::endl;
+//		std::cout << "[" << cit->type << "]" << std::endl;
+//		std::cout << "[" << cit->data  << "]" << std::endl;
+//	}
 }
 
 /**

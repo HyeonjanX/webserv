@@ -6,11 +6,11 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:52:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 00:04:00 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/15 23:12:56 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "Client.hpp"
+#include "Client_temp6.hpp"
 
 static void	checkRequestLine(Client& client);
 static void	checkHttpHeader(Client& client);

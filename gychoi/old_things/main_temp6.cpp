@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:46:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/10 20:28:18 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/15 23:11:05 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,7 +29,7 @@
 #include <thread>
 #include <vector>
 
-#include "Client.hpp"
+#include "Client_temp6.hpp"
 
 #define CLIENT_MAX 5
 

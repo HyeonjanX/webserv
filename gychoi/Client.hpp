@@ -6,14 +6,14 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:48:45 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 18:29:10 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/15 21:43:53 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef __CLIENT_HPP__
 #define __CLIENT_HPP__
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 102400
 #define BODY_LIMIT 4294967295
 #define ROOT_PATH "/data"
 
@@ -76,8 +76,8 @@ class	Client
 		void						setClientStatus(short status);
 
 	public:
-		bool						readRequest(void);
-		bool						uploadFile(void);
+		bool						readClientRequest(void);
+		bool						uploadClientFile(void);
 };
 
 #endif	/* __CLIENT_HPP__ */

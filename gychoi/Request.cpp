@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:39 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/15 02:52:39 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/15 22:36:44 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -49,16 +49,17 @@ Request&	Request::operator=(Request const& target)
 {
 	if (this != &target)
 	{
-//		this->_rawData = target.getRawData();
-//		this->_header = target.getHttpHeader();
-//		this->_headers = target.getHttpHeaders();
-//		this->_body = target.getHttpBody();
-//		this->_contentLength = target.getContentLength();
-//		this->_transferEncoding = target.getTransferEncoding();
-//		this->_contentType = target.getContentType();
-//		this->_method = target.getHttpMethod();
-//		this->_requestUrl = target.getRequestUrl();
-//		this->_httpVersion = target.getHttpVersion();
+		this->_rawData = target.getRawData();
+		this->_header = target.getHttpHeader();
+		this->_headers = target.getHttpHeaders();
+		this->_body = target.getHttpBody();
+		this->_contentLength = target.getContentLength();
+		this->_transferEncoding = target.getTransferEncoding();
+		this->_contentType = target.getContentType();
+		this->_contents = target.getContents();
+		this->_method = target.getHttpMethod();
+		this->_requestUrl = target.getRequestUrl();
+		this->_httpVersion = target.getHttpVersion();
 	}
 	return *this;
 }
@@ -204,6 +205,15 @@ void	Request::updateHttpBody(void)
 	this->_body = extractHttpBody(this->_rawData);
 }
 
+/**
+ * @brief handleChunkedBody
+ *
+ * chunked 형식으로 온 _body의 문자열을
+ * 일반 HTTP Body 형식으로 재구성합니다.
+ *
+ * @param void
+ * @return void
+ */
 void	Request::handleChunkedBody(void)
 {
 	if (this->_transferEncoding == "chunked")
@@ -215,8 +225,18 @@ void	Request::handleChunkedBody(void)
 	}
 }
 
+/**
+ * @brief handleMultipartBody
+ *
+ * Multipart 형식으로 온 _body 문자열을
+ * 요청대로 처리하여 _contents에 저장합니다.
+ *
+ * @param void
+ * @return void
+ */
 void	Request::handleMultipartBody(void)
 {
+	// parsing한 body의 시작과 끝에 CRLF가 들어가 있다.
 	std::string	boundary;
 	std::size_t	pos;
 
@@ -230,23 +250,48 @@ void	Request::handleMultipartBody(void)
 	}
 }
 
+/**
+ * @brief isLastChunk
+ *
+ * chunked 형식으로 저장된 _body 문자열에
+ * 끝까지 전송되었음을 나타내는 last chunk가
+ * 올바르게 들어있는지 확인합니다.
+ *
+ * @param void
+ * @return bool
+ */
 bool	Request::isLastChunk(void) const
 {
-	std::size_t	pos = this->_body.rfind("\r\n0\r\n");
+	std::size_t	pos;
+	std::size_t	lastChunkPos;
 	std::string	line;
-	std::string	lastChunkSize;
-	std::string	lastCrlf;
+	std::string	lastChunk;
+	std::string	lastTwoChars;
 
-	if (pos != std::string::npos)
+	if ((pos = this->_body.rfind(CRLF)) != std::string::npos)
 	{
-		pos += 2;
-		line = this->_body.substr(pos);
-		if (line.length() < 5)
-			return false;
-		lastChunkSize = line.substr(0, 3);
-		lastCrlf = line.substr(line.length() - 2, 2);
-		if ((lastChunkSize == "0\r\n" && lastCrlf == "\r\n"))
-			return true;
+		if ((pos = this->_body.rfind(CRLF, --pos)) != std::string::npos)
+		{
+			lastChunkPos = pos;
+			lastTwoChars = this->_body.substr(this->_body.length() - 2);
+			if ((pos = this->_body.rfind(CRLF, --pos)) != std::string::npos)
+			{
+				pos += 2;
+				line = this->_body.substr(pos);
+				lastChunk = Util::removeDuplicate
+							(line.substr(0, lastChunkPos - pos));
+				if ((lastChunk == "0") && (lastTwoChars == CRLF))
+					return true;
+			}
+			else
+			{
+				line = this->_body;
+				lastChunk = Util::removeDuplicate
+							(line.substr(0, lastChunkPos));
+				if ((lastChunk == "0") && (lastTwoChars == CRLF))
+					return true;
+			}
+		}
 	}
 	return false;
 }
@@ -268,6 +313,7 @@ void	Request::resetRequest(void)
 	this->_contentLength = 0;
 	this->_transferEncoding.clear();
 	this->_contentType.clear();
+	this->_contents.clear();
 	this->_method.clear();
 	this->_requestUrl.clear();
 	this->_httpVersion.clear();
@@ -544,7 +590,7 @@ static std::vector<Content>	extractMultipartBody
 			break;
 		}
 		line = body.substr(oldPos, pos - oldPos);
-//		std::cout << "[" << line << "]" << std::endl;
+//		std::cout << "TYPE : [" << line << "]" << std::endl;
 		if (line.find("Content-Type") != std::string::npos)
 		{
 			pair = Util::splitString(line, ':');
@@ -563,8 +609,9 @@ static std::vector<Content>	extractMultipartBody
 			std::cout << "Malformed body data" << std::endl;
 			break;
 		}
-		line = body.substr(oldPos, pos - oldPos);
-//		std::cout << "[" << line << "]" << std::endl;
+		oldPos += 2;
+		line = body.substr(oldPos, pos - oldPos - 2);
+//		std::cout << "DATA : [" << line << "]" << std::endl;
 		entry.data += line;
 		contents.push_back(entry);
 		oldPos = pos;

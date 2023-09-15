@@ -6,11 +6,11 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:39 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/12 00:51:37 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/15 23:13:08 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "Request.hpp"
+#include "Request_temp6.hpp"
 
 static std::string	extractHttpHeader(std::string const& rawData);
 static std::string	extractHttpBody(std::string const& rawData);
