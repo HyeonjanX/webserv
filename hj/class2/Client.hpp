@@ -21,6 +21,7 @@
 
 #include "Response.hpp"
 #include "Util.hpp"
+#include "File.hpp"
 
 #define BACKLOG 128
 
@@ -65,7 +66,7 @@ public:
     std::string _data;
     std::string _requestLine;
     std::string _header;
-    std::vector<std::pair<std::string, std::string>> _header2;
+    std::vector<std::pair<std::string, std::string> > _header2;
     std::string _body;
 
     // ssize_t _bytes_read;
@@ -94,7 +95,7 @@ public:
 public:
     int sendProcess(void);
     
-    int readFile(const std::string &filePath);
+    // int readFile(const std::string &filePath); => File로 이동
     int makeResponse(const std::string & filePath);
     void setResponseStatus(int statusCode, const std::string &statusMessage);
     int checkSendBytes() const;
@@ -106,6 +107,8 @@ public:
     int getSocket(void) const;
     std::string& getData(void);
     // size_t getDataLength(void);
+
+    int tempMakeResponseByStatusCode(int statusCode);
 
 
 };

@@ -56,6 +56,12 @@ void Response::generateResponseData(void)
     _data = oss.str();
     _totalBytes = _data.size();
     _sendedBytes = 0;
+
+    // std::cout << "응답 생성 확인" << std::endl;
+    // std::cout << "_body: " << _body << std::endl;
+    // std::cout << "===========================" << std::endl;
+    // std::cout << _data << std::endl;
+    // std::cout << "===========================" << std::endl;
 }
 
 void Response::setHttpVersion(const std::string &version)

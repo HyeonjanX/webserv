@@ -34,8 +34,7 @@ public:
 
 private:
 
-  void initServer(int port, std::string host = "",
-                  int sockreuse = 1, int backlog = 16);
+  void initServer(int port, int sockreuse = 1, int backlog = 16);
   void initClient(int serverSocket, Server *s = NULL);
 
   void clientReadProcess(Client &c);

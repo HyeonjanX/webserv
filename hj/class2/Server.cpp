@@ -2,8 +2,8 @@
 
 #include <fcntl.h>
 
-Server::Server(int port, const std::string &host, int sockreuse, int backlog)
-    : _port(port), _host(host), _sockreuse(sockreuse), _backlog(backlog)
+Server::Server(int port, int sockreuse, int backlog)
+    : _port(port), _sockreuse(sockreuse), _backlog(backlog)
 {
     initServer();
 }
@@ -63,6 +63,31 @@ void Server::initListen(int backlog)
     }
 }
 
+void Server::initHost(const std::string &hostname)
+{
+    for (std::vector<Host>::iterator it = _hosts.begin(); it < _hosts.end(); ++it)
+    {
+        if (it.base()->getHostname() == hostname)
+        {
+            // 중복 불가 => 에러처리
+        }
+    }
+    
+    Host h(*this, hostname);
+    
+    _hosts.push_back(h);
+}
+
 int Server::getSocket(void) const { return _socket; }
 int Server::getPort(void) const { return _port; }
-std::string Server::getHost(void) const { return _host; }
+Host* Server::getHost(const std::string &hostname)
+{
+    for (std::vector<Host>::iterator it = _hosts.begin(); it < _hosts.end(); ++it)
+    {
+        if (it.base()->getHostname() == hostname)
+        {
+            return it.base();
+        }
+    }
+    return NULL;
+}
