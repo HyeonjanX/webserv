@@ -27,7 +27,7 @@ private:
 
 public:
     // 레퍼런스와 디폴트값을 함께 사용하지 않기.
-    Server(int port = 80, std::string host = "",
+    Server(int port = 80, const std::string &host = "",
            int sockreuse = 1, int backlog = 16);
     virtual ~Server(void);
 

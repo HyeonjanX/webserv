@@ -2,7 +2,7 @@
 
 #include <fcntl.h>
 
-Server::Server(int port, std::string host, int sockreuse, int backlog)
+Server::Server(int port, const std::string &host, int sockreuse, int backlog)
     : _port(port), _host(host), _sockreuse(sockreuse), _backlog(backlog)
 {
     initServer();
