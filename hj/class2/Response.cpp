@@ -23,7 +23,7 @@ void Response::init(const std::string &httpVersion, int statusCode, const std::s
 }
 void Response::clean(void)
 {
-    std::cout << "clean" << std::endl;
+    std::cout << "Response::clean 호출: Response를 비워냅니다!" << std::endl;
     _httpVersion.clear();
     _statusCode = 0;
     _statusMessage.clear();
@@ -97,6 +97,8 @@ std::string Response::getData(void) const { return _data; }
 // std::string &Response::getData2(void) { return _data; }
 
 size_t Response::getDataLength(void) const { return _data.size(); }
+
+void Response::updateData(size_t bytes) { _data = _data.substr(bytes); }
 
 void Response::updateSendedBytes(size_t bytes) { _sendedBytes += bytes; }
 
