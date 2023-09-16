@@ -50,6 +50,9 @@ public:
     static ssize_t ft_atol(const char *str, int base);
 
     static std::string sanitizeFilename(const std::string &filename);
+    bool startsWith(const std::string &str, const std::string &prefix);
+    std::string toLowerCase(const std::string &input);
+    bool caseInsensitiveCompare(const std::string &str1, const std::string &str2);
 
 public:
 };

@@ -176,3 +176,42 @@ std::string Util::sanitizeFilename(const std::string &filename)
     
     return sanitized;
 }
+
+
+bool Util::startsWith(const std::string &str, const std::string &prefix)
+{
+    if (str.length() < prefix.length())
+    {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < prefix.length(); ++i)
+    {
+        if (str[i] != prefix[i])
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/*
+std::tolower와 ::tolower 두 함수 모두 존재하지만, 차이점이 있습니다.
+std::tolower: 이 함수는 C++ 표준 라이브러리에서 제공되며, 일반적으로 오버로딩이 가능합니다. 즉, 다양한 타입에 대해 작동할 수 있습니다. std::tolower는 템플릿을 사용할 수 있기 때문에, 다양한 문자 타입을 지원할 수 있습니다. 하지만 이 함수는 locale을 매개변수로 받을 수 있는 버전도 있어서, std::transform과 같이 알고리즘 함수에 전달할 때 문제를 일으킬 수 있습니다.
+::tolower: 이 함수는 전역 네임스페이스에 존재하는 C 표준 라이브러리의 함수입니다. 이 함수는 단순히 int 타입을 매개변수로 받아 int 타입을 반환합니다.
+std::transform에 함수를 전달할 때 std::tolower를 사용하면, 어떤 오버로딩을 사용해야 할지 혼동이 발생할 수 있습니다. 그래서 이 경우에는 C 라이브러리의 ::tolower를 사용하여 오버로딩에 대한 혼동을 피하곤 합니다.
+*/
+std::string Util::toLowerCase(const std::string &input)
+{
+    std::string result = input;
+    std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+    return result;
+}
+
+bool Util::caseInsensitiveCompare(const std::string &str1, const std::string &str2)
+{
+    std::string lowerStr1 = toLowerCase(str1);
+    std::string lowerStr2 = toLowerCase(str2);
+    return lowerStr1 == lowerStr2;
+}
