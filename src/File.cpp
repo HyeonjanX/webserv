@@ -3,13 +3,12 @@
 
 File::File(void)
 {
-
 }
 
-bool File::fileExists(const std::string &_filepath)
+bool File::fileExists(const std::string &filepath)
 {
     struct stat info;
-    return (stat(_filepath.c_str(), &info) == 0);
+    return (stat(filepath.c_str(), &info) == 0);
 }
 
 bool File::checkWritePermission(const std::string &filepath)
@@ -20,21 +19,22 @@ bool File::checkWritePermission(const std::string &filepath)
     if (lastSlash == std::string::npos)
         directory = ".";
     else
-        directory = filepath.substr(0, lastSlash);
+        directory = filepath.substr(0, lastSlash); // /a/b/c/file => /a/b/c
 
     return (access(directory.c_str(), W_OK) != -1);
 }
 
-bool File::writeTextFile(const std::string &_filepath, const std::string &_content)
+bool File::writeFile(const std::string &filepath, const std::string &content)
 {
-    std::ofstream outfile(_filepath.c_str());
+    // std::ofstream outfile(filepath.c_str());
+    std::ofstream outfile(filepath.c_str(), std::ios::binary);
 
     if (!outfile.is_open())
     {
         return false;
     }
 
-    outfile << _content;
+    outfile << content;
 
     if (outfile.fail())
     {
@@ -46,19 +46,19 @@ bool File::writeTextFile(const std::string &_filepath, const std::string &_conte
     return true;
 }
 
-bool File::writeUploadTextFile(const std::string _filepath, const std::string &_content)
+bool File::uploadFile(const std::string filepath, const std::string &content)
 {
-    if (fileExists(_filepath))
+    if (fileExists(filepath))
     {
         perror("writeUploadTextFile: 409 conflict");
         throw 409;
     }
-    if (!checkWritePermission(_filepath))
+    if (!checkWritePermission(filepath))
     {
         perror("writeUploadTextFile: 403 Forbidden");
         throw 403;
     }
-    if (!writeTextFile(_filepath, _content))
+    if (!writeFile(filepath, content))
     {
         perror("writeUploadTextFile: 500");
         throw 500;
@@ -66,15 +66,46 @@ bool File::writeUploadTextFile(const std::string _filepath, const std::string &_
     return true;
 }
 
-std::string File::readFile(const std::string &filePath)
+std::string File::readFile(const std::string &filepath)
 {
-    char buffer[1024];
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+    if (!file)
+    {
+        throw std::runtime_error("Fail to start ifstream");
+    }
+
+    std::streamsize size = file.tellg();
+    if (size == -1)
+    {
+        file.close();
+        throw std::runtime_error("Failed to get file size");
+    }
+
+    file.seekg(0, std::ios::beg);
+    if (file.fail())
+    {
+        file.close();
+        throw std::runtime_error("Failed to seek to the beginning of the file");
+    }
 
     std::string content;
+    content.resize(size);
+    if (!file.read(&content[0], size))
+    {
+        file.close();
+        throw std::runtime_error("Fail to read");
+    }
 
+    file.close();
+    return content;
+}
+
+std::string File::getFile(const std::string &filepath)
+{
+    std::string content;
     struct stat fileStat;
 
-    if (stat(filePath.c_str(), &fileStat) != 0)
+    if (stat(filepath.c_str(), &fileStat) != 0)
     {
         throw 404;
     }
@@ -84,28 +115,15 @@ std::string File::readFile(const std::string &filePath)
         throw 403;
     }
 
-    std::ifstream file(filePath.c_str(), std::ios::in | std::ios::binary);
-    if (!file)
+    try
     {
+        content = readFile(filepath);
+    }
+    catch (const char *errmsg)
+    {
+        std::cerr << errmsg << std::endl;
         throw 500;
     }
-
-    while (!file.eof())
-    {
-        file.read(buffer, sizeof(buffer));
-        std::streamsize bytesRead = file.gcount();
-        if (bytesRead > 0)
-        {
-            content.append(buffer, bytesRead);
-        }
-        else
-        {
-            file.close();
-            throw 500;
-        }
-    }
-
-    file.close();
 
     return content;
 }

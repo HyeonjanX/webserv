@@ -42,8 +42,8 @@ int Client::readProcess(void)
     int __statusCode;
     try
     {
-        // std::string fileData = File::readFile("./large.txt");
-        std::string fileData = File::readFile("./2mb_image.jpeg");
+        // std::string fileData = File::getFile("./large.txt");
+        std::string fileData = File::getFile("./miyeon.jpeg");
         _response.setBody(fileData);
         __statusCode = 200;
     }
@@ -68,7 +68,7 @@ int Client::readProcess(void)
         try
         {
             std::string filepath("./upload.txt");
-            File::writeUploadTextFile(filepath, d);
+            File::writeFile(filepath, d);
             __statusCode = 201;
         }
         catch (int statusCode)
@@ -76,10 +76,9 @@ int Client::readProcess(void)
             __statusCode = statusCode;
         }
 
-        _eventHandler->turnOffRead(_socket);
         setResponseStatus(__statusCode, Util::getStatusCodeMessage(201));
         tempMakeResponseByStatusCode(__statusCode);
-        _eventHandler->turnOnWrite(_socket);
+        _eventHandler->switchToWriteState(_socket);
         return 0;
     }
     return 0;
@@ -195,6 +194,8 @@ int Client::tempMakeResponseByStatusCode(int statusCode)
     // 4. Date 설정
     _response.setHeader(std::string("Date"), Util::getDateString());
 
+    _response.setStatusCode(statusCode);
+    _response.setStatusMessage(Util::getStatusCodeMessage(statusCode));
     _response.generateResponseData();
 
     return _response.getStatusCode();
@@ -209,7 +210,7 @@ int Client::makeResponse(const std::string &filePath)
     // 2. 바디 생성 & 컨텐츠 길이 헤더 설정
     if (!filePath.empty())
     {
-        std::string data = File::readFile(filePath);
+        std::string data = File::getFile(filePath);
         _response.setBody(data);
     }
     else

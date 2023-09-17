@@ -48,16 +48,19 @@ void Response::generateResponseData(void)
     {
         oss << it->first << ": " << it->second << "\r\n";
     }
+    // std::cout << "응답 생성 확인" << std::endl;
 
     oss << "\r\n";
 
+    // std::cout << "헤더까지: " << std::endl;
+    // std::cout << oss.str() << std::endl;
+    
     oss << _body;
 
     _data = oss.str();
     _totalBytes = _data.size();
     _sendedBytes = 0;
 
-    // std::cout << "응답 생성 확인" << std::endl;
     // std::cout << "_body: " << _body << std::endl;
     // std::cout << "===========================" << std::endl;
     // std::cout << _data << std::endl;
