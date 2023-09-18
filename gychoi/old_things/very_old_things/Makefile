@@ -6,7 +6,7 @@
 #    By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/08/28 16:01:14 by gychoi            #+#    #+#              #
-#    Updated: 2023/09/10 21:45:36 by gychoi           ###   ########.fr        #
+#    Updated: 2023/09/15 23:10:31 by gychoi           ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -18,9 +18,9 @@ CXXFLAGS += -std=c++98 -MMD -MP
 CPPFLAGS = -I.
 RM = rm -rf
 
-SRCS = main.cpp \
-	   Client.cpp \
-	   Request.cpp \
+SRCS = main_temp6.cpp \
+	   Client_temp6.cpp \
+	   Request_temp6.cpp \
 	   Util.cpp
 
 OBJS = $(SRCS:.cpp=.o)

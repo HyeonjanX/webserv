@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:46:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/18 23:00:06 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/18 19:26:47 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,7 +29,7 @@
 #include <thread>
 #include <vector>
 
-#include "Client.hpp"
+#include "Client_temp6.hpp"
 
 #define CLIENT_MAX 5
 
@@ -95,6 +95,17 @@ void	updateEvents(std::vector<struct kevent>& updateList, uintptr_t ident,
 
 	EV_SET(&temp, ident, filter, flags, fflags, data, udata);
 	updateList.push_back(temp);
+}
+
+bool	isAllReceived(Client& client)
+{
+	//std::cout << client.getRawData() << std::endl;
+	//std::cout << client.isAllSet() << std::endl;
+	if (client.getClientRequest().isAllSet()
+		&& (client.getClientRequest().getContentLength()
+			== client.getClientRequest().getHttpBody().length()))
+		return true;
+	return false;
 }
 
 /*******************************************************************************
@@ -166,56 +177,68 @@ void	handleReadEvent(struct kevent* currEvent,
 	for (std::vector<Server>::iterator sit = servers.begin();
 			sit != servers.end(); ++sit)
 	{
-		if (sit->sock != static_cast<int>(currEvent->ident))
-			continue;
-		Client	client(sit->sock);
-		updateEvents(updateList,
-				static_cast<uintptr_t>(client.getClientSocket()),
-				EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
-		updateEvents(updateList,
-				static_cast<uintptr_t>(client.getClientSocket()),
-				EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, 0);
-		clients.insert(std::make_pair(client.getClientSocket(), client));
-		return ;
+		if (sit->sock == static_cast<int>(currEvent->ident))
+		{
+			Client	client(sit->sock);
+			updateEvents(updateList,
+					static_cast<uintptr_t>(client.getClientSocket()),
+					EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
+			updateEvents(updateList,
+					static_cast<uintptr_t>(client.getClientSocket()),
+					EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, 0);
+			clients.insert(std::make_pair(client.getClientSocket(), client));
+			return ;
+		}
 	}
 	for (std::map<int, Client>::iterator cit = clients.begin();
 			cit != clients.end(); ++cit)
 	{
-		if (cit->second.getClientSocket() != static_cast<int>(currEvent->ident))
-			continue;
-		if (currEvent->flags & EV_EOF
-			|| !cit->second.readClientRequest()
-			|| cit->second.getClientStatus() == ERROR_400)
+		// 나는 이미 read에서 0으로 체크하고 있기 때문에 필요 없을 듯...
+//		if (currEvent->flags & EV_EOF)
+//		{
+//			disconnectClient(cit->second.getClientSocket(),
+//							cit->second.getClientPort(), clients);
+//			break;
+//		}
+		if (cit->second.getClientSocket() == static_cast<int>(currEvent->ident))
 		{
-			disconnectClient(cit->second.getClientSocket(),
-							cit->second.getClientPort(), clients);
-			break;
-		}
-		if (cit->second.getClientStatus() == BODY_LIMIT_OVER
-			|| cit->second.getClientStatus() == BODY_SIZE_OVER)
-		{
-			std::cout << "BODY_LIMIT_OVER || BODY_SIZE_OVER" << std::endl;
-		}
-		else if (cit->second.getClientStatus() == READ_END)
-		{
-			if (cit->second.getClientRequest().getHttpMethod() == "POST")
+			if (!cit->second.readRequest()
+				|| cit->second.getClientStatus() == ERROR_400)
 			{
-				if (!cit->second.uploadClientFile())
-				{
-					disconnectClient(cit->second.getClientSocket(),
-									cit->second.getClientPort(), clients);
-					break;
-				}
+				disconnectClient(cit->second.getClientSocket(),
+								cit->second.getClientPort(), clients);
+				break;
 			}
+			if (cit->second.getClientStatus() == BODY_LIMIT_OVER
+				|| cit->second.getClientStatus() == BODY_SIZE_OVER
+				|| cit->second.getClientStatus() == ERROR_400)
+			{
+				// 우선은 READ_END와 동작이 동일하지만 추가적인 처리가 필요
+				std::cout << "BODY_LIMIT_OVER || BODY_SIZE_OVER" << std::endl;
+
+				updateEvents(updateList, static_cast<uintptr_t>
+				(cit->second.getClientSocket()),
+				EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, 0);
+				updateEvents(updateList, static_cast<uintptr_t>
+				(cit->second.getClientSocket()),
+				EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, 0);
+				break;
+			}
+			else if (cit->second.getClientStatus() == READ_END)
+			{
+				std::cout << "READ_END" << std::endl;
+
+				updateEvents(updateList, static_cast<uintptr_t>
+				(cit->second.getClientSocket()),
+				EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, 0);
+				updateEvents(updateList, static_cast<uintptr_t>
+				(cit->second.getClientSocket()),
+				EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, 0);
+				break;
+			}
+			else
+				continue;
 		}
-		else
-			continue;
-		updateEvents(updateList, static_cast<uintptr_t>
-		(cit->second.getClientSocket()),
-		EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, 0);
-		updateEvents(updateList, static_cast<uintptr_t>
-		(cit->second.getClientSocket()),
-		EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, 0);
 	}
 }
 
@@ -249,17 +272,8 @@ bool	writeClientData(Client& client)
 
 	if (client.getClientStatus() == READ_END)
 	{
-		if (client.getClientRequest().getHttpMethod() == "GET")
-		{
-			body += "Message:\n";
-			body += client.getClientRequest().getHttpBody();
-			header += "HTTP/1.1 200 OK\r\n";
-		}
-		else if (client.getClientRequest().getHttpMethod() == "POST")
-		{
-			body += "upload success";
-			header += "HTTP/1.1 201 Created\r\n";
-		}
+		body = client.getClientRequest().getHttpBody();
+		header += "HTTP/1.1 200 OK\r\n";
 		header += "Content-Type: text/html; charset=utf-8\r\n";
 		header += "Content-Length: " + std::to_string(body.size()) + "\r\n";
 		header += "\r\n";
@@ -268,15 +282,14 @@ bool	writeClientData(Client& client)
 	else
 		response = tempResponseException(client.getClientStatus());
 
+	std::cout << response << std::endl;
 	if ((sendByte = send(client.getClientSocket(), response.c_str(),
 				response.size(), 0)) == -1)
 		throwError("send failed");
 	else if (sendByte == 0
 			|| client.getClientStatus() == BODY_LIMIT_OVER
-			|| client.getClientStatus() == BODY_SIZE_OVER) // post 요청도 추가?
-	{
+			|| client.getClientStatus() == BODY_SIZE_OVER)
 		return false; // MAY close the connection
-	}
 	return true;
 }
 
@@ -294,7 +307,6 @@ void	handleWriteEvent(struct kevent* currEvent,
 						cit->second.getClientPort(), clients);
 			else
 			{
-				// 하나로 모아줄 수 있다.
 				cit->second.getClientRequest().resetRequest();
 				cit->second.setClientStatus(BEFORE_READ);
 				updateEvents(updateList, static_cast<uintptr_t>
@@ -351,15 +363,9 @@ void	runServer(int kq, std::vector<struct kevent>& updateList,
 				}
 			}
 			else if (currEvent->filter == EVFILT_READ)
-			{
-			//	std::cout << "READ EVENT" << std::endl;
 				handleReadEvent(currEvent, updateList, servers, clients);
-			}
 			else if (currEvent->filter == EVFILT_WRITE)
-			{
-			//	std::cout << "WRITE EVENT" << std::endl;
 				handleWriteEvent(currEvent, updateList, clients);
-			}
 		}
 	}
 	throwError("Unexpected loop break");

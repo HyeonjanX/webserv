@@ -6,16 +6,17 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:52:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/15 23:12:56 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/18 22:18:32 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "Client_temp6.hpp"
+#include "Client.hpp"
 
 static void	checkRequestLine(Client& client);
 static void	checkHttpHeader(Client& client);
 static void	checkHttpBody(Client& client);
 static void	validateReadStatus(Client& client);
+static void	purifyHttpBody(Client& client);
 static void	throwError(std::string const& msg);
 
 /**
@@ -141,7 +142,7 @@ void	Client::setClientStatus(short status)
  * @param void
  * @return bool
  */
-bool	Client::readRequest(void)
+bool	Client::readClientRequest(void)
 {
 	ssize_t	readByte;
 
@@ -151,8 +152,8 @@ bool	Client::readRequest(void)
 		throwError("recv failed"); // need to change
 		// status = 500?
 	}
-	else if (readByte == 0)
-		return false;
+//	else if (readByte == 0)
+//		return false;
 	else
 	{
 		std::string	s = this->_request.getRawData();
@@ -166,6 +167,40 @@ bool	Client::readRequest(void)
 			checkHttpBody(*this);
 		if (this->_status == READ_BODY)
 			validateReadStatus(*this);
+		if (this->_status == READ_END)
+			purifyHttpBody(*this);
+	}
+	return true;
+}
+
+bool	Client::uploadClientFile(void)
+{
+	Request					req = this->_request;
+	std::vector<Content>	contents = req.getContents();
+
+	//std::cout << contents.size() << std::endl;
+	if (contents.empty())
+		return true;
+
+	for (std::vector<Content>::iterator cit = contents.begin();
+		cit != contents.end(); ++cit)
+	{
+		if (!cit->filename.empty())
+		{
+			std::ofstream	uploadFile(cit->filename.c_str(), std::ios::binary);
+
+			if (uploadFile.is_open())
+			{
+				uploadFile.write(cit->data.c_str(), static_cast<std::streamsize>
+								(cit->data.size()));
+				uploadFile.close();
+			}
+			else
+			{
+				std::cout << "ERROR: Cannot create " << cit->filename << std::endl;
+				return false;
+			}
+		}
 	}
 	return true;
 }
@@ -215,16 +250,48 @@ static void	validateReadStatus(Client& client)
 	std::string const&	httpBody = request.getHttpBody();
 	unsigned int		contentLength = request.getContentLength();
 
-	if (httpBody.size() >= BODY_LIMIT)
-		client.setClientStatus(BODY_LIMIT_OVER);
-	else if (httpBody.size() > contentLength)
-		client.setClientStatus(BODY_SIZE_OVER); // Error 400?
-	else if (httpBody.size() == contentLength)
-		client.setClientStatus(READ_END);
-	else if (httpBody.size() < contentLength)
-		client.setClientStatus(READING);
-	else {}
-		// client.setClientStatus(ERROR_400);
+	// 계속되는 Reading 상태로 머물 수 있음.
+	// Timeout 세팅 필요.
+	// application/x-www-urlencoded 처리?
+	//std::cout << httpBody << std::endl;
+	if (request.getTransferEncoding() == "chunked")
+	{
+		if (request.isLastChunk())
+			client.setClientStatus(READ_END);
+		else
+			client.setClientStatus(READING);
+	}
+	else
+	{
+		if (httpBody.size() >= BODY_LIMIT)
+			client.setClientStatus(BODY_LIMIT_OVER);
+		else if (httpBody.size() > contentLength)
+			client.setClientStatus(BODY_SIZE_OVER); // Error 400?
+		else if (httpBody.size() == contentLength)
+			client.setClientStatus(READ_END);
+		else if (httpBody.size() < contentLength)
+			client.setClientStatus(READING);
+		else {}
+			// client.setClientStatus(ERROR_400);
+	}
+}
+
+static void	purifyHttpBody(Client& client)
+{
+	Request&	request = client.getClientRequest();
+
+	request.handleChunkedBody();
+	request.handleMultipartBody();
+//
+//	std::vector<Content> contents = request.getContents();
+//	for (std::vector<Content>::iterator cit = contents.begin();
+//		cit != contents.end(); ++cit)
+//	{
+//		std::cout << "[" << cit->name << "]" << std::endl;
+//		std::cout << "[" << cit->filename << "]" << std::endl;
+//		std::cout << "[" << cit->type << "]" << std::endl;
+//		std::cout << "[" << cit->data  << "]" << std::endl;
+//	}
 }
 
 /**
