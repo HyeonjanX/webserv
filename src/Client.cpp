@@ -23,13 +23,22 @@ Client::~Client(void) {}
 
 int Client::readProcess(void)
 {
-    // ================ FOR TEST =============
-    char buffer[100000];
-    ssize_t bytes_read = read(_socket, buffer, 100000);
-    std::cout << "========== 입력받은 데이터 (" << bytes_read << ")==========" << std::endl;
-    std::cout << std::string(buffer, bytes_read) << std::endl;
-    std::cout << "------------------------------" << std::endl;
+    // 1. 데이터 읽기 => 청크 모드 ? 특별 처리 : 일반처리
 
+    // ================ FOR TEST =============
+    std::vector<char> buffer(100000);
+    ssize_t bytes_read = read(_socket, buffer.data(), buffer.size());
+
+    if (bytes_read > 0)
+    {
+
+        std::cout << "========== 입력받은 데이터 (" << bytes_read << ")==========" << std::endl;
+        std::cout << std::string(buffer.begin(), buffer.end()) << std::endl;
+        std::cout << "------------------------------" << std::endl;
+
+        buffer.resize(bytes_read);                         // 실제로 읽은 데이터만큼만 크기를 조절
+        _data.append(buffer.begin(), buffer.end()); // vector의 데이터를 string에 더함
+    }
     // GET 요청 => 파일 읽어 리턴.
 
     // 1. GET && no cgi
@@ -47,7 +56,7 @@ int Client::readProcess(void)
         _response.setBody(fileData);
         __statusCode = 200;
     }
-    catch(int statusCode)
+    catch (int statusCode)
     {
         __statusCode = statusCode;
     }
@@ -55,20 +64,16 @@ int Client::readProcess(void)
     tempMakeResponseByStatusCode(__statusCode);
     _eventHandler->turnOnWrite(_socket);
     return 0;
-    
 
     // 2. POST && no cgi
-    std::string d(buffer, bytes_read);
-
-    _data.append(buffer, bytes_read);
     std::cout << "data.size(): " << _data.size() << std::endl;
 
-    if (d.size() > 10000)
+    if (buffer.size() > 10000)
     {
         try
         {
             std::string filepath("./upload.txt");
-            File::writeFile(filepath, d);
+            File::writeFile(filepath, _data);
             __statusCode = 201;
         }
         catch (int statusCode)
@@ -95,7 +100,7 @@ int Client::readProcess(void)
         return 0;
     }
 
-    _data.append(buffer, bytes_read);
+    _data.append(buffer.begin(), buffer.end());
 
     if (_status == READ_REQUESTLINE)
     {
@@ -113,16 +118,14 @@ int Client::readProcess(void)
     if (_status == BODY_LIMIT_OVER || _status == BODY_SIZE_OVER)
     {
         // 오류
-        _eventHandler->turnOffRead(_socket);
         makeResponse("./404.html");
-        _eventHandler->turnOnWrite(_socket);
+        _eventHandler->switchToWriteState(_socket);
     }
     if (_status == READ_END)
     {
         // 수신 완료
-        _eventHandler->turnOffRead(_socket);
         makeResponse("./lorem_ipsum.txt");
-        _eventHandler->turnOnWrite(_socket);
+        _eventHandler->switchToWriteState(_socket);
     }
 
     return bytes_read;
@@ -273,6 +276,7 @@ void Client::readHeader(void)
         {
             _data = _data.substr(pos + 2);
             _status = READ_BODY;
+            // 헤더 분석
             return;
         }
 
