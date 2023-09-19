@@ -149,7 +149,7 @@ int Client::afterRead(void)
 
     if (_defaultBodyNeed)
     {
-       _response.setBody(createDefaultBody(_status));
+       _response.setBody(createDefaultPage(_response.getStatusCode()));
     }
     
     makeResponseData();

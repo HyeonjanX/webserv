@@ -31,24 +31,25 @@ std::string Location::getRedirectUrl(const std::string &path) const
     return _redirect.second + path.substr(_redirect.second.length());
 }
 
-int Location::getRedirectStatusCode(void) const { return _redirect.first; }
-
 const Host &Location::getHost(void) const { return _host; }
 
 std::string Location::getUri() const { return _uri; }
 unsigned int Location::getUriSize(void) const { return _uri.length(); }
 
 void Location::setLimitExcept(const std::vector<std::string> &limits) { _limitExcept = limits; }
-std::vector<std::string> Location::getLimitExcept() const { return _limitExcept; }
+const std::vector<std::string> &Location::getLimitExcept() const { return _limitExcept; }
 
 void Location::setAutoindex(bool ai) { _autoindex = ai; }
 bool Location::getAutoindex() const { return _autoindex; }
 
 void Location::setIndex(const std::vector<std::string> &idx) { _index = idx; }
-std::vector<std::string> Location::getIndex() const { return _index; }
+const std::vector<std::string> &Location::getIndex() const { return _index; }
 
 void Location::setRedirect(const std::pair<int, std::string> &rd) { _redirect = rd; }
-std::pair<int, std::string> Location::getRedirect() const { return _redirect; }
+const std::pair<int, std::string> &Location::getRedirect() const { return _redirect; }
+
+int Location::getRedirectStatusCode(void) const { return _redirect.first; }
+std::string Location::getRedirectPath(void) const { return _redirect.second; }
 
 std::ostream &operator<<(std::ostream &os, const Location &location)
 {
