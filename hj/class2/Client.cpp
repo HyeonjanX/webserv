@@ -1,4 +1,3 @@
-
 #include "Client.hpp"
 
 Client::Client(int serverSocket, Webserver *ws, Server *s, EventHandler *e)
@@ -24,8 +23,71 @@ Client::~Client(void) {}
 
 int Client::readProcess(void)
 {
-    char buffer[1024];
-    ssize_t bytes_read = read(_socket, buffer, 1024);
+    // ================ FOR TEST =============
+    char buffer[100000];
+    ssize_t bytes_read = read(_socket, buffer, 100000);
+    std::cout << "========== 입력받은 데이터 (" << bytes_read << ")==========" << std::endl;
+    std::cout << std::string(buffer, bytes_read) << std::endl;
+    std::cout << "------------------------------" << std::endl;
+
+    // GET 요청 => 파일 읽어 리턴.
+
+    // 1. GET && no cgi
+    // makeResponse("./large.txt");
+    // makeResponse("./2mb_image.jpeg");
+    // _eventHandler->turnOnWrite(_socket);
+    // return bytes_read;
+
+    _eventHandler->turnOffRead(_socket);
+    int __statusCode;
+    try
+    {
+        // std::string fileData = File::readFile("./large.txt");
+        std::string fileData = File::readFile("./2mb_image.jpeg");
+        _response.setBody(fileData);
+        __statusCode = 200;
+    }
+    catch(int statusCode)
+    {
+        __statusCode = statusCode;
+    }
+    // setResponseStatus(__statusCode, Util::getStatusCodeMessage(__statusCode));
+    tempMakeResponseByStatusCode(__statusCode);
+    _eventHandler->turnOnWrite(_socket);
+    return 0;
+    
+
+    // 2. POST && no cgi
+    std::string d(buffer, bytes_read);
+
+    _data.append(buffer, bytes_read);
+    std::cout << "data.size(): " << _data.size() << std::endl;
+
+    if (d.size() > 10000)
+    {
+        try
+        {
+            std::string filepath("./upload.txt");
+            File::writeUploadTextFile(filepath, d);
+            __statusCode = 201;
+        }
+        catch (int statusCode)
+        {
+            __statusCode = statusCode;
+        }
+
+        _eventHandler->turnOffRead(_socket);
+        setResponseStatus(__statusCode, Util::getStatusCodeMessage(201));
+        tempMakeResponseByStatusCode(__statusCode);
+        _eventHandler->turnOnWrite(_socket);
+        return 0;
+    }
+    return 0;
+
+    // ================ FOR TEST END ====================
+
+    // char buffer[1024];
+    // ssize_t bytes_read = read(_socket, buffer, 1024);
 
     if (bytes_read == -1)
     {
@@ -100,9 +162,10 @@ int Client::sendProcess(void)
 
     // std::cout << RED << "1" << RESET << std::endl;
 
+    _response.updateData(bytes_sent);
     _response.updateSendedBytes(bytes_sent);
 
-    std::cout << "send: (" << bytes_sent << "/" << _response.getTotalBytes() << ")" << std::endl;
+    std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl;
 
     if (checkSendBytes() >= 0)
     {
@@ -115,49 +178,26 @@ int Client::sendProcess(void)
     // return checkSendBytes();
 }
 
-int Client::readFile(const std::string &filePath)
+int Client::tempMakeResponseByStatusCode(int statusCode)
 {
-    char buffer[1024];
+    // 1. http 버전 설정
+    _response.setHttpVersion(std::string("1.1"));
 
-    std::string content;
-
-    struct stat fileStat;
-
-    if (stat(filePath.c_str(), &fileStat) != 0)
+    // 2. 디폴트 바디 생성
+    if (_response.getBody().empty())
     {
-        setResponseStatus(404, std::string("Not Found"));
-        return 404;
+        _response.setBody(Util::ft_itoa(statusCode) + Util::getStatusCodeMessage(statusCode));
     }
 
-    else if (!(fileStat.st_mode & S_IRUSR))
-    {
-        setResponseStatus(403, std::string("Forbidden"));
-        return 403;
-    }
-
-    std::ifstream file(filePath.c_str(), std::ios::in | std::ios::binary);
-    if (!file)
-    {
-        setResponseStatus(500, std::string("Internal Server Error"));
-        return 500;
-    }
-
-    while (!file.eof())
-    {
-        file.read(buffer, sizeof(buffer));
-        std::streamsize bytesRead = file.gcount();
-        if (bytesRead > 0)
-        {
-            content.append(buffer, bytesRead);
-        }
-    }
-
-    file.close();
-
-    _response.setBody(content);
+    // 3. 콘텐츠 랭스 설정
     _response.setHeader(std::string("Content-Length"), std::string(Util::ft_itoa(_response.getBody().length())));
-    setResponseStatus(200, std::string("OK"));
-    return 200;
+
+    // 4. Date 설정
+    _response.setHeader(std::string("Date"), Util::getDateString());
+
+    _response.generateResponseData();
+
+    return _response.getStatusCode();
 }
 
 // 요청을 다 읽은 후, 생성하는 단계 => path에 해당하는 정적 파일 제공 하기
@@ -169,7 +209,8 @@ int Client::makeResponse(const std::string &filePath)
     // 2. 바디 생성 & 컨텐츠 길이 헤더 설정
     if (!filePath.empty())
     {
-        readFile(filePath);
+        std::string data = File::readFile(filePath);
+        _response.setBody(data);
     }
     else
     {
@@ -291,7 +332,7 @@ void Client::readBody(void)
     if (_body.size() >= _bodyLimit)
     {
         _status = BODY_LIMIT_OVER;
-        return ;
+        return;
     }
 
     // 3. 본문 길이 확인

@@ -64,10 +64,9 @@ void Webserver::initWebserver(void)
   // runWebserver();
 }
 
-void Webserver::initServer(int port, std::string host,
-                           int sockreuse, int backlog)
+void Webserver::initServer(int port, int sockreuse, int backlog)
 {
-  Server s(port, host, sockreuse, backlog);
+  Server s(port, sockreuse, backlog);
 
   _servers.erase(s.getSocket());
   _servers.insert(std::make_pair(s.getSocket(), s));

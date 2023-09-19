@@ -23,7 +23,7 @@ void Response::init(const std::string &httpVersion, int statusCode, const std::s
 }
 void Response::clean(void)
 {
-    std::cout << "clean" << std::endl;
+    std::cout << "Response::clean 호출: Response를 비워냅니다!" << std::endl;
     _httpVersion.clear();
     _statusCode = 0;
     _statusMessage.clear();
@@ -56,6 +56,12 @@ void Response::generateResponseData(void)
     _data = oss.str();
     _totalBytes = _data.size();
     _sendedBytes = 0;
+
+    // std::cout << "응답 생성 확인" << std::endl;
+    // std::cout << "_body: " << _body << std::endl;
+    // std::cout << "===========================" << std::endl;
+    // std::cout << _data << std::endl;
+    // std::cout << "===========================" << std::endl;
 }
 
 void Response::setHttpVersion(const std::string &version)
@@ -97,6 +103,8 @@ std::string Response::getData(void) const { return _data; }
 // std::string &Response::getData2(void) { return _data; }
 
 size_t Response::getDataLength(void) const { return _data.size(); }
+
+void Response::updateData(size_t bytes) { _data = _data.substr(bytes); }
 
 void Response::updateSendedBytes(size_t bytes) { _sendedBytes += bytes; }
 

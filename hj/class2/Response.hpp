@@ -65,7 +65,9 @@ public:
     // std::string &getData2(void);
     size_t getDataLength(void) const;
 
+    void updateData(size_t bytes);
     void updateSendedBytes(size_t bytes);
+
     size_t getTotalBytes(void) const;
     size_t getSendedBytes(void) const;
 
