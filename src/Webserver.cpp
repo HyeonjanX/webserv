@@ -50,7 +50,7 @@ Webserver::~Webserver(void)
 void Webserver::initWebserver(void)
 {
   // 1. 시그널 핸들링
-  // signal(SIGPIPE, SIG_IGN);
+  signal(SIGPIPE, SIG_IGN);
 
   // 2. kqueue 시작
   _eventHandler.eventHandlerInit(); // kqueue() 실패시 throw
