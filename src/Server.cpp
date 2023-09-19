@@ -1,10 +1,12 @@
 #include "Server.hpp"
+#include <stdexcept>
 
 #include <fcntl.h>
 
 Server::Server(int port, int sockreuse, int backlog)
     : _port(port), _sockreuse(sockreuse), _backlog(backlog)
 {
+    std::cout << "서버 생성자" << std::endl;
     initServer();
 }
 
@@ -24,6 +26,11 @@ Server::~Server(void) {}
  */
 void Server::initServer(void)
 {
+    // 호스트 init
+    initHost("a");
+    initHost("b");
+    initHost("c");
+
     socketInit(_port, _addr, _sockreuse); // IPv4, TCP, port, 0.0.0.0
     initListen(_backlog);                 //
 }
@@ -70,6 +77,7 @@ void Server::initHost(const std::string &hostname)
         if (it.base()->getHostname() == hostname)
         {
             // 중복 불가 => 에러처리
+            throw std::runtime_error("Duplicated Host:port");
         }
     }
     
@@ -90,4 +98,19 @@ Host* Server::getHost(const std::string &hostname)
         }
     }
     return NULL;
+}
+const std::vector<Host>&  Server::getHosts(void) const { return _hosts; }
+
+std::ostream &operator<<(std::ostream &os, const Server &server)
+{
+    const std::vector<Host> hosts = server.getHosts();
+
+    os << "서버(" << server.getPort() << ")" << std::endl;
+
+    for (size_t i = 0; i < hosts.size(); ++i)
+    {
+        os << hosts[i];
+    }
+    os << std::endl;
+    return os;
 }

@@ -47,8 +47,6 @@ private:
   std::vector<Location>                   _locations;
   // std::vector<Location*>                  _locations;
 
-private:
-
 public:
   Host(
     const Server &server,
@@ -58,16 +56,23 @@ public:
   );
   virtual ~Host(void);
 
+private:
+  void initLocation(const std::string &url);
+
 public:
+
   bool isClientMaxBodySizeExceeded(unsigned int size) const;
   bool isMatched(const std::string &hostname) const;
   std::string getErrorPage(int statusCode) const;
   const Location& matchLocation(const std::string &uri) const;
 
+
 public:
   // 게터 세터
   const Server &getServer(void) const;
   std::string getHostname(void) const;
+  const std::vector<Location> getLocations(void) const;
 };
 
+std::ostream &operator<<(std::ostream &os, const Host &host);
 #endif

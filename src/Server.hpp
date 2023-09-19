@@ -27,7 +27,7 @@ private:
     int _sockreuse;
     int _backlog;
 
-    std::vector<Host>   _hosts;
+    std::vector<Host> _hosts;
 
 private:
     void socketInit(int port, struct sockaddr_in &addr, int sockreuse);
@@ -43,9 +43,11 @@ public:
     void initHost(const std::string &hostname);
 
 public:
-    int     getSocket(void) const;
-    int     getPort(void) const;
-    Host*   getHost(const std::string &hostname);
+    int getSocket(void) const;
+    int getPort(void) const;
+    Host *getHost(const std::string &hostname);
+    const std::vector<Host> &getHosts(void) const ;
 };
 
+std::ostream &operator<<(std::ostream &os, const Server &server);
 #endif

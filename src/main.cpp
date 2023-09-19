@@ -14,6 +14,10 @@ int main(int ac, char **av)
         ws.initWebserver();
         ws.runWebserver();
     }
+    catch (const std::runtime_error &e)
+    {
+        std::cerr << "ws runtime_error 발생: " << e.what() << std::endl;
+    }
     catch (const std::exception &e)
     {
         std::cerr << "ws Exception 발생: " << e.what() << std::endl;

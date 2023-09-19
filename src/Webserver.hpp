@@ -3,11 +3,13 @@
 
 #include <iostream>
 #include <unistd.h>
+#include <stdexcept>
 
 #include "EventHandler.hpp"
 #include "Server.hpp"
 #include "Client.hpp"
 #include "Util.hpp"
+
 
 #include <map>
 
