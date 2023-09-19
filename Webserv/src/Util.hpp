@@ -19,6 +19,7 @@
 #include <map>
 #include <cctype> // for isalnum
 #include <algorithm>
+#include <vector>
 
 #define B_CHAR_NO_SPACE "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'()+_,-./:=?"; // for boundary
 
@@ -53,6 +54,13 @@ public:
     static bool startsWith(const std::string &str, const std::string &prefix);
     static std::string toLowerCase(const std::string &input);
     static bool caseInsensitiveCompare(const std::string &str1, const std::string &str2);
+
+    static std::vector<std::string>
+	splitString(std::string input, char delimiter);
+    static std::string ldtrim(const std::string &str, const std::string& delim);
+    static std::string rdtrim(const std::string &str, const std::string& delim);
+    static std::string lrdtrim(const std::string &str, const std::string& delim);
+	static std::string removeDuplicate(std::string const& input);
 
 public:
 };

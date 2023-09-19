@@ -215,3 +215,62 @@ bool Util::caseInsensitiveCompare(const std::string &str1, const std::string &st
     std::string lowerStr2 = toLowerCase(str2);
     return lowerStr1 == lowerStr2;
 }
+
+std::vector<std::string>	Util::splitString
+(std::string input, char delimiter)
+{
+	std::vector<std::string>	result;
+	std::stringstream			ss(input);
+	std::string					item;
+
+	while (std::getline(ss, item, delimiter))
+		result.push_back(item);
+	return result;
+}
+
+std::string Util::ldtrim(const std::string &str, const std::string& delim)
+{
+	std::string	delimiter = " \t" + delim;
+
+    std::string::size_type pos = str.find_first_not_of(delimiter);
+    if (pos == std::string::npos)
+    {
+        return "";
+    }
+    return str.substr(pos);
+}
+
+std::string Util::rdtrim(const std::string &str, const std::string& delim)
+{
+	std::string	delimiter = " \t" + delim;
+
+    std::string::size_type pos = str.find_last_not_of(delimiter);
+    if (pos == std::string::npos)
+    {
+        return "";
+    }
+    return str.substr(0, pos + 1);
+}
+
+std::string Util::lrdtrim(const std::string &str, const std::string& delim)
+{
+    return ldtrim(rdtrim(str, delim), delim);
+}
+
+std::string	Util::removeDuplicate(std::string const& input)
+{
+	std::string	result;
+	char		currentChar;
+	bool		chars[256] = { false, };
+
+	for (std::size_t i = 0; i < input.length(); ++i)
+	{
+		currentChar = input[i];
+		if (!chars[static_cast<unsigned char>(currentChar)])
+		{
+			result += currentChar;
+			chars[static_cast<unsigned char>(currentChar)] = true;
+		}
+	}
+	return result;
+}
