@@ -60,4 +60,6 @@ public:
     std::pair<int, std::string> getRedirect() const;
 };
 
+std::ostream &operator<<(std::ostream &os, const Location &location);
+
 #endif

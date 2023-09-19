@@ -49,3 +49,10 @@ std::vector<std::string> Location::getIndex() const { return _index; }
 
 void Location::setRedirect(const std::pair<int, std::string> &rd) { _redirect = rd; }
 std::pair<int, std::string> Location::getRedirect() const { return _redirect; }
+
+std::ostream &operator<<(std::ostream &os, const Location &location)
+{
+
+    os << "   - 로케이션(\"" << location.getUri() << "\")" <<  std::endl;
+    return os;
+}

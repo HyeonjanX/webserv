@@ -1,4 +1,5 @@
 #include "Host.hpp"
+#include <stdexcept>
 
 Host::Host(
     const Server &server,
@@ -8,7 +9,25 @@ Host::Host(
         :   _server(const_cast<Server &>(server)),
             _hostname(hostname),
             _root(root),
-            _clientMaxBodySize(clientMaxBodySize) {}
+            _clientMaxBodySize(clientMaxBodySize)
+{
+    initLocation("/");
+}
+
+void Host::initLocation(const std::string &uri)
+{
+    for (std::vector<Location>::iterator it = _locations.begin(); it < _locations.end(); ++it)
+    {
+        if (it.base()->getUri() == uri)
+        {
+            throw std::runtime_error("Duplicated location's path");
+        }
+    }
+    
+    Location lo(*this, uri);
+    
+    _locations.push_back(lo);
+}
 
 Host::~Host(void) {}
 
@@ -61,3 +80,18 @@ const Location &Host::matchLocation(const std::string &path) const
 
 const Server &Host::getServer(void) const { return _server; }
 std::string Host::getHostname(void) const { return _hostname; }
+const std::vector<Location> Host::getLocations(void) const { return _locations; }
+
+std::ostream &operator<<(std::ostream &os, const Host &host)
+{
+    const std::vector<Location> locations = host.getLocations();
+
+    os << " - 호스트(\"" << host.getHostname() << "\")" <<  std::endl;
+
+    for (size_t i = 0; i < locations.size(); ++i)
+    {
+        os << locations[i];
+    }
+    os << std::endl;
+    return os;
+}

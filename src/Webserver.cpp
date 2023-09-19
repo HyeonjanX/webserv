@@ -68,10 +68,11 @@ void Webserver::initServer(int port, int sockreuse, int backlog)
 {
   Server s(port, sockreuse, backlog);
 
-  _servers.erase(s.getSocket());
   _servers.insert(std::make_pair(s.getSocket(), s));
   _eventHandler.registerReadEvent(s.getSocket());
-  std::cout << port << "서버생성" << std::endl;
+  
+  // std::cout << port << "서버생성" << std::endl; // 아래 출력으로 대체
+  std::cout << s << std::endl;
 }
 
 void Webserver::initClient(int serverSocket, Server *s)
@@ -81,7 +82,7 @@ void Webserver::initClient(int serverSocket, Server *s)
   _clients.erase(c.getSocket());
   _clients.insert(std::make_pair(c.getSocket(), c));
   _eventHandler.registerReadWriteEvents(c.getSocket());
-  std::cout << "init: " << c.getSocket() << std::endl;
+  std::cout << "initClient: fd(" << c.getSocket() << ")" << std::endl;
 }
 
 void Webserver::runWebserver(void)
