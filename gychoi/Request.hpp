@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:09 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/15 00:00:58 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/19 17:44:14 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -41,7 +41,6 @@ class	Request
 {
 	private:
 		std::string				_rawData;
-		std::string				_header; // need to remove
 		std::vector<Header>		_headers;
 		std::string				_body;
 		unsigned int			_contentLength;
@@ -57,12 +56,11 @@ class	Request
 		Request(std::string const& data);
 		Request(Request const& target);
 		~Request(void);
-		Request&						operator=(Request const& target);
+		Request&					operator=(Request const& target);
 
 	public:
 		std::string const&			getRawData(void) const;
 		void						setRawData(std::string const rawData);
-		std::string const&			getHttpHeader(void) const;
 		std::vector<Header> const&	getHttpHeaders(void) const;
 		std::string const&			getHttpBody(void) const;
 		unsigned int				getContentLength(void) const;
@@ -74,11 +72,14 @@ class	Request
 		std::string const&			getHttpVersion(void) const;
 
 	public:
-		void						updateRequestLine(void);
-		void						updateHttpHeader(void);
-		void						updateHeaderValue(std::string const& key,
-									std::string const& value);
-		void						updateHttpBody(void);
+		void						readRequestLine(void);
+		void						readHttpHeader(void);
+		void						readHttpBody(void);
+		void						updateHeaderValue(
+										std::string const& key,
+										std::string const& valuei
+									);
+		std::string					findHeaderValue(std::string const& key);
 		void						handleChunkedBody(void);
 		void						handleMultipartBody(void);
 		bool						isLastChunk(void) const;

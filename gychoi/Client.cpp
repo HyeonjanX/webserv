@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/06 19:52:55 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/18 22:57:06 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/19 17:47:09 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -60,7 +60,7 @@ Client&	Client::operator=(Client const& target)
 		this->_port = target.getClientPort();
 		this->_addr = target.getClientAddr();
 		this->_addrlen = target.getClientAddrlen();
-		std::copy(target.getClientBuffer(), 
+		std::copy(target.getClientBuffer(),
 			target.getClientBuffer() + BUFFER_SIZE, this->_buffer);
 		this->_request = target.getClientRequest();
 		this->_status = target.getClientStatus();
@@ -147,13 +147,11 @@ bool	Client::readClientRequest(void)
 	ssize_t	readByte;
 
 	if ((readByte = recv(this->_sock, const_cast<char*>(this->_buffer),
-					sizeof(this->_buffer), 0)) == -1)
+					sizeof(this->_buffer), 0)) < 0)
 	{
 		throwError("recv failed"); // need to change
 		// status = 500?
 	}
-//	else if (readByte == 0)
-//		return false;
 	else
 	{
 		std::string	s = this->_request.getRawData();
@@ -178,38 +176,31 @@ bool	Client::uploadClientFile(void)
 	Request					req = this->_request;
 	std::vector<Content>	contents = req.getContents();
 
-	//std::cout << contents.size() << std::endl;
 	if (contents.empty())
 		return true;
 
 	for (std::vector<Content>::iterator cit = contents.begin();
 		cit != contents.end(); ++cit)
 	{
-		if (!cit->filename.empty())
-		{
-			std::ofstream	uploadFile(cit->filename.c_str(), std::ios::binary);
+		if (cit->filename.empty())
+			continue;
+		std::ofstream	uploadFile(cit->filename.c_str(), std::ios::binary);
 
-			if (uploadFile.is_open())
-			{
-				uploadFile.write(cit->data.c_str(), static_cast<std::streamsize>
-								(cit->data.size()));
-				uploadFile.close();
-			}
-			else
-			{
-				std::cout << "ERROR: Cannot create " << cit->filename << std::endl;
-				return false;
-			}
+		if (uploadFile.is_open())
+		{
+			uploadFile.write(cit->data.c_str(), static_cast<std::streamsize>
+							(cit->data.size()));
+			uploadFile.close();
+		}
+		else
+		{
+			std::cout << "ERROR: Cannot create " << cit->filename << std::endl;
+			uploadFile.close();
+			return false;
 		}
 	}
 	return true;
 }
-
-//bool	Client::writeRequest(void)
-//{
-//	// Response에서 구현해야 하는 부분.
-//	// status code에 따라 다른 페이지 반환.
-//}
 
 /**
  * Helper Function
@@ -219,7 +210,7 @@ static void	checkRequestLine(Client& client)
 {
 	Request&	request = client.getClientRequest();
 
-	request.updateRequestLine();
+	request.readRequestLine();
 	if (request.getHttpMethod().empty() || request.getRequestUrl().empty()
 		|| request.getHttpVersion().empty())
 		return;
@@ -230,8 +221,8 @@ static void	checkHttpHeader(Client& client)
 {
 	Request&	request = client.getClientRequest();
 
-	request.updateHttpHeader();
-	if (request.getHttpHeader().empty())
+	request.readHttpHeader();
+	if (request.getHttpHeaders().empty())
 		return;
 	client.setClientStatus(READ_HEADER);
 }
@@ -240,7 +231,7 @@ static void	checkHttpBody(Client& client)
 {
 	Request&	request = client.getClientRequest();
 
-	request.updateHttpBody();
+	request.readHttpBody();
 	client.setClientStatus(READ_BODY);
 }
 

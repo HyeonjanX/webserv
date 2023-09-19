@@ -6,21 +6,17 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:39 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/18 16:44:53 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/09/19 18:27:01 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Request.hpp"
 
-static std::string			extractHttpHeader(std::string const& rawData);
-static std::vector<Header>	extractHttpHeaders(std::string const& header);
+static std::vector<Header>	extractHttpHeaders(std::string const& rawData);
 static std::string			extractHttpBody(std::string const& rawData);
-static unsigned int			extractContentLength(std::string const& header);
-static std::string			extractTransferEncoding(std::string const& header);
-static std::string			extractContentType(std::string const& header);
-static std::string			extractHttpMethod(std::string const& header);
-static std::string			extractRequestUrl(std::string const& header);
-static std::string			extractHttpVersion(std::string const& header);
+static std::string			extractHttpMethod(std::string const& rawdata);
+static std::string			extractRequestUrl(std::string const& rawData);
+static std::string			extractHttpVersion(std::string const& rawData);
 static std::string			extractChunkedBody(std::string const& body);
 static std::vector<Content>	extractMultipartBody
 (std::string const& body, std::string& boundary);
@@ -35,9 +31,9 @@ Request::Request(void) : _contentLength(0) {}
 Request::Request(std::string const& data)
 {
 	this->_rawData = data;
-	updateRequestLine();
-	updateHttpHeader();
-	updateHttpBody();
+	readRequestLine();
+	readHttpHeader();
+	readHttpBody();
 }
 
 Request::Request(Request const& target)
@@ -51,7 +47,6 @@ Request&	Request::operator=(Request const& target)
 	if (this != &target)
 	{
 		this->_rawData = target.getRawData();
-		this->_header = target.getHttpHeader();
 		this->_headers = target.getHttpHeaders();
 		this->_body = target.getHttpBody();
 		this->_contentLength = target.getContentLength();
@@ -79,11 +74,6 @@ std::string const&	Request::getRawData(void) const
 void	Request::setRawData(std::string const rawData)
 {
 	this->_rawData = rawData;
-}
-
-std::string const&	Request::getHttpHeader(void) const
-{
-	return this->_header;
 }
 
 std::vector<Header> const&	Request::getHttpHeaders(void) const
@@ -136,7 +126,7 @@ std::string const&	Request::getHttpVersion(void) const
  */
 
 /**
- * @brief updateRequestLine
+ * @brief readRequestLine
  *
  * _rawData에 저장된 HTTP 문자열을 바탕으로
  * Request Line과 관련된 멤버 변수를 업데이트 합니다.
@@ -144,7 +134,7 @@ std::string const&	Request::getHttpVersion(void) const
  * @param void
  * @return void
  */
-void	Request::updateRequestLine(void)
+void	Request::readRequestLine(void)
 {
 	this->_method = extractHttpMethod(this->_rawData);
 	this->_requestUrl = extractRequestUrl(this->_rawData);
@@ -152,7 +142,7 @@ void	Request::updateRequestLine(void)
 }
 
 /**
- * @brief updateHttpHeader
+ * @brief readHttpHeader
  *
  * _rawData에 저장된 HTTP 문자열을 바탕으로
  * Header와 관련된 멤버 변수를 업데이트 합니다.
@@ -160,13 +150,27 @@ void	Request::updateRequestLine(void)
  * @param void
  * @return void
  */
-void	Request::updateHttpHeader(void)
+void	Request::readHttpHeader(void)
 {
-	this->_header = extractHttpHeader(this->_rawData);
-	this->_headers = extractHttpHeaders(this->_header);
-	this->_contentLength = extractContentLength(this->_header);
-	this->_transferEncoding = extractTransferEncoding(this->_header);
-	this->_contentType = extractContentType(this->_header);
+	this->_headers = extractHttpHeaders(this->_rawData);
+	this->_contentLength = static_cast<unsigned int>
+		(atoi(findHeaderValue("Content-Length").c_str()));
+	this->_transferEncoding = findHeaderValue("Transfer-Encoding");
+	this->_contentType = findHeaderValue("Content-Type");
+}
+
+/**
+ * @brief readHttpBody
+ *
+ * _rawData에 저장된 HTTP 문자열을 바탕으로
+ * Body와 관련된 멤버 변수를 업데이트 합니다.
+ *
+ * @param void
+ * @return void
+ */
+void	Request::readHttpBody(void)
+{
+	this->_body = extractHttpBody(this->_rawData);
 }
 
 /**
@@ -181,29 +185,40 @@ void	Request::updateHttpHeader(void)
 void	Request::updateHeaderValue
 		(std::string const& key, std::string const& newValue)
 {
-	for (std::vector<Header>::iterator it = this->_headers.begin();
-		it != this->_headers.end(); ++it)
+	std::vector<Header>&	headers = this->_headers;
+
+	for (std::vector<Header>::iterator hit = headers.begin();
+		hit != headers.end(); ++hit)
 	{
-		if (it->key == key)
+		if (hit->key == Util::toLowerCase(key))
 		{
-			it->value = newValue;
+			hit->value = newValue;
 			break;
 		}
 	}
 }
 
 /**
- * @brief updateHttpBody
+ * @brief FindHeaderValue
  *
- * _rawData에 저장된 HTTP 문자열을 바탕으로
- * Body와 관련된 멤버 변수를 업데이트 합니다.
+ * 인자로 key를 받아, headers에 저장된 구조체를 순회하며,
+ * 일치하는 key 필드를 가진 구조체의 value 필드를 복사하여 가져옵니다.
+ * 찾는 값이 없는 경우, 빈 문자열을 반환합니다.
  *
- * @param void
- * @return void
+ * @param std::string const& key;
+ * @return std::string value;
  */
-void	Request::updateHttpBody(void)
+std::string	Request::findHeaderValue(std::string const& key)
 {
-	this->_body = extractHttpBody(this->_rawData);
+	std::vector<Header>&	headers = this->_headers;
+
+	for (std::vector<Header>::iterator hit = headers.begin();
+		hit != headers.end(); ++hit)
+	{
+		if (hit->key == Util::toLowerCase(key))
+			return hit->value;
+	}
+	return std::string();
 }
 
 /**
@@ -218,12 +233,14 @@ void	Request::updateHttpBody(void)
  */
 void	Request::handleChunkedBody(void)
 {
-	if (this->_transferEncoding == "chunked")
+	if (this->_transferEncoding.find("chunked") != std::string::npos)
 	{
 		this->_body = extractChunkedBody(this->_body);
 		this->_contentLength = static_cast<unsigned int>(this->_body.size());
-		updateHeaderValue
-		("content-length", std::to_string(this->_contentLength));
+		updateHeaderValue(
+			"Content-Length",
+			std::to_string(this->_contentLength)
+		);
 	}
 }
 
@@ -238,10 +255,11 @@ void	Request::handleChunkedBody(void)
  */
 void	Request::handleMultipartBody(void)
 {
-	// parsing한 body의 시작과 끝에 CRLF가 들어가 있다.
 	std::string	boundary;
 	std::size_t	pos;
 
+	// need validation check
+	// 오류인 경우 어떻게 catch할까?
 	if (this->_contentType.find("multipart/form-data;") != std::string::npos)
 	{
 		if ((pos = this->_contentType.find("boundary=")) != std::string::npos)
@@ -270,30 +288,27 @@ bool	Request::isLastChunk(void) const
 	std::string	lastChunk;
 	std::string	lastTwoChars;
 
-	if ((pos = this->_body.rfind(CRLF)) != std::string::npos)
+	if ((pos = this->_body.rfind(CRLF)) == std::string::npos
+		|| (pos = this->_body.rfind(CRLF, --pos)) == std::string::npos)
+		return false;
+	lastChunkPos = pos;
+	lastTwoChars = this->_body.substr(this->_body.length() - 2);
+	if ((pos = this->_body.rfind(CRLF, --pos)) != std::string::npos)
 	{
-		if ((pos = this->_body.rfind(CRLF, --pos)) != std::string::npos)
-		{
-			lastChunkPos = pos;
-			lastTwoChars = this->_body.substr(this->_body.length() - 2);
-			if ((pos = this->_body.rfind(CRLF, --pos)) != std::string::npos)
-			{
-				pos += 2;
-				line = this->_body.substr(pos);
-				lastChunk = Util::removeDuplicate
-							(line.substr(0, lastChunkPos - pos));
-				if ((lastChunk == "0") && (lastTwoChars == CRLF))
-					return true;
-			}
-			else
-			{
-				line = this->_body;
-				lastChunk = Util::removeDuplicate
-							(line.substr(0, lastChunkPos));
-				if ((lastChunk == "0") && (lastTwoChars == CRLF))
-					return true;
-			}
-		}
+		pos += 2;
+		line = this->_body.substr(pos);
+		lastChunk = Util::removeDuplicate
+					(line.substr(0, lastChunkPos - pos));
+		if ((lastChunk == "0") && (lastTwoChars == CRLF))
+			return true;
+	}
+	else
+	{
+		line = this->_body;
+		lastChunk = Util::removeDuplicate
+					(line.substr(0, lastChunkPos));
+		if ((lastChunk == "0") && (lastTwoChars == CRLF))
+			return true;
 	}
 	return false;
 }
@@ -309,7 +324,6 @@ bool	Request::isLastChunk(void) const
 void	Request::resetRequest(void)
 {
 	this->_rawData.clear();
-	this->_header.clear();
 	this->_headers.clear();
 	this->_body.clear();
 	this->_contentLength = 0;
@@ -325,16 +339,7 @@ void	Request::resetRequest(void)
  * Helper Function
  */
 
-static std::string	extractHttpHeader(std::string const& rawData)
-{
-	std::size_t	headerPos = rawData.find(DOUBLE_CRLF);
-
-	if (headerPos != std::string::npos)
-		return rawData.substr(0, headerPos + 4);
-	return std::string();
-}
-
-static std::vector<Header>	extractHttpHeaders(std::string const& header)
+static std::vector<Header>	extractHttpHeaders(std::string const& rawData)
 {
 	std::vector<Header>	headers;
 	std::size_t			pos;
@@ -342,10 +347,12 @@ static std::vector<Header>	extractHttpHeaders(std::string const& header)
 	std::size_t			colPos;
 	std::string			line;
 
+	if (rawData.find(DOUBLE_CRLF) == std::string::npos)
+		return headers;
 	oldPos = 0;
-	while ((pos = header.find(CRLF, oldPos)) != std::string::npos)
+	while ((pos = rawData.find(CRLF, oldPos)) != std::string::npos)
 	{
-		line = header.substr(oldPos, pos - oldPos);
+		line = rawData.substr(oldPos, pos - oldPos);
 		colPos = line.find(":");
 		if (colPos != std::string::npos)
 		{
@@ -368,113 +375,51 @@ static std::string	extractHttpBody(std::string const& rawData)
 	return std::string();
 }
 
-// headers에서 찾는걸로 고치자.
-static unsigned int	extractContentLength(std::string const& header)
-{
-	std::string	value;
-	std::size_t	startPos;
-	std::size_t	endPos;
-
-	startPos = header.find("Content-Length:");
-	if (startPos != std::string::npos)
-	{
-		startPos += 15;
-		endPos = header.find(CRLF, startPos);
-		if (endPos != std::string::npos)
-		{
-			value = header.substr(startPos, endPos - startPos);
-			return static_cast<unsigned int>(atoi(value.c_str()));
-		}
-	}
-	return 0;
-}
-
-static std::string	extractTransferEncoding(std::string const& header)
-{
-	std::string	value;
-	std::size_t	startPos;
-	std::size_t	endPos;
-
-	startPos = header.find("Transfer-Encoding:");
-	if (startPos != std::string::npos)
-	{
-		startPos += 18;
-		endPos = header.find(CRLF, startPos);
-		if (endPos != std::string::npos)
-		{
-			value = Util::lrtrim(header.substr(startPos, endPos - startPos));
-			return value;
-		}
-	}
-	return std::string();
-}
-
-static std::string	extractContentType(std::string const& header)
-{
-	std::string	value;
-	std::size_t	startPos;
-	std::size_t	endPos;
-
-	startPos = header.find("Content-Type:");
-	if (startPos != std::string::npos)
-	{
-		startPos += 13;
-		endPos = header.find(CRLF, startPos);
-		if (endPos != std::string::npos)
-		{
-			value = Util::lrtrim(header.substr(startPos, endPos - startPos));
-			return value;
-		}
-	}
-	return std::string();
-}
-
-static std::string	extractHttpMethod(std::string const& header)
+static std::string	extractHttpMethod(std::string const& rawData)
 {
 	std::string	method;
 	std::size_t	findPos;
 
-	findPos = header.find(' ');
+	findPos = rawData.find(' ');
 	if (findPos != std::string::npos)
 	{
-		method = header.substr(0, findPos);
-		if (method == "CONNECT" || method == "DELETE" || method == "GET"
-			|| method == "HEAD" || method == "OPTIONS" || method == "POST"
-			|| method == "PUT" || method == "TRACE")
+		method = rawData.substr(0, findPos);
+		if (method == "DELETE" || method == "GET"
+			|| method == "HEAD" || method == "POST" || method == "PUT")
 			return method;
 	}
 	return std::string();
 }
 
-static std::string	extractRequestUrl(std::string const& header)
+static std::string	extractRequestUrl(std::string const& rawData)
 {
 	std::size_t	findPos1;
 	std::size_t	findPos2;
 
-	findPos1 = header.find(' ');
+	findPos1 = rawData.find(' ');
 	if (findPos1 == std::string::npos)
 		return std::string();
-	findPos2 = header.find(' ', ++findPos1);
+	findPos2 = rawData.find(' ', ++findPos1);
 	if (findPos2 != std::string::npos)
-		return header.substr(findPos1, findPos2 - findPos1);
+		return rawData.substr(findPos1, findPos2 - findPos1);
 	return std::string();
 }
 
-static std::string	extractHttpVersion(std::string const& header)
+static std::string	extractHttpVersion(std::string const& rawData)
 {
 	std::string	httpVersion;
 	std::size_t	findPos1;
 	std::size_t	findPos2;
 	std::size_t	endPos;
 
-	findPos1 = header.find(' ');
+	findPos1 = rawData.find(' ');
 	if (findPos1 == std::string::npos)
 		return std::string();
-	findPos2 = header.find(' ', ++findPos1);
+	findPos2 = rawData.find(' ', ++findPos1);
 	if (findPos2++ != std::string::npos)
 	{
-		endPos = header.find(CRLF);
-		httpVersion = header.substr(findPos2, endPos - findPos2);
+		endPos = rawData.find(CRLF);
+		httpVersion = rawData.substr(findPos2, endPos - findPos2);
 		if (httpVersion == "HTTP/1.1" || httpVersion == "HTTP/1.0")
 			return httpVersion;
 	}
@@ -505,7 +450,7 @@ static std::size_t	readChunkSize(std::string& line)
 		else {
 			// Malformed Data
 			// 어떻게 처리할까?
-			std::cout << "Malformed: " << std::endl;
+			std::cout << "Malformed: " << hexChar << std::endl;
 		}
 	}
 	return chunkSize;
@@ -543,7 +488,6 @@ static std::vector<Content>	extractMultipartBody
 	std::size_t					oldPos = 0;
 	bool						flag = true;
 
-	// 이게 맞나...
 	// boundary validation check
 	boundary = "--" + boundary;
 	while (((pos = body.find(boundary, oldPos)) != std::string::npos)
