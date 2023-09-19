@@ -4,6 +4,7 @@ SRCS = Client.cpp\
 	File.cpp\
 	Host.cpp\
 	Location.cpp\
+	Request.cpp\
 	Response.cpp\
 	Server.cpp\
 	Util.cpp\
