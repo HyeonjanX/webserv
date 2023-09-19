@@ -1,4 +1,5 @@
 #include "Response.hpp"
+#include "Util.hpp"
 
 Response::Response(void)
     : _statusCode(0), _totalBytes(0), _sendedBytes(0) {}
@@ -40,17 +41,21 @@ void Response::clean(void)
 
 void Response::generateResponseData(void)
 {
+    const std::string SP(" ");
+    const std::string CRLF("\r\n");
     std::ostringstream oss;
 
-    oss << "HTTP/" << _httpVersion << " " << _statusCode << " " << _statusMessage << "\r\n";
+    oss << "HTTP/" << _httpVersion << SP 
+        << _statusCode << SP
+        << Util::getStatusCodeMessage(_statusCode) << CRLF;
 
     for (std::map<std::string, std::string>::iterator it = _headers.begin(); it != _headers.end(); ++it)
     {
-        oss << it->first << ": " << it->second << "\r\n";
+        oss << it->first << ": " << it->second << CRLF;
     }
     // std::cout << "응답 생성 확인" << std::endl;
 
-    oss << "\r\n";
+    oss << CRLF;
 
     // std::cout << "헤더까지: " << std::endl;
     // std::cout << oss.str() << std::endl;

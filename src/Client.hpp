@@ -74,6 +74,8 @@ public:
 
     int _status;
     int _ischunk;
+    int _erron;
+    int _defaultBodyNeed;
 
     std::string _errMessage;
 
@@ -92,10 +94,21 @@ public:
     void readHeader(void);
     void readBody(void);
 
+    int afterRead(void);
+
+    int notCgiGetProcess(const std::string &filepath);
+    int notCgiPostProcess(const std::string &filepath, const std::string &body);
+    int notCgiDeleteProcess(const std::string &filepath);
+    int readDefaultErrorFile(const std::string &filepath);
+
+    std::string createDefaultPage(int statusCode);
+    std::string createDefaultBody(int statusCode);
+
 public:
     int sendProcess(void);
     
     // int readFile(const std::string &filePath); => File로 이동
+    void makeResponseData(void);
     int makeResponse(const std::string & filePath);
     void setResponseStatus(int statusCode, const std::string &statusMessage);
     int checkSendBytes() const;
