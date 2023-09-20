@@ -28,9 +28,12 @@
 class Server;
 class EventHandler;
 class Webserver;
+class Request;
+
 #include "Webserver.hpp"
 #include "EventHandler.hpp"
 #include "Server.hpp"
+#include "Request.hpp"
 
 typedef enum CLIENT_STATUS {
   BEFORE_READ,
@@ -56,6 +59,8 @@ private:
     
     int                 _socket;
     struct sockaddr_in  _addr;
+
+    Request				_request;
 
     Webserver*          _ws;
     Server*             _server;

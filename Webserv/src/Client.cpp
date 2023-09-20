@@ -29,6 +29,7 @@ int Client::notCgiGetProcess(const std::string &filepath)
         _response.setBody(fileData);
         _response.setStatusCode(200);
         _erron = 0;
+        _defaultBodyNeed = 0; // 바디는 fileData
     }
     catch (int statusCode)
     {
@@ -96,37 +97,36 @@ int Client::afterRead(void)
     const std::string POST_METHOD("POST");
     const std::string DELETE_METHOD("DELETE");
 
-    std::cout << RED << "afterRead()" << RESET << std::endl;
+    std::cout << RED << "afterRead(): " << _request.getHttpMethod() << ", " << _request.getRequestUrl()  << RESET << std::endl;
 
     // HTTP Request가 완성 되었다. => method && path
-    // 1. GET /2MB.jpeg
-    std::string tempMethod("GET");
-    // std::string tempMethod("POST");
-    // std::string tempMethod("DELETE");
+    // 1. GET
+    const std::string &method = _request.getHttpMethod();
 
     // 2. location과 매칭해야한다.
+    // std::string root(".");
+    std::string root("../data");
+    std::string filepath = root + _request.getRequestUrl();
 
     // 3. CGI vs Not CGI
-    bool tempCgi = false;
-    if (!tempCgi)
+    bool cgion = false; // 어디서 어떻게 받아와야 할까?
+    if (!cgion)
     {
-        if (tempMethod.compare(GET_METHOD) == 0)
+        if (method.compare(GET_METHOD) == 0)
         {
             std::cout << BLUE << "GET_METHOD()" << RESET << std::endl;
-            std::string filepath("./2MB.jpeg");
+            // std::string filepath("./2MB.jpeg");
             notCgiGetProcess(filepath);
         }
-        else if (tempMethod.compare(POST_METHOD) == 0)
+        else if (method.compare(POST_METHOD) == 0)
         {
             std::cout << BLUE << "POST_METHOD()" << RESET << std::endl;
-            const std::string filepath("./2MB_UPLOADED.jpeg");
-            std::string tempBody = File::getFile("./2MB.jpeg");
-            notCgiPostProcess(filepath, tempBody);
+            std::string body = _request.getHttpBody();
+            notCgiPostProcess(filepath, body);
         }
-        else if (tempMethod.compare(DELETE_METHOD) == 0)
+        else if (method.compare(DELETE_METHOD) == 0)
         {
             std::cout << BLUE << "DELETE_METHOD()" << RESET << std::endl;
-            const std::string filepath("./2MB_UPLOADED.jpeg");
             notCgiDeleteProcess(filepath);
         }
         else
@@ -205,119 +205,78 @@ int Client::readProcess(void)
 {
     // 1. 데이터 읽기 => 청크 모드 ? 특별 처리 : 일반처리
 
-    // ================ FOR TEST =============
     std::vector<char> buffer(100000);
-    ssize_t bytes_read = read(_socket, buffer.data(), buffer.size());
+    ssize_t bytes_read = recv(_socket, buffer.data(), buffer.size(), 0);
 
-    if (bytes_read > 0)
+    if (bytes_read <= 0)
     {
+        // 방법1. throw
+        throw std::runtime_error("Fail to recv");
 
-        std::cout << "========== 입력받은 데이터 (" << bytes_read << ")==========" << std::endl;
-        std::cout << std::string(buffer.begin(), buffer.end()) << std::endl;
-        std::cout << "------------------------------" << std::endl;
-
-        buffer.resize(bytes_read);                  // 실제로 읽은 데이터만큼만 크기를 조절
-        _data.append(buffer.begin(), buffer.end()); // vector의 데이터를 string에 더함
+        // 방법2. 여기서 바로 정리
+        // std::cerr << "Fail to read(): " + std::string(strerror(errno)) << std::endl;
+        // _ws->closeClient(_socket);
+        // return 0;
     }
-    // GET 요청 => 파일 읽어 리턴.
 
-    // 1. GET && no cgi
-    // makeResponse("./large.txt");
-    // makeResponse("./2mb_image.jpeg");
-    // _eventHandler->turnOnWrite(_socket);
-    // return bytes_read;
+    _request.appendRawData(buffer, bytes_read);
 
-    _eventHandler->turnOffRead(_socket);
-    afterRead();
-    // 1. http 버전 설정
-    _response.setHttpVersion(std::string("1.1"));
-    _response.setHeader(std::string("Content-Length"), std::string(Util::ft_itoa(_response.getBody().length())));
-    _response.setHeader(std::string("Date"), Util::getDateString());
-    _response.generateResponseData();
-    _eventHandler->turnOnWrite(_socket);
-    return 0;
-
-    int __statusCode;
     try
     {
-        // std::string fileData = File::getFile("./large.txt");
-        std::string fileData = File::getFile("./miyeon.jpeg");
-        _response.setBody(fileData);
-        __statusCode = 200;
-    }
-    catch (int statusCode)
-    {
-        __statusCode = statusCode;
-    }
-    // setResponseStatus(__statusCode, Util::getStatusCodeMessage(__statusCode));
-    tempMakeResponseByStatusCode(__statusCode);
-    _eventHandler->turnOnWrite(_socket);
-    return 0;
+        // if (this->_status == READ_HEADER || this->_status == READING)
+        //     checkHttpBody(*this);
+        // if (this->_status == READ_BODY)
+        //     validateReadStatus(*this);
+        // if (this->_status == READ_END)
+        //     purifyHttpBody(*this);
 
-    // 2. POST && no cgi
-    std::cout << "data.size(): " << _data.size() << std::endl;
-
-    if (buffer.size() > 10000)
-    {
-        try
+        if (_status == BEFORE_READ)
+            readRequestLine(); // throw 400 505, to READ_REQUESTLINE
+        if (_status == READ_REQUESTLINE)
         {
-            std::string filepath("./upload.txt");
-            File::writeFile(filepath, _data);
-            __statusCode = 201;
+            readHeader(); // throw 400, to READ_HEADER
+            if (_status == READ_HEADER)
+            {
+                // 헤더 검사하는 함수 만들어서 호출!
+            }
         }
-        catch (int statusCode)
+        if (_status == READ_HEADER)
         {
-            __statusCode = statusCode;
+            bool chunkMode = false;
+            if (chunkMode)
+            {
+                chunkRead(); // throw 400 413, to READ_BODY
+            }
+            else
+            {
+                readBody(); // throw 400 413, to READ_BODY
+            }
         }
-
-        setResponseStatus(__statusCode, Util::getStatusCodeMessage(201));
-        tempMakeResponseByStatusCode(__statusCode);
-        _eventHandler->switchToWriteState(_socket);
-        return 0;
+        if (_status == READ_BODY)
+        {
+            // 바디 가지고 무언가를 해야 한다면???
+            // 바디가 multipart/form-data 등 일 경우 => 파싱 필요
+            _status = READ_END;
+        }
     }
-    return 0;
-
-    // ================ FOR TEST END ====================
-
-    // char buffer[1024];
-    // ssize_t bytes_read = read(_socket, buffer, 1024);
-
-    if (bytes_read == -1)
+    catch(int statusCode)
     {
-        std::cerr << "Fail to read(): " + std::string(strerror(errno)) << std::endl;
-        _ws->closeClient(_socket);
-        return 0;
-    }
+        // 에러 => statusCode를 들고 기본 응답 생성.
+        _status = READ_END;
+        _response.setStatusCode(statusCode);
+        
+        _defaultBodyNeed = 1;
+        _erron = 1;
 
-    _data.append(buffer.begin(), buffer.end());
-
-    if (_status == READ_REQUESTLINE)
-    {
-        readRequestLine();
-    }
-    if (_status == READ_HEADER)
-    {
-        readHeader();
-    }
-    if (_status == READ_BODY)
-    {
-        readBody();
-    }
-
-    if (_status == BODY_LIMIT_OVER || _status == BODY_SIZE_OVER)
-    {
-        // 오류
-        makeResponse("./404.html");
-        _eventHandler->switchToWriteState(_socket);
+        _response.setBody(createDefaultPage(_response.getStatusCode()));
     }
     if (_status == READ_END)
     {
-        // 수신 완료
-        makeResponse("./lorem_ipsum.txt");
-        _eventHandler->switchToWriteState(_socket);
+        afterRead();
     }
+    _eventHandler->switchToWriteState(_socket);
 
-    return bytes_read;
+    return 0;
 }
 
 int Client::chunkRead(void)
@@ -398,7 +357,9 @@ int Client::tempMakeResponseByStatusCode(int statusCode)
 
 void Client::makeResponseData(void)
 {
-    _response.setHttpVersion(std::string("1.1"));
+    const std::string &httpVersion = _request.getHttpVersion();
+    _response.setHttpVersion(httpVersion);
+    // _response.setHttpVersion(std::string("1.1"));
     _response.setHeader(std::string("Content-Length"), std::string(Util::ft_itoa(_response.getBody().length())));
     _response.setHeader(std::string("Date"), Util::getDateString());
     _response.generateResponseData();
@@ -454,103 +415,73 @@ std::string &Client::getData(void) { return _data; }
 
 void Client::readRequestLine(void)
 {
-    // 1. 헤더 끝까지 읽기
-    size_t pos = _data.find("\r\n");
+    // BEFORE_READ => READ_REQUESTLINE
+    const std::string rawData = _request.getRawData();
+    size_t pos = rawData.find("\r\n");
     if (pos != std::string::npos)
     {
-        _requestLine.append(_data, pos + 2);
-        _data = _data.substr(pos + 2);
-        _status = READ_HEADER;
+        std::cout << BLUE << "readRequestLine(): " <<  rawData.substr(0, pos) << RESET << std::endl;
+        _request.parseRequestLine(rawData.substr(0, pos));
+        _request.setRawData(rawData.substr(pos));
+        _status = READ_REQUESTLINE;
+        std::cout << YELLOW << _request.getHttpMethod() << _request.getRequestUrl() << _request.getHttpVersion() << RESET << std::endl;
     }
 }
 
 // 헤더 크기 제한 어딘가에 적용하기?
 void Client::readHeader(void)
 {
+    // READ_REQUESTLINE => READ_HEADER
     std::string::size_type pos = 0;
-    std::string::size_type old_pos = 0;
+    std::string::size_type oldPos = 0;
+    std::string::size_type colPos;
 
-    while ((pos = _data.find("\r\n", old_pos)) != std::string::npos)
+    const std::string rawData = _request.getRawData();
+
+    while ((pos = rawData.find("\r\n", oldPos)) != std::string::npos)
     {
         if (pos == 0)
         {
-            _data = _data.substr(pos + 2);
-            _status = READ_BODY;
-            // 헤더 분석
+            _request.setRawData(rawData.substr(pos + 2));
+            _status = READ_HEADER;
             return;
         }
 
-        std::string line = _data.substr(old_pos, pos - old_pos);
-
-        _header.append(line);
-
-        // std::string::size_type colon_pos = line.find(":");
-
-        //  if (colon_pos != std::string::npos)
-        // {
-        //     std::string name = line.substr(0, colon_pos);
-        //     std::string value = line.substr(colon_pos + 1);
-        //     _header2.push_back(std::make_pair(name, value));
-        // }
-        old_pos = pos + 2;
+        std::string line = rawData.substr(oldPos, pos - oldPos);
+        colPos = line.find(':');
+        if (colPos == std::string::npos)
+        {
+            throw 400; // Bad Request
+        }
+        std::string key = Util::toLowerCase(line.substr(0, colPos));
+        std::string val = Util::lrtrim(line.substr(colPos + 1));
+        _request.appendHeader(key, val);
+		oldPos = pos + 2;
     }
 
-    if (old_pos)
+    if (oldPos != 0)
     {
-        _data = _data.substr(old_pos);
+        _request.setRawData(rawData.substr(oldPos));
     }
 }
 
 // MUST: 바디 크기 제한
 void Client::readBody(void)
 {
-    // 1. data 읽어들이기
-    if (_ischunk)
-    {
-        // 2.1 chuncked 처리
-        size_t pos = _data.find("\r\n\r\n");
-        if (pos != std::string::npos)
-        {
-            // 끝을 찾음
-            if (pos + 4 == _data.size())
-            {
-                // \r\n\r\n으로 끝나야 유효한 요청.
-                // \r\n단위로 짤라서 뭔가 하기...
-                chunkRead();
-                _status = READ_END;
-            }
-            else
-            {
-                // 유효하지 않은 요청 => 응답 전송후 클라이언트 연결 종료
-                _status = ERROR_400;
-            }
-        }
-    }
-    else
-    {
-        // 청크 모드가 아니면 바디에 전부 추가하면 될듯?
-        _body.append(_data);
-        _data.clear();
-    }
+    // READ_HEADER => READ_BODY
+    // throw 400, 413 Payload Too Large
 
-    // 2. 바디 제한 길이 확인
-    if (_body.size() >= _bodyLimit)
-    {
-        _status = BODY_LIMIT_OVER;
-        return;
-    }
+    // rawData == 바디임.
+    const std::string rawData = _request.getRawData();
+
+    // 1. 바디 제한 길이 확인
+    if (rawData.size() >= _bodyLimit)
+        throw 413; // 413 Payload Too Large | Content Too Large
 
     // 3. 본문 길이 확인
-    if (_body.size() > _contentLength)
-    {
-        _status = BODY_SIZE_OVER;
-    }
-    else if (_body.size() == _contentLength)
-    {
-        _status = READ_END;
-    }
-    else
-    {
-        // 계속해서 수신
-    }
+    if (rawData.size() > _contentLength)
+        throw 400; // 400 or 413
+    
+    if (rawData.size() == _contentLength)
+        _status = READ_BODY;
 }

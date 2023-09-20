@@ -141,6 +141,44 @@ void	Request::readRequestLine(void)
 	this->_httpVersion = extractHttpVersion(this->_rawData);
 }
 
+int	Request::parseRequestLine(std::string const& requestLine)
+{
+	const bool DEBUG = false;
+	const char sp = ' ';
+
+	std::string	method, path, httpVersion;
+	std::size_t	pos1;
+	std::size_t	pos2;
+
+	if (DEBUG)
+	{
+		std::cout << GREEN <<  "요청라인: " << requestLine << RESET << std::endl;
+	}
+
+	pos1 = requestLine.find(sp);
+	if (pos1 == std::string::npos)
+		throw 400; // Bad Request
+	pos2 = requestLine.find(sp, pos1 + 1);
+	if (pos2 == std::string::npos)
+		throw 400; // Bad Request
+	_method = requestLine.substr(0, pos1);
+	_requestUrl = requestLine.substr(pos1 + 1, pos2 - (pos1 + 1));
+	_httpVersion = requestLine.substr(pos2 + 1);
+
+	// TODO: 각각 유효성 검사
+	
+	if (httpVersion.compare(std::string("HTTP/1.1")) != 0)
+	{
+		if (DEBUG)
+		{
+			std::cout << GREEN << "|" << _method << "| |" << _requestUrl << "| |" << _httpVersion << "|" << RESET << std::endl;
+		}
+		throw 505; // HTTP Version Not Supported
+	}
+
+	return 0;
+}
+
 /**
  * @brief readHttpHeader
  *
@@ -334,6 +372,25 @@ void	Request::resetRequest(void)
 	this->_requestUrl.clear();
 	this->_httpVersion.clear();
 }
+
+/**
+ * @brief appendRawData
+ *
+ * rawData에 방금 읽어들인 recvData를 추가합니다.
+ *
+ * @param void
+ * @return void
+ */
+void	Request::appendRawData(const std::vector<char> &buffer, ssize_t bytes_read)
+{
+	this->_rawData.append(buffer.data(), bytes_read);
+}
+
+void	Request::appendHeader(const std::string &key, const std::string &val)
+{
+	_headers.push_back(Header(key, val));
+}
+
 
 /**
  * Helper Function

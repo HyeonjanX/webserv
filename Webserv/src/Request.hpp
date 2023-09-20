@@ -27,6 +27,9 @@ struct Header
 {
 	std::string	key;
 	std::string	value;
+
+	Header() : key(""), value("") {}
+    Header(const std::string& k, const std::string& v) : key(k), value(v) {}
 };
 
 struct Content
@@ -43,6 +46,7 @@ class	Request
 		std::string				_rawData;
 		std::vector<Header>		_headers;
 		std::string				_body;
+		std::string				_chunkOctetData;
 		unsigned int			_contentLength;
 		std::string				_transferEncoding;
 		std::string				_contentType;
@@ -73,6 +77,7 @@ class	Request
 
 	public:
 		void						readRequestLine(void);
+		int							parseRequestLine(const std::string &requestLine);
 		void						readHttpHeader(void);
 		void						readHttpBody(void);
 		void						updateHeaderValue(
@@ -84,6 +89,10 @@ class	Request
 		void						handleMultipartBody(void);
 		bool						isLastChunk(void) const;
 		void						resetRequest(void);
+
+		// dat
+		void						appendRawData(const std::vector<char> &buffer, ssize_t bytes_read);
+		void						appendHeader(const std::string &key, const std::string &val);
 };
 
 #endif	/* __REQUEST_HPP__ */
