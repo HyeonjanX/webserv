@@ -103,10 +103,12 @@ int Client::afterRead(void)
     // 1. GET
     const std::string &method = _request.getHttpMethod();
 
+    std::cout << method << std::endl;
+
     // 2. location과 매칭해야한다.
     // std::string root(".");
     std::string root("../data");
-    std::string filepath = root + _request.getRequestUrl();
+    
 
     // 3. CGI vs Not CGI
     bool cgion = false; // 어디서 어떻게 받아와야 할까?
@@ -115,18 +117,21 @@ int Client::afterRead(void)
         if (method.compare(GET_METHOD) == 0)
         {
             std::cout << BLUE << "GET_METHOD()" << RESET << std::endl;
-            // std::string filepath("./2MB.jpeg");
+            std::string filepath = root + _request.getRequestUrl();
             notCgiGetProcess(filepath);
         }
         else if (method.compare(POST_METHOD) == 0)
         {
             std::cout << BLUE << "POST_METHOD()" << RESET << std::endl;
-            std::string body = _request.getHttpBody();
+            std::string filepath = root + Util::extractBasename(_request.getRequestUrl());
+            const std::string &body = _request.getTransferEncoding().compare("chunked") == 0 ?
+                _request.getChunkOctetData() : _request.getRawData();
             notCgiPostProcess(filepath, body);
         }
         else if (method.compare(DELETE_METHOD) == 0)
         {
             std::cout << BLUE << "DELETE_METHOD()" << RESET << std::endl;
+            std::string filepath = root + _request.getRequestUrl();
             notCgiDeleteProcess(filepath);
         }
         else
@@ -146,20 +151,12 @@ int Client::afterRead(void)
         }
         // (실패 == 에러) => 에러 응답하면 됨 => 아래로 진행
     }
-
-    if (_defaultBodyNeed)
-    {
-       _response.setBody(createDefaultPage(_response.getStatusCode()));
-    }
-    
-    makeResponseData();
-
     return 0;
 }
 
 std::string Client::createDefaultPage(int statusCode)
 {
-    const std::string defaultPage("/err.html");
+    const std::string defaultPage("");
     std::string html;
 
     try
@@ -205,7 +202,7 @@ int Client::readProcess(void)
 {
     // 1. 데이터 읽기 => 청크 모드 ? 특별 처리 : 일반처리
 
-    std::vector<char> buffer(100000);
+    std::vector<char> buffer(1000000);
     ssize_t bytes_read = recv(_socket, buffer.data(), buffer.size(), 0);
 
     if (bytes_read <= 0)
@@ -223,13 +220,6 @@ int Client::readProcess(void)
 
     try
     {
-        // if (this->_status == READ_HEADER || this->_status == READING)
-        //     checkHttpBody(*this);
-        // if (this->_status == READ_BODY)
-        //     validateReadStatus(*this);
-        // if (this->_status == READ_END)
-        //     purifyHttpBody(*this);
-
         if (_status == BEFORE_READ)
             readRequestLine(); // throw 400 505, to READ_REQUESTLINE
         if (_status == READ_REQUESTLINE)
@@ -238,12 +228,26 @@ int Client::readProcess(void)
             if (_status == READ_HEADER)
             {
                 // 헤더 검사하는 함수 만들어서 호출!
+                handleHeaders();
+                
+                // 100 응답 => 여기서 처리?
+
+                if (_response.getStatusCode() == 100)
+                {
+                    std::cout << MAGENTA << "100 응답 생성" << std::endl;
+                    // const std::string &httpVersion = _request.getHttpVersion();
+                    // _response.setHttpVersion("1.1");
+                    _response.generateResponseData();
+                    // makeResponseData();
+                    _eventHandler->switchToWriteState(_socket);
+                    return 0;
+                }
             }
         }
         if (_status == READ_HEADER)
         {
-            bool chunkMode = false;
-            if (chunkMode)
+            const std::string &mode = _request.getTransferEncoding();
+            if (mode.compare("chunked") == 0)
             {
                 chunkRead(); // throw 400 413, to READ_BODY
             }
@@ -258,6 +262,10 @@ int Client::readProcess(void)
             // 바디가 multipart/form-data 등 일 경우 => 파싱 필요
             _status = READ_END;
         }
+        if (_status != READ_END)
+            return 0;
+        // 이 아래로는 응답을 생성하고, write모드로 전환이 이뤄진다.
+        afterRead();
     }
     catch(int statusCode)
     {
@@ -267,29 +275,14 @@ int Client::readProcess(void)
         
         _defaultBodyNeed = 1;
         _erron = 1;
+    }
 
-        _response.setBody(createDefaultPage(_response.getStatusCode()));
-    }
-    if (_status == READ_END)
-    {
-        afterRead();
-    }
+    if (_defaultBodyNeed)
+       _response.setBody(createDefaultPage(_response.getStatusCode()));
+    
+    makeResponseData();
     _eventHandler->switchToWriteState(_socket);
 
-    return 0;
-}
-
-int Client::chunkRead(void)
-{
-    std::string body;
-    std::string::size_type pos = 0;
-    std::string::size_type old_pos = 0;
-
-    while ((pos = _body.find("\r\n", old_pos)) != std::string::npos)
-    {
-        body.append(old_pos, pos - old_pos);
-        old_pos = pos + 2;
-    }
     return 0;
 }
 
@@ -324,6 +317,12 @@ int Client::sendProcess(void)
     {
         // 상태를 바꾼다거나 할 수도 있음
         _eventHandler->switchToReadState(_socket);
+        if (_response.getStatusCode() == 100)
+        {
+            std::cout << RED << "100 응답을 위해 트라이;" << RESET << std::endl;
+            _response.clean();
+            return 0;
+        }
         cleanRequestReponse();
     }
 
@@ -405,7 +404,8 @@ int Client::checkSendBytes() const
 
 void Client::cleanRequestReponse(void)
 {
-    // _request.clean();
+    // 2번째 요청시 문제 발생. 양 clean 코드류에서 문제 발생하는듯.
+    _request.resetRequest();
     _response.clean();
 }
 
@@ -416,13 +416,16 @@ std::string &Client::getData(void) { return _data; }
 void Client::readRequestLine(void)
 {
     // BEFORE_READ => READ_REQUESTLINE
+
+    std::cout << BLUE << "readRequestLine()" << std::endl;
+
     const std::string rawData = _request.getRawData();
     size_t pos = rawData.find("\r\n");
     if (pos != std::string::npos)
     {
-        std::cout << BLUE << "readRequestLine(): " <<  rawData.substr(0, pos) << RESET << std::endl;
+        std::cout << BLUE << rawData.substr(0, pos) << RESET << std::endl;
         _request.parseRequestLine(rawData.substr(0, pos));
-        _request.setRawData(rawData.substr(pos));
+        _request.setRawData(rawData.substr(pos + 2));
         _status = READ_REQUESTLINE;
         std::cout << YELLOW << _request.getHttpMethod() << _request.getRequestUrl() << _request.getHttpVersion() << RESET << std::endl;
     }
@@ -432,6 +435,9 @@ void Client::readRequestLine(void)
 void Client::readHeader(void)
 {
     // READ_REQUESTLINE => READ_HEADER
+
+    std::cout << YELLOW << "======== readHeader() ========" << RESET << std::endl;
+
     std::string::size_type pos = 0;
     std::string::size_type oldPos = 0;
     std::string::size_type colPos;
@@ -440,7 +446,7 @@ void Client::readHeader(void)
 
     while ((pos = rawData.find("\r\n", oldPos)) != std::string::npos)
     {
-        if (pos == 0)
+        if (pos == oldPos)
         {
             _request.setRawData(rawData.substr(pos + 2));
             _status = READ_HEADER;
@@ -448,6 +454,7 @@ void Client::readHeader(void)
         }
 
         std::string line = rawData.substr(oldPos, pos - oldPos);
+        // std::cout << BLUE << "line: |" << line << "|" << RESET << std::endl; 
         colPos = line.find(':');
         if (colPos == std::string::npos)
         {
@@ -455,6 +462,7 @@ void Client::readHeader(void)
         }
         std::string key = Util::toLowerCase(line.substr(0, colPos));
         std::string val = Util::lrtrim(line.substr(colPos + 1));
+        // std::cout << YELLOW << "헤더 " << key << " : " << val << RESET << std::endl;  
         _request.appendHeader(key, val);
 		oldPos = pos + 2;
     }
@@ -465,23 +473,49 @@ void Client::readHeader(void)
     }
 }
 
-// MUST: 바디 크기 제한
 void Client::readBody(void)
 {
     // READ_HEADER => READ_BODY
     // throw 400, 413 Payload Too Large
 
     // rawData == 바디임.
-    const std::string rawData = _request.getRawData();
+    const std::string &rawData = _request.getRawData();
 
     // 1. 바디 제한 길이 확인
-    if (rawData.size() >= _bodyLimit)
-        throw 413; // 413 Payload Too Large | Content Too Large
+    // if (rawData.size() >= _bodyLimit)
+    //     throw 413; // 413 Payload Too Large | Content Too Large
 
     // 3. 본문 길이 확인
-    if (rawData.size() > _contentLength)
+    size_t contentLength = _request.getContentLength();
+    std::cout << GREEN << "크기체크 => rawData:" << rawData.size() << ", contentLength: "<< contentLength << RESET << std::endl;
+    if (rawData.size() > contentLength)
         throw 400; // 400 or 413
     
-    if (rawData.size() == _contentLength)
+    if (rawData.size() == contentLength)
+    {
         _status = READ_BODY;
+    }
+}
+
+void Client::handleHeaders(void)
+{
+    try
+    {
+        _request.handleHeaders();
+    }
+    catch(int statusCode)
+    {
+        if (statusCode == 100)
+        {
+            _response.setStatusCode(statusCode);
+            return ;
+        }
+        throw statusCode;
+    }
+}
+
+int Client::chunkRead(void)
+{
+    _request.chunkRead(_bodyLimit, _status, READ_BODY);
+    return 0;
 }

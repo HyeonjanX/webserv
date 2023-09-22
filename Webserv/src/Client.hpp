@@ -53,7 +53,7 @@ class Client
 {
 public:
     static const size_t _headaerLimit = 1000;
-    static const size_t _bodyLimit = 1000;
+    static const size_t _bodyLimit = 100000000;
 
 private:
     
@@ -120,6 +120,7 @@ public:
     void cleanRequestReponse(void);
     
     int chunkRead(void);
+    void handleHeaders(void);
 
 public:
     int getSocket(void) const;

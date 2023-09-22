@@ -45,7 +45,8 @@ void Response::generateResponseData(void)
     const std::string CRLF("\r\n");
     std::ostringstream oss;
 
-    oss << "HTTP/" << _httpVersion << SP 
+    // oss << "HTTP/" << _httpVersion << SP 
+    oss << _httpVersion << SP 
         << _statusCode << SP
         << Util::getStatusCodeMessage(_statusCode) << CRLF;
 

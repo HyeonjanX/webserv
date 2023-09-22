@@ -1,4 +1,5 @@
 #include "File.hpp"
+#include "Util.hpp"
 #include <iostream>
 
 File::File(void)
@@ -114,15 +115,26 @@ std::string File::getFile(const std::string &filepath)
 
 bool File::uploadFile(const std::string filepath, const std::string &content)
 {
-    struct stat fileInfo;
+    struct stat fileInfo, dirInfo;
 
-    // 주의
-    // POST는 보통 전체 path를 받아들이지 않고, filename.ext만 받아들인다 => 경로 사용시 문제 발생 가능성
+    std::cout << YELLOW << "======= File::uploadFile =======" << RESET << std::endl;
+    std::cout << YELLOW << "filepath: " << filepath << RESET << std::endl;
+    std::cout << YELLOW << "content.length(): " << content.length() << RESET << std::endl;
+
     if (fileExists(filepath, fileInfo))
     {
         throw 409;
     }
-    if (isDirectory(fileInfo) || !checkFileWritePermission(fileInfo))
+
+    const std::string &dirPath = Util::extractDirPath(filepath);
+    std::cout << YELLOW << "dirPath: " << dirPath << RESET << std::endl;
+    std::cout << YELLOW << "fileExists(dirPath, dirInfo): " << fileExists(dirPath, dirInfo) << RESET << std::endl;
+    std::cout << YELLOW << "isDirectory: " << isDirectory(dirInfo) << RESET << std::endl;
+    std::cout << YELLOW << "checkFileWritePermission: " << !checkFileWritePermission(dirInfo) << RESET << std::endl;
+
+    if (!fileExists(dirPath, dirInfo) ||
+        !isDirectory(dirInfo) ||
+        !checkFileWritePermission(dirInfo))
     {
         throw 403;
     }
@@ -130,6 +142,9 @@ bool File::uploadFile(const std::string filepath, const std::string &content)
     {
         throw 500;
     }
+
+    std::cout << BLUE << "file upload ok: " << content.length() << RESET << std::endl;
+
     return true;
 }
 

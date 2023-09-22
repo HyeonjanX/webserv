@@ -274,3 +274,27 @@ std::string	Util::removeDuplicate(std::string const& input)
 	}
 	return result;
 }
+
+
+// path는 /로 시작 보장 (HTTP/1.1 규칙)
+std::string Util::extractBasename(const std::string &path)
+{
+    size_t lastSlash = path.find_last_of("/");
+
+    if (lastSlash != std::string::npos)
+    {
+        return path.substr(lastSlash);
+    }
+    return std::string("");
+}
+
+std::string Util::extractDirPath(const std::string &path)
+{
+    size_t lastSlash = path.find_last_of("/");
+
+    if (lastSlash != std::string::npos)
+    {
+        return path.substr(0, lastSlash);
+    }
+    return std::string("");
+}

@@ -61,6 +61,8 @@ public:
     static std::string rdtrim(const std::string &str, const std::string& delim);
     static std::string lrdtrim(const std::string &str, const std::string& delim);
 	static std::string removeDuplicate(std::string const& input);
+    static std::string extractBasename(const std::string &path);
+    static std::string extractDirPath(const std::string &path);
 
 public:
 };
