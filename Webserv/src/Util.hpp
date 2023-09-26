@@ -64,7 +64,10 @@ public:
     static std::string extractBasename(const std::string &path);
     static std::string extractDirPath(const std::string &path);
 
-public:
+    static bool         hexToDecimal(const std::string &hexStr, size_t &decimalValue);
+    static bool         hexToDecimalPositive(const std::string &hexStr, size_t &decimalValue);
+    static bool         isLastChunk(const std::string &data);
+    static std::size_t  tryReadChunk(const std::string &rawData, std::size_t &octetPos);
 };
 
 #endif

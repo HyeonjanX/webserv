@@ -5,7 +5,7 @@
 
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <cerrno>  // for errno
+#include <cerrno> // for errno
 #include <sys/types.h>
 
 #include <cstdlib>
@@ -17,13 +17,14 @@
 
 #include <fcntl.h>
 
-#include <sys/stat.h>   // for stat
+#include <sys/stat.h> // for stat
 
 #include "Response.hpp"
 #include "Util.hpp"
 #include "File.hpp"
 
 #define BACKLOG 128
+#define READ_BUFFER_SIZE 1000000
 
 class Server;
 class EventHandler;
@@ -35,18 +36,19 @@ class Request;
 #include "Server.hpp"
 #include "Request.hpp"
 
-typedef enum CLIENT_STATUS {
-  BEFORE_READ,
-  READ_REQUESTLINE,
-  READ_HEADER,
-  READ_BODY,
-  BODY_LIMIT_OVER,
-  BODY_SIZE_OVER,
-  READ_END,
-  ERROR_400,
-  BEFORE_WRITE,
-  WRITING,
-  C_WRITE,
+typedef enum CLIENT_STATUS
+{
+    BEFORE_READ,
+    READ_REQUESTLINE,
+    READ_HEADER,
+    READ_BODY,
+    BODY_LIMIT_OVER,
+    BODY_SIZE_OVER,
+    READ_END,
+    ERROR_400,
+    BEFORE_WRITE,
+    WRITING,
+    C_WRITE,
 } CLIENT_STATUS;
 
 class Client
@@ -56,18 +58,16 @@ public:
     static const size_t _bodyLimit = 100000000;
 
 private:
-    
-    int                 _socket;
-    struct sockaddr_in  _addr;
+    int _socket;
+    struct sockaddr_in _addr;
 
-    Request				_request;
+    Request _request;
 
-    Webserver*          _ws;
-    Server*             _server;
-    EventHandler*       _eventHandler;
+    Webserver *_ws;
+    Server *_server;
+    EventHandler *_eventHandler;
 
 public:
-  
     std::string _data;
     std::string _requestLine;
     std::string _header;
@@ -84,7 +84,7 @@ public:
 
     std::string _errMessage;
 
-    Response    _response;
+    Response _response;
 
 public:
     // 레퍼런스와 디폴트값을 함께 사용하지 않기.
@@ -93,42 +93,41 @@ public:
     virtual ~Client(void);
 
 public:
+    int getSocket(void) const;
+    std::string &getData(void);
+    // size_t getDataLength(void);
+
+public:
+    /* ============ 요청을 읽어들이는 역할 수행 ============ */
     int readProcess(void);
 
     void readRequestLine(void);
     void readHeader(void);
     void readBody(void);
 
+public:
+    /* ============ 요청에 대해 수행 with 응답 생성 ============ */
     int afterRead(void);
 
     int notCgiGetProcess(const std::string &filepath);
     int notCgiPostProcess(const std::string &filepath, const std::string &body);
     int notCgiDeleteProcess(const std::string &filepath);
-    int readDefaultErrorFile(const std::string &filepath);
-
+    
+    void makeResponseData(void); // _response.generateResponseData() 호출
     std::string createDefaultPage(int statusCode);
     std::string createDefaultBody(int statusCode);
 
 public:
+    /* ============ 생성된 응답을 보내는 역할 수행 ============ */
     int sendProcess(void);
-    
-    // int readFile(const std::string &filePath); => File로 이동
-    void makeResponseData(void);
-    int makeResponse(const std::string & filePath);
-    void setResponseStatus(int statusCode, const std::string &statusMessage);
+
     int checkSendBytes() const;
     void cleanRequestReponse(void);
-    
-    int chunkRead(void);
-    void handleHeaders(void);
 
 public:
-    int getSocket(void) const;
-    std::string& getData(void);
-    // size_t getDataLength(void);
-
-    int tempMakeResponseByStatusCode(int statusCode);
-
+    /* ============ 쩌리들 ============ */
+    void    chunkRead(void);
+    void    handleHeaders(void);
 
 };
 

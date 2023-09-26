@@ -298,3 +298,103 @@ std::string Util::extractDirPath(const std::string &path)
     }
     return std::string("");
 }
+
+bool Util::hexToDecimal(const std::string &hexStr, size_t &decimalValue)
+{
+    char *end;
+    errno = 0; // errno를 0으로 설정하여 이전의 오류를 지웁니다.
+    size_t tempValue = std::strtoul(hexStr.c_str(), &end, 16);
+
+	std::cout << "hexStr: |" << hexStr << "|" << std::endl;
+	std::cout << "tempValue: |" << tempValue << "|" << std::endl;
+	std::cout << "end: |" << *end << "|" << std::endl;
+
+    // 변환에 실패하거나 값이 int의 범위를 벗어나면 false를 반환합니다.
+    if (errno == ERANGE || *end != '\0')
+    {
+        return false;
+    }
+
+    decimalValue = tempValue;
+    return true;
+}
+
+bool Util::hexToDecimalPositive(const std::string &hexStr, size_t &decimalValue)
+{
+    size_t tempValue;
+    if (!Util::hexToDecimal(hexStr, tempValue) || tempValue < 0)
+    {
+        return false;
+    }
+    decimalValue = tempValue;
+    return true;
+}
+
+bool Util::isLastChunk(const std::string &data)
+{
+    const std::string CRLF_STR("\r\n");
+    size_t pos = data.find_first_not_of('0');
+
+    // "CRLF" ...
+    if (pos == 0)
+    {
+        return false;
+    }
+	
+	// 1*("0")
+    if (pos == std::string::npos)
+    {
+        return false;
+    }
+    // 1*("0") "CRLF"
+	if (data.substr(pos, 2).compare(CRLF_STR) == 0)
+    {
+		// 헤더무시한다면
+		if (data.substr(pos + 2, 2).compare(CRLF_STR) == 0)
+		{
+			std::cout << "ok" << std::endl;
+			return true;
+		}
+    }
+    return false;
+}
+
+std::size_t Util::tryReadChunk(const std::string &rawData, std::size_t &octetPos)
+{
+    const std::string CRLF_STR("\r\n");
+    size_t size;
+    size_t crlfPos1 = rawData.find(CRLF_STR);
+
+    if (crlfPos1 == 0)
+    {
+        throw std::invalid_argument("None hex digit!");
+    }
+
+    if (crlfPos1 == std::string::npos)
+    {
+        return 0; // 아직 CRLF가 없어서 파싱 중단
+    }
+
+    std::string hexStr = rawData.substr(0, crlfPos1);
+
+    if (!Util::hexToDecimalPositive(hexStr, size))
+    {
+        throw std::invalid_argument("Invalid hex digit");
+    }
+
+    if (rawData.size() < crlfPos1 + 2 + size + 2)
+    {
+        return 0;
+    }
+
+    size_t crlfPos2 = crlfPos1 + 2 + size;
+	
+    if (rawData.substr(crlfPos2, 2).compare(CRLF_STR) != 0)
+    {
+        throw std::invalid_argument("Invalid OCTET Line");
+    }
+	
+	octetPos = crlfPos1 + 2;
+
+    return size;
+}

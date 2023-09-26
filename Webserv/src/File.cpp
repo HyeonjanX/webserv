@@ -104,9 +104,9 @@ std::string File::getFile(const std::string &filepath)
     {
         content = readFile(filepath);
     }
-    catch (const char *errmsg)
+    catch (std::runtime_error &e)
     {
-        std::cerr << errmsg << std::endl;
+        std::cerr << e.what() << std::endl;
         throw 500;
     }
 

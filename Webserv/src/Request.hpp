@@ -57,7 +57,6 @@ class	Request
 
 	public:
 		Request(void);
-		Request(std::string const& data);
 		Request(Request const& target);
 		~Request(void);
 		Request&					operator=(Request const& target);
@@ -74,30 +73,25 @@ class	Request
 		std::string const&			getHttpMethod(void) const;
 		std::string const&			getRequestUrl(void) const;
 		std::string const&			getHttpVersion(void) const;
+		std::string const&			getChunkOctetData(void) const;
+		std::string&				getChunkOctetData(void);
 
 	public:
-		void						readRequestLine(void);
-		int							parseRequestLine(const std::string &requestLine);
-		void						readHttpHeader(void);
-		void						readHttpBody(void);
+		void						parseRequestLine(const std::string &requestLine);
 		void						updateHeaderValue(
 										std::string const& key,
 										std::string const& valuei
 									);
 		std::string					findHeaderValue(std::string const& key);
-		void						handleChunkedBody(void);
 		void						handleMultipartBody(void);
-		bool						isLastChunk(void) const;
 		void						resetRequest(void);
 
-		// dat
+		// data
 		void						appendRawData(const std::vector<char> &buffer, ssize_t bytes_read);
 		void						appendHeader(const std::string &key, const std::string &val);
 
 	public:
 		void						handleHeaders(void);
-		int							chunkRead(size_t bodyLimit, int &status, int readBody);
-		std::string const&			getChunkOctetData(void) const;
 };
 
 #endif	/* __REQUEST_HPP__ */
