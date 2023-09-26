@@ -323,21 +323,16 @@ int Client::notCgiDeleteProcess(const std::string &filepath)
 
 /**
  * 리스폰스 세팅
- * 1. 리스폰스.http버전세팅(request.http버전)
- * 2. 리스폰스.헤더세팅(리스폰스.바디, 현재:Date)
- * 3. _response.generateResponseData() 호출: Response가 가진것들을 활용해 _data로 만듬.
+ * 1. _response.헤더<Cotent-length && Date>세팅(리스폰스.바디, 현재:Date)
+ * 2. _response.generateResponseData() 호출: Response가 가진것들을 활용해 _data로 만듬.
  */
 void Client::makeResponseData(void)
 {
-    // 1. 리스폰스.http버전세팅(request.http버전)
-    const std::string &httpVersion = _request.getHttpVersion();
-    _response.setHttpVersion(httpVersion);
-
-    // 2. 리스폰스.헤더세팅(리스폰스.바디, 현재:Date)
+    // 1. _response.헤더<Cotent-length && Date>세팅(리스폰스.바디, 현재:Date)
     _response.setHeader(std::string("Content-Length"), std::string(Util::ft_itoa(_response.getBody().length())));
     _response.setHeader(std::string("Date"), Util::getDateString());
 
-    // 3. _response.generateResponseData() 호출: Response가 가진것들을 활용해 _data로 만듬.
+    // 2. _response.generateResponseData() 호출: Response가 가진것들을 활용해 _data로 만듬.
     _response.generateResponseData();
 }
 
