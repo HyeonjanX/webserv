@@ -34,13 +34,9 @@ void Client::readProcess(void)
 
     if (bytes_read <= 0)
     {
-        // 방법1. throw
-        throw std::runtime_error("Fail to recv");
-
-        // 방법2. 여기서 바로 정리
-        // std::cerr << "Fail to read(): " + std::string(strerror(errno)) << std::endl;
-        // _ws->closeClient(_socket);
-        // return 0;
+        std::cerr << "Fail to recv(): " + std::string(strerror(errno)) << std::endl;
+        _ws->closeClient(_socket);
+        return;
     }
 
     _request.appendRawData(buffer, bytes_read);

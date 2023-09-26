@@ -137,8 +137,8 @@ void Webserver::runWebserver(void)
 
           Client *c = &(cit->second);
 
-          c->readProcess();
-
+          c->readProcess(); // recv() fail시 _ws->closeClient(_socket);
+          
           continue;
         }
 
@@ -149,7 +149,7 @@ void Webserver::runWebserver(void)
 
           Client *c = &(cit->second);
 
-          c->sendProcess();
+          c->sendProcess(); // send() fail시 _ws->closeClient(_socket);
 
           continue;
         }
@@ -180,6 +180,11 @@ void Webserver::runWebserver(void)
   catch (std::exception &e)
   {
     std::cerr << "Exception 발생: " << e.what() << std::endl;
+  }
+  catch (...)
+  {
+    std::cerr << "runWebserver() 실행중 알 수 없는 에러 발생" << std::endl;
+    std::cerr << "errno(" << errno << "): " << strerror(errno) << std::endl;
   }
 }
 
