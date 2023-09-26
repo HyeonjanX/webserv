@@ -50,6 +50,7 @@ class	Request
 		unsigned int			_contentLength;
 		std::string				_transferEncoding;
 		std::string				_contentType;
+		std::string				_expected;
 		std::vector<Content>	_contents;
 		std::string				_method;
 		std::string				_requestUrl;
@@ -91,7 +92,7 @@ class	Request
 		void						appendHeader(const std::string &key, const std::string &val);
 
 	public:
-		void						handleHeaders(void);
+		int							handleHeaders(void);
 };
 
 #endif	/* __REQUEST_HPP__ */

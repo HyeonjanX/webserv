@@ -37,6 +37,7 @@ Request &Request::operator=(Request const &target)
 		this->_contentLength = target.getContentLength();
 		this->_transferEncoding = target.getTransferEncoding();
 		this->_contentType = target.getContentType();
+		this->_expected = target._expected;
 		this->_contents = target.getContents();
 		this->_method = target.getHttpMethod();
 		this->_requestUrl = target.getRequestUrl();
@@ -244,6 +245,7 @@ void Request::resetRequest(void)
 	this->_contentLength = 0;
 	this->_transferEncoding.clear();
 	this->_contentType.clear();
+	this->_expected.clear();
 	this->_contents.clear();
 	this->_method.clear();
 	this->_requestUrl.clear();
@@ -359,10 +361,11 @@ static std::vector<Content> extractMultipartBody(std::string const &body, std::s
 	return contents;
 }
 
-void Request::handleHeaders(void)
+int	Request::handleHeaders(void)
 {
 	std::vector<Header>::const_iterator it = _headers.begin();
 	const bool DEBUG = false;
+	int statusCode = 0;
 
 	for (; it < _headers.end(); ++it)
 	{
@@ -385,8 +388,9 @@ void Request::handleHeaders(void)
 
 		if (it->key == "expect" && it->value == "100-continue")
 		{
-			std::cout << 100 << std::endl;
-			throw 100;
+			statusCode = 100;
 		}
 	}
+
+	return statusCode;
 }

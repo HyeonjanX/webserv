@@ -25,7 +25,7 @@ int Client::getSocket(void) const { return _socket; }
 
 std::string &Client::getData(void) { return _data; }
 
-int Client::readProcess(void)
+void Client::readProcess(void)
 {
     // 1. 데이터 읽기 => 청크 모드 ? 특별 처리 : 일반처리
 
@@ -54,17 +54,13 @@ int Client::readProcess(void)
             readHeader(); // throw 400, to READ_HEADER
             if (_status == READ_HEADER)
             {
-                // 헤더 검사하는 함수 만들어서 호출!
-                handleHeaders();
-
-                // 100 응답 => 여기서 처리?
-
-                if (_response.getStatusCode() == 100)
+                handleHeaders(); // POST && 100 응답 처리 포함
+                if (_status == READ_POST_EXPECT_100)
                 {
                     std::cout << MAGENTA << "100 응답 생성" << std::endl;
                     _response.generateResponseData();
                     _eventHandler->switchToWriteState(_socket);
-                    return 0;
+                    return;
                 }
             }
         }
@@ -87,7 +83,7 @@ int Client::readProcess(void)
             _status = READ_END;
         }
         if (_status != READ_END)
-            return 0;
+            return;
         // 이 아래로는 응답을 생성하고, write모드로 전환이 이뤄진다.
         afterRead();
     }
@@ -109,7 +105,7 @@ int Client::readProcess(void)
 
     std::cout << "afterRead() 종료" << std::endl;
 
-    return 0;
+    return;
 }
 
 /**
@@ -205,7 +201,7 @@ void Client::readBody(void)
     }
 }
 
-int Client::afterRead(void)
+void Client::afterRead(void)
 {
     const std::string GET_METHOD("GET");
     const std::string POST_METHOD("POST");
@@ -259,11 +255,11 @@ int Client::afterRead(void)
         if (true)
         {
             // 성공시 kqueue 모니터링 등록후 이동
-            return 0;
+            return;
         }
         // (실패 == 에러) => 에러 응답하면 됨 => 아래로 진행
     }
-    return 0;
+    return;
 }
 
 int Client::notCgiGetProcess(const std::string &filepath)
@@ -385,7 +381,7 @@ std::string Client::createDefaultBody(int statusCode)
 // EVFILT_WRITE 이벤트에 의해 트리거 되는 곳.
 // send 호출후, 모두 보냈는지 확인할 수 있는 값을 리턴,
 // send 실패시 throw 가능
-int Client::sendProcess(void)
+void Client::sendProcess(void)
 {
     // std::cout << RED << "0: " << _response.getDataLength() << RESET << std::endl;
     std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
@@ -398,7 +394,7 @@ int Client::sendProcess(void)
         // 클라이언트에서 먼저 종료시: Broken pipe
         std::cerr << "Fail to send(): " + std::string(strerror(errno)) << std::endl;
         _ws->closeClient(_socket);
-        return 0;
+        return;
     }
 
     // std::cout << "====================== 보낸 데이터 (응답 확인용) ===============" << std::endl;
@@ -412,19 +408,19 @@ int Client::sendProcess(void)
 
     if (checkSendBytes() >= 0)
     {
-        // 상태를 바꾼다거나 할 수도 있음
         _eventHandler->switchToReadState(_socket);
-        if (_response.getStatusCode() == 100)
+        if (_status == READ_POST_EXPECT_100)
         {
-            std::cout << RED << "100 응답을 위해 트라이;" << RESET << std::endl;
+            std::cout << RED << "100 응답 전송 후" << RESET << std::endl;
+            _status = READ_HEADER;
             _response.clean();
-            return 0;
+            _response.setHttpVersion(_request.getHttpVersion());
+            return;
         }
         cleanRequestReponse();
     }
 
-    return 0;
-    // return checkSendBytes();
+    return;
 }
 
 /** return (보낸바이트 - 보내야할바이트), 0 >= 0 이면 송신 끝을 의미 **/
@@ -439,29 +435,30 @@ void Client::cleanRequestReponse(void)
 
 void Client::handleHeaders(void)
 {
-    try
+    const std::string POST_METHOD("POST");
+    int statusCode = _request.handleHeaders();
+    std::string root("../data"); // 임시        
+
+    if (statusCode == 100 && _request.getHttpMethod().compare(POST_METHOD) == 0)
     {
-        _request.handleHeaders();
-    }
-    catch (int statusCode)
-    {
-        if (statusCode == 100)
+        std::string filepath = root + Util::extractBasename(_request.getRequestUrl());
+        if (File::canUploadFile(filepath)) // 0: o.k
         {
-            _response.setStatusCode(statusCode);
-            return;
+            throw 417; // Expectation Failed
         }
-        throw statusCode;
+        _status = READ_POST_EXPECT_100;
+        _response.setStatusCode(statusCode);
     }
 }
 
 /*
 chunked-body   = *chunk
-				last-chunk
-				trailer-part
-				CRLF
+                last-chunk
+                trailer-part
+                CRLF
 
 chunk          = chunk-size [ chunk-ext ] CRLF
-				 chunk-data CRLF
+                 chunk-data CRLF
 chunk-size     = 1*HEXDIG
 last-chunk     = 1*("0") [ chunk-ext ] CRLF
 

@@ -41,6 +41,7 @@ typedef enum CLIENT_STATUS
     BEFORE_READ,
     READ_REQUESTLINE,
     READ_HEADER,
+    READ_POST_EXPECT_100,
     READ_BODY,
     BODY_LIMIT_OVER,
     BODY_SIZE_OVER,
@@ -99,15 +100,15 @@ public:
 
 public:
     /* ============ 요청을 읽어들이는 역할 수행 ============ */
-    int readProcess(void);
+    void    readProcess(void);
 
-    void readRequestLine(void);
-    void readHeader(void);
-    void readBody(void);
+    void    readRequestLine(void);
+    void    readHeader(void);
+    void    readBody(void);
 
 public:
     /* ============ 요청에 대해 수행 with 응답 생성 ============ */
-    int afterRead(void);
+    void    afterRead(void);
 
     int notCgiGetProcess(const std::string &filepath);
     int notCgiPostProcess(const std::string &filepath, const std::string &body);
@@ -119,10 +120,10 @@ public:
 
 public:
     /* ============ 생성된 응답을 보내는 역할 수행 ============ */
-    int sendProcess(void);
+    void    sendProcess(void);
 
-    int checkSendBytes() const;
-    void cleanRequestReponse(void);
+    int     checkSendBytes() const;
+    void    cleanRequestReponse(void);
 
 public:
     /* ============ 쩌리들 ============ */

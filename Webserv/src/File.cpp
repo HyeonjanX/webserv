@@ -113,17 +113,16 @@ std::string File::getFile(const std::string &filepath)
     return content;
 }
 
-bool File::uploadFile(const std::string filepath, const std::string &content)
+int File::canUploadFile(const std::string filepath)
 {
     struct stat fileInfo, dirInfo;
 
     std::cout << YELLOW << "======= File::uploadFile =======" << RESET << std::endl;
     std::cout << YELLOW << "filepath: " << filepath << RESET << std::endl;
-    std::cout << YELLOW << "content.length(): " << content.length() << RESET << std::endl;
-
+    
     if (fileExists(filepath, fileInfo))
     {
-        throw 409;
+        return 409;
     }
 
     const std::string &dirPath = Util::extractDirPath(filepath);
@@ -136,8 +135,21 @@ bool File::uploadFile(const std::string filepath, const std::string &content)
         !isDirectory(dirInfo) ||
         !checkFileWritePermission(dirInfo))
     {
-        throw 403;
+        return 403;
     }
+
+    return 0;
+}
+
+bool File::uploadFile(const std::string filepath, const std::string &content)
+{
+    int statusCode = canUploadFile(filepath);
+
+    if (statusCode)
+    {
+        throw statusCode;
+    }
+
     if (!writeFile(filepath, content))
     {
         throw 500;
