@@ -12,6 +12,7 @@ Host::Host(
             _clientMaxBodySize(clientMaxBodySize)
 {
     initLocation("/");
+    // initLocation("/old/");
 }
 
 void Host::initLocation(const std::string &uri)

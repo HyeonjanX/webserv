@@ -50,7 +50,7 @@ void Client::readProcess(void)
             readHeader(); // throw 400, to READ_HEADER
             if (_status == READ_HEADER)
             {
-                handleHeaders(); // POST && 100 응답 처리 포함
+                handleHeaders(); // throw 405 30x 405 417, POST && 100 응답 처리 포함
                 if (_status == READ_POST_EXPECT_100)
                 {
                     std::cout << MAGENTA << "100 응답 생성" << std::endl;
@@ -315,14 +315,22 @@ int Client::notCgiDeleteProcess(const std::string &filepath)
 
 /**
  * 리스폰스 세팅
- * 1. _response.헤더<Cotent-length && Date>세팅(리스폰스.바디, 현재:Date)
+ * 1.1 _response.헤더<Cotent-length && Date>세팅(리스폰스.바디, 현재:Date)
+ * 1.2 리다이렉트 => Location 헤더 설정
  * 2. _response.generateResponseData() 호출: Response가 가진것들을 활용해 _data로 만듬.
  */
 void Client::makeResponseData(void)
 {
-    // 1. _response.헤더<Cotent-length && Date>세팅(리스폰스.바디, 현재:Date)
+    // 1.1 _response.헤더<Cotent-length && Date>세팅(리스폰스.바디, 현재:Date)
     _response.setHeader(std::string("Content-Length"), std::string(Util::ft_itoa(_response.getBody().length())));
     _response.setHeader(std::string("Date"), Util::getDateString());
+
+    // 1.2 300번대 리다이렉트
+    if (_response.getStatusCode() / 100 == 3) // _matchedLocation && _matchedLocation->isRedirect()
+    {
+        _response.setHeader(std::string("Location"),
+            std::string("http://") + _request.findHeaderValue(std::string("host")) + _matchedLocation->getRedirectUrl(_request.getRequestUrl()));
+    }
 
     // 2. _response.generateResponseData() 호출: Response가 가진것들을 활용해 _data로 만듬.
     _response.generateResponseData();
@@ -454,6 +462,12 @@ void Client::handleHeaders(void)
         throw 405; // Method Not Allowed
     }
 
+    // 리다이렉트 확인
+    if (_matchedLocation->isRedirect())
+    {
+        // TODO: 리다이렉트 상태코드는 30x이도록 체크.
+        throw _matchedLocation->getRedirect().first; // 정상적이면 30x에러
+    }
 
     if (statusCode == 100 && _request.getHttpMethod().compare(POST_METHOD) == 0)
     {

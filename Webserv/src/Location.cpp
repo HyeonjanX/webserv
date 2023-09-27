@@ -23,7 +23,9 @@ Location::Location(
 
 Location::~Location() { /* 소멸자 로직 */ }
 
-bool Location::isMatched(const std::string &path) const { return Util::startsWith(path, _uri); }
+bool    Location::isMatched(const std::string &path) const { return Util::startsWith(path, _uri); }
+
+bool    Location::isRedirect() const { return _redirect.first != 0; }
 
 std::string Location::getRedirectUrl(const std::string &path) const
 {
@@ -31,7 +33,7 @@ std::string Location::getRedirectUrl(const std::string &path) const
     {
         return std::string("");
     }
-    return _redirect.second + path.substr(_redirect.second.length());
+    return _redirect.second + path.substr(_uri.length());
 }
 
 bool    Location::isAllowedMethod(const std::string &method) const

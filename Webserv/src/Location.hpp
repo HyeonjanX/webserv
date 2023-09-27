@@ -33,13 +33,15 @@ public:
         bool autoindex = false,
         const std::vector<std::string> &index = std::vector<std::string>(),
         const std::pair<int, std::string> &redirect = std::make_pair(0, "")
+        // const std::pair<int, std::string> &redirect = std::make_pair(301, "/new/")
     );
     virtual ~Location(void);
 
 public:
-    bool        isMatched(const std::string &url) const;
-    std::string getRedirectUrl(const std::string &url) const;
-    bool        isAllowedMethod(const std::string &method) const;
+    bool                                isMatched(const std::string &url) const;
+    bool                                isRedirect() const;
+    std::string                         getRedirectUrl(const std::string &url) const;
+    bool                                isAllowedMethod(const std::string &method) const;
     
 
 public:
