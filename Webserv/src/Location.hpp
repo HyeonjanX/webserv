@@ -37,8 +37,9 @@ public:
     virtual ~Location(void);
 
 public:
-    bool isMatched(const std::string &url) const;
+    bool        isMatched(const std::string &url) const;
     std::string getRedirectUrl(const std::string &url) const;
+    bool        isAllowedMethod(const std::string &method) const;
     
 
 public:

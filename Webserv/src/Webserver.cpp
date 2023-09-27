@@ -154,6 +154,9 @@ void Webserver::runWebserver(void)
           continue;
         }
 
+        std::cout << BLUE << "***************** 1. CGI WRITE *****************" << RESET << std::endl;
+        std::cout << BLUE << "***************** 2. CGI READ *****************" << RESET << std::endl;
+
         /**
          * File의 이벤트가 도달할 곳
          *

@@ -54,7 +54,7 @@ Path: /path/to/resource
 Query: name=example
 Fragment: section1
 */
-const Location &Host::matchLocation(const std::string &path) const
+const Location*   Host::matchLocation(const std::string &path) const
 {
     unsigned int maxUriSize = 0;
     const Location *matched = NULL;
@@ -70,12 +70,13 @@ const Location &Host::matchLocation(const std::string &path) const
         }
     }
 
+    // Location / 가 필수라면 아래 상황은 발생하지 않는다.
     if (matched == NULL)
     {
         throw std::runtime_error("No matching location found"); // 예외 처리 추가
     }
 
-    return *matched;
+    return matched;
 }
 
 const Server &Host::getServer(void) const { return _server; }

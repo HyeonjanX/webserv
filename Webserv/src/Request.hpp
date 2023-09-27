@@ -73,6 +73,7 @@ class	Request
 		std::vector<Content> const&	getContents(void) const;
 		std::string const&			getHttpMethod(void) const;
 		std::string const&			getRequestUrl(void) const;
+		std::string					getRequestPath(void) const;
 		std::string const&			getHttpVersion(void) const;
 		std::string const&			getChunkOctetData(void) const;
 		std::string&				getChunkOctetData(void);
@@ -92,7 +93,7 @@ class	Request
 		void						appendHeader(const std::string &key, const std::string &val);
 
 	public:
-		int							handleHeaders(void);
+		int							handleHeaders(std::string &hostname);
 };
 
 #endif	/* __REQUEST_HPP__ */

@@ -16,6 +16,9 @@ Location::Location(
         _redirect(redirect)
 {
     // 초기화 로직
+    // FOR TEST
+    _limitExcept.push_back(std::string("GET"));
+    _limitExcept.push_back(std::string("POST"));
 }
 
 Location::~Location() { /* 소멸자 로직 */ }
@@ -29,6 +32,24 @@ std::string Location::getRedirectUrl(const std::string &path) const
         return std::string("");
     }
     return _redirect.second + path.substr(_redirect.second.length());
+}
+
+bool    Location::isAllowedMethod(const std::string &method) const
+{
+    if (_limitExcept.empty())
+    {
+        return true; // 만약 설정 X => 모두 허용 컨셉
+    }
+    for (std::vector<std::string>::const_iterator it = _limitExcept.begin();
+        it < _limitExcept.end();
+        ++it)
+    {
+        if (it.base()->compare(method) == 0)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 const Host &Location::getHost(void) const { return _host; }

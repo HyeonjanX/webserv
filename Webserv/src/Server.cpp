@@ -88,16 +88,16 @@ void Server::initHost(const std::string &hostname)
 
 int Server::getSocket(void) const { return _socket; }
 int Server::getPort(void) const { return _port; }
-Host* Server::getHost(const std::string &hostname)
+const Host* Server::matchHost(const std::string &hostname)
 {
-    for (std::vector<Host>::iterator it = _hosts.begin(); it < _hosts.end(); ++it)
+    for (std::vector<Host>::const_iterator it = _hosts.begin(); it < _hosts.end(); ++it)
     {
         if (it.base()->getHostname() == hostname)
         {
             return it.base();
         }
     }
-    return NULL;
+    return _hosts.begin().base();
 }
 const std::vector<Host>&  Server::getHosts(void) const { return _hosts; }
 

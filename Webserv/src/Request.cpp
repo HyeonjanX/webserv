@@ -101,6 +101,11 @@ std::string const &Request::getRequestUrl(void) const
 {
 	return this->_requestUrl;
 }
+std::string	Request::getRequestPath(void) const
+{
+	std::size_t pos = _requestUrl.find('?');
+	return pos ? _requestUrl.substr(0, pos) : _requestUrl;
+}
 
 std::string const &Request::getHttpVersion(void) const
 {
@@ -361,7 +366,7 @@ static std::vector<Content> extractMultipartBody(std::string const &body, std::s
 	return contents;
 }
 
-int	Request::handleHeaders(void)
+int	Request::handleHeaders(std::string &hostname)
 {
 	std::vector<Header>::const_iterator it = _headers.begin();
 	const bool DEBUG = false;
@@ -389,6 +394,11 @@ int	Request::handleHeaders(void)
 		if (it->key == "expect" && it->value == "100-continue")
 		{
 			statusCode = 100;
+		}
+
+		if (it->key == "host")
+		{
+			hostname = it->value;
 		}
 	}
 

@@ -222,20 +222,20 @@ void Client::afterRead(void)
         if (method.compare(GET_METHOD) == 0)
         {
             std::cout << BLUE << "GET_METHOD()" << RESET << std::endl;
-            std::string filepath = root + _request.getRequestUrl();
+            std::string filepath = root + _request.getRequestPath();
             notCgiGetProcess(filepath);
         }
         else if (method.compare(POST_METHOD) == 0)
         {
             std::cout << BLUE << "POST_METHOD()" << RESET << std::endl;
-            std::string filepath = root + Util::extractBasename(_request.getRequestUrl());
+            std::string filepath = root + Util::extractBasename(_request.getRequestPath());
             const std::string &body = _request.getTransferEncoding().compare("chunked") == 0 ? _request.getChunkOctetData() : _request.getRawData();
             notCgiPostProcess(filepath, body);
         }
         else if (method.compare(DELETE_METHOD) == 0)
         {
             std::cout << BLUE << "DELETE_METHOD()" << RESET << std::endl;
-            std::string filepath = root + _request.getRequestUrl();
+            std::string filepath = root + _request.getRequestPath();
             notCgiDeleteProcess(filepath);
         }
         else
@@ -432,12 +432,32 @@ void Client::cleanRequestReponse(void)
 void Client::handleHeaders(void)
 {
     const std::string POST_METHOD("POST");
-    int statusCode = _request.handleHeaders();
-    std::string root("../data"); // 임시        
+
+    std::string hostname;
+
+    int statusCode = _request.handleHeaders(hostname);
+
+    std::string root("../data"); // 임시
+
+    if (hostname.empty())
+    {
+        throw 400;
+    }
+
+    // 헤더 => HOST에서 host 매칭 && path에서 location 매칭
+    _matchedHost = _server->matchHost(hostname);
+    _matchedLocation = _matchedHost->matchLocation(_request.getRequestPath());
+
+    // location->허용메서드 확인
+    if (!_matchedLocation->isAllowedMethod(_request.getHttpMethod()))
+    {
+        throw 405; // Method Not Allowed
+    }
+
 
     if (statusCode == 100 && _request.getHttpMethod().compare(POST_METHOD) == 0)
     {
-        std::string filepath = root + Util::extractBasename(_request.getRequestUrl());
+        std::string filepath = root + Util::extractBasename(_request.getRequestPath());
         if (File::canUploadFile(filepath)) // 0: o.k
         {
             throw 417; // Expectation Failed

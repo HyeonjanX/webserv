@@ -173,7 +173,7 @@ bool File::deleteFile(const std::string &filepath)
         throw 403;
     }
     // 실제 삭제여부 고민.
-    if (::remove(filepath.c_str()))
+    if (::remove(filepath.c_str())) // <cstdio>의 파일 삭제 함수
     {
         throw 500;
     };

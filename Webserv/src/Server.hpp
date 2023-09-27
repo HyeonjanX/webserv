@@ -45,7 +45,7 @@ public:
 public:
     int getSocket(void) const;
     int getPort(void) const;
-    Host *getHost(const std::string &hostname);
+    const Host *matchHost(const std::string &hostname);
     const std::vector<Host> &getHosts(void) const ;
 };
 

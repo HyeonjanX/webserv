@@ -85,7 +85,10 @@ public:
 
     std::string _errMessage;
 
-    Response _response;
+    Response        _response;
+
+    const Host*     _matchedHost;
+    const Location* _matchedLocation;
 
 public:
     // 레퍼런스와 디폴트값을 함께 사용하지 않기.

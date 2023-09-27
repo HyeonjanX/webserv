@@ -61,10 +61,10 @@ private:
 
 public:
 
-  bool isClientMaxBodySizeExceeded(unsigned int size) const;
-  bool isMatched(const std::string &hostname) const;
-  std::string getErrorPage(int statusCode) const;
-  const Location& matchLocation(const std::string &uri) const;
+  bool                  isClientMaxBodySizeExceeded(unsigned int size) const;
+  bool                  isMatched(const std::string &hostname) const;
+  std::string           getErrorPage(int statusCode) const;
+  const Location*       matchLocation(const std::string &uri) const;
 
 
 public:
