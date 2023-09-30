@@ -433,6 +433,10 @@ int Client::checkSendBytes() const { return _response.getSendedBytes() - _respon
 void Client::cleanRequestReponse(void)
 {
     // 2번째 요청시 문제 발생. 양 clean 코드류에서 문제 발생하는듯.
+    _status = BEFORE_READ;
+    _ischunk = 0;
+    _erron = 0;
+    _defaultBodyNeed = 0;
     _request.resetRequest();
     _response.clean();
 }
