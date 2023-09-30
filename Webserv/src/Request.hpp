@@ -94,6 +94,9 @@ class	Request
 
 	public:
 		int							handleHeaders(std::string &hostname);
+		bool						extractContentTypeData(std::string fieldValue, std::string &mediType, std::map<std::string, std::string> &parameters);
+		std::string					extractBoundary(std::string fieldValue);
+		std::vector<Content>		extractMultipartBody(std::string const &body, std::string &boundary);
 };
 
 #endif	/* __REQUEST_HPP__ */

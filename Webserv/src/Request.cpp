@@ -12,7 +12,7 @@
 
 #include "Request.hpp"
 
-static std::vector<Content> extractMultipartBody(std::string const &body, std::string &boundary);
+// static std::vector<Content> extractMultipartBody(std::string const &body, std::string &boundary);
 
 /**
  * Constructor & Destroctor
@@ -290,7 +290,8 @@ void Request::appendHeader(const std::string &key, const std::string &val)
  * Helper Function
  */
 
-static std::vector<Content> extractMultipartBody(std::string const &body, std::string &boundary)
+// static std::vector<Content> extractMultipartBody(std::string const &body, std::string &boundary)
+std::vector<Content> Request::extractMultipartBody(std::string const &body, std::string &boundary)
 {
 	std::vector<Content> contents;
 	std::vector<std::string> tokens;
@@ -374,6 +375,253 @@ static std::vector<Content> extractMultipartBody(std::string const &body, std::s
 		contents.push_back(entry);
 		oldPos = pos;
 	}
+	this->_contents = contents;
+	return contents;
+}
+
+// body-part
+// "Content-Disposition" ":" "form-data" *(";" disposition-parm)
+// ["Content-Type" ":" MimeType CRLF]
+// [CRLF *OCTET]   
+static bool parseBodyPart(const std::string &body, std::size_t &bodyStartPos, const std::string &dashBoundary)
+{
+	std::map<std::string, std::string> dispositionParams;
+
+	std::string::size_type crlfPos = body.find("\r\n", bodyStartPos);
+	
+	if (crlfPos == std::string::npos)
+	{
+		return false;
+	}
+	
+	// "Content-Disposition" ":" "form-data" *(";" disposition-parm)
+	std::string header = body.substr(bodyStartPos, crlfPos - bodyStartPos);
+
+	std::string::size_type colonPos = header.find(':');
+	
+	if (colonPos == std::string::npos)
+	{
+		return false;
+	}
+
+	std::string headerKey = header.substr(0, colonPos);
+	std::string headerValue = header.substr(colonPos + 1);
+
+	if (!Util::caseInsensitiveCompare(headerKey, "Content-Disposition") ||
+		!Util::startsWith(headerValue, "form-data"))
+	{
+		return false;
+	}
+
+	std::string params = headerValue.substr(std::string("form-data").size());
+
+	std::string::size_type pos = 0, oldPos = 0;
+
+	while (oldPos < params.size())
+	{
+		if (params[oldPos] != ';')
+		{
+			return false;
+		}
+		
+		std::string::size_type crlfPos2 = params.find(';', oldPos+1);
+		
+		std::string keyValue = (crlfPos2 == std::string::npos) ?
+			params.substr(oldPos+1, params.size() - (oldPos+1)) :
+			params.substr(oldPos+1, crlfPos2 - (oldPos+1));
+
+		std::string::size_type equalsPos = keyValue.find('=');
+		
+		if (equalsPos == std::string::npos)
+		{
+			return false;
+		}
+
+		std::string key = keyValue.substr(0, equalsPos);
+		std::string value = keyValue.substr(equalsPos+1);
+
+		std::map<std::string, std::string>::iterator it = dispositionParams.find(key);
+
+		if (it != dispositionParams.end())
+		{
+			return false; // 중복값
+		}
+
+		dispositionParams[key] = value;
+
+		if (crlfPos2 == std::string::npos)
+		{
+			break;
+		}
+
+		oldPos = crlfPos2;
+	}
+
+	if (dispositionParams.find("name") == dispositionParams.end())
+	{
+		return false; // 필수값
+	}
+
+	// 1. 나머지 바디파트
+	// ["Content-Type" ":" MimeType CRLF]
+	// [CRLF *OCTET]
+	
+	// 2. 그다음 바디파트
+	// CRLF dash-boundary *LWSP-char CRLF3 body-part
+
+	// 3. 엔딩
+	// close-delimiter *LWSP-char
+	// [CRLF4 epilogue]
+	std::string::size_type dashBoundaryPos = body.find(dashBoundary, crlfPos + 2);
+	if (dashBoundaryPos == std::string::npos)
+	{
+		return false;
+	}
+
+	if (body.substr(dashBoundaryPos+dashBoundary.size(), dashBoundaryPos+dashBoundary.size()+2) == "--")
+	{
+		// 3. 엔딩
+		// close-delimiter *LWSP-char
+		// [CRLF4 epilogue]
+		std::string lwspChar, epilogue;
+		std::string::size_type lwspCharPos = dashBoundaryPos+dashBoundary.size()+2;
+		std::string::size_type crlfPos4 = body.find(lwspCharPos);
+		if (crlfPos4 != std::string::npos)
+		{
+			lwspChar = body.substr(lwspCharPos, crlfPos4);
+			epilogue = body.substr(crlfPos4+2);
+		}
+		else
+		{
+			lwspChar = body.substr(lwspCharPos);
+		}
+		return true;
+	}
+	else if (body.substr(dashBoundaryPos - 2, dashBoundaryPos) != "\r\n")
+	{
+		return false;
+	}
+	else
+	{
+		// 2. 그다음 바디파트
+		// CRLF dash-boundary *LWSP-char CRLF3 body-part
+		std::string::size_type crlfPos3 = body.find(dashBoundaryPos + dashBoundary.size());
+		if (crlfPos3 == std::string::npos)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+std::vector<Content> Request::extractMultipartBody(std::string const &body, std::string &boundary)
+{
+	std::vector<Content> contents;
+	std::vector<std::string> tokens;
+	std::vector<std::string> pair;
+	std::string line;
+	std::size_t pos;
+	std::size_t oldPos = 0;
+	bool flag = true;
+
+	// boundary validation check
+	boundary = "--" + boundary;
+
+	// dash-boundary *LWSP-char CRLF
+	if (
+		(pos = body.find(boundary)) == std::string::npos ||
+		(pos = body.find("\r\n", pos)) == std::string::npos
+	)
+	{
+		// 에러
+		return contents;
+	}
+	// pos: body-part
+	
+	std::string::size_type crlfPos = body.find("\r\n", bodyStartPos);
+	
+	if (crlfPos == std::string::npos)
+	{
+		return false;
+	}
+	
+	std::string header = body.substr(bodyStartPos, crlfPos - bodyStartPos);
+	parseBodyPart(body, pos, )
+
+	while (((pos = body.find(boundary, oldPos)) != std::string::npos) && flag == true)
+	{
+		Content entry;
+		pos += boundary.length();
+		line = body.substr(oldPos, pos - oldPos + 2);
+		//		std::cout << "[" << line << "]" << std::endl;
+		if (line == boundary + "--")
+		{
+			break;
+		}
+		oldPos = pos + 2;
+		pos = body.find(CRLF, oldPos);
+		if (pos == std::string::npos)
+		{
+			std::cout << "Malformed body data" << std::endl;
+			break;
+		}
+		line = body.substr(oldPos, pos - oldPos);
+		//		std::cout << "[" << line << "]" << std::endl;
+		if (line.find("Content-Disposition") != std::string::npos)
+		{
+			tokens = Util::splitString(line, ';');
+			for (std::vector<std::string>::iterator it = tokens.begin();
+				 it != tokens.end(); ++it)
+			{
+				pair = Util::splitString(*it, '=');
+				if (pair.size() < 1)
+				{
+					std::cout << "Malformed Content Disposition" << std::endl;
+					flag = false; // throw error
+					break;
+				}
+				if (Util::lrtrim(pair[0]) == "name")
+					entry.name = Util::lrdtrim(pair[1], "\"");
+				else if (Util::lrtrim(pair[0]) == "filename")
+					entry.filename = Util::lrdtrim(pair[1], "\"");
+			}
+		}
+		oldPos = pos + 2;
+		pos = body.find(CRLF, oldPos);
+		if (pos == std::string::npos)
+		{
+			std::cout << "Malformed body data" << std::endl;
+			break;
+		}
+		line = body.substr(oldPos, pos - oldPos);
+		//		std::cout << "TYPE : [" << line << "]" << std::endl;
+		if (line.find("Content-Type") != std::string::npos)
+		{
+			pair = Util::splitString(line, ':');
+			if (pair.size() < 2)
+			{
+				std::cout << "Malformed body data" << std::endl;
+				flag = false;
+				break;
+			}
+			entry.type = Util::lrtrim(pair[1]);
+			oldPos = pos + 2;
+		}
+		pos = body.find(boundary, oldPos);
+		if (pos == std::string::npos)
+		{
+			std::cout << "Malformed body data" << std::endl;
+			break;
+		}
+		oldPos += 2;
+		line = body.substr(oldPos, pos - oldPos - 2);
+		//		std::cout << "DATA : [" << line << "]" << std::endl;
+		entry.data += line;
+		contents.push_back(entry);
+		oldPos = pos;
+	}
+	this->_contents = contents;
 	return contents;
 }
 
@@ -414,4 +662,102 @@ int	Request::handleHeaders(std::string &hostname)
 	}
 
 	return statusCode;
+}
+
+// RFC 7230 
+// header-field   = field-name ":" OWS field-value OWS
+// field-name     = token
+// field-value    = *( field-content / obs-fold )
+// field-content  = field-vchar [ 1*( SP / HTAB ) field-vchar ]
+
+// RFC7231#appendix-D
+// Content-Type = media-type
+
+// RFC7231#section-3.1.1.1
+// media-type = type "/" subtype *( OWS ";" OWS parameter )
+// parameter = token "=" ( token / quoted-string )
+//  type       = token
+//  subtype    = token
+
+bool	Request::extractContentTypeData(std::string fieldValue, std::string &mediType, std::map<std::string, std::string> &parameters)
+{
+	const std::string OWS_SEMI_COLON(" \t;");
+	
+	std::string::size_type pos, oldPos;
+	
+	fieldValue = Util::lrtrim(fieldValue);
+	
+	pos = fieldValue.find_first_of(OWS_SEMI_COLON);
+
+	if (pos == std::string::npos)
+	{
+		mediType = fieldValue;
+		return true;
+	}
+	mediType = fieldValue.substr(0, pos);
+
+	while (pos != std::string::npos)
+	{
+		std::string parameter, key, value;
+		
+		oldPos = fieldValue.find_first_not_of(OWS_SEMI_COLON, pos); // parameter 시작점
+		
+		if (pos == std::string::npos)
+		{
+			return false;
+		}
+
+		pos = fieldValue.find_first_of(OWS_SEMI_COLON, oldPos); // parameter 끝점
+		
+		if (pos == std::string::npos)
+		{
+			parameter = fieldValue.substr(pos);
+		}
+		else
+		{
+			parameter = fieldValue.substr(pos, pos - oldPos);
+		}
+
+		oldPos = parameter.find('=');
+		
+		if (oldPos == std::string::npos)
+		{
+			return false;
+		}
+
+		key = parameter.substr(0, oldPos);
+		value = parameter.substr(oldPos+1);
+		
+		// 빈 값 && 중복 불허
+		if (key.empty() || value.empty() || parameters.find(key) != parameters.end())
+		{
+			return false;
+		}
+		
+		parameters[key] = value;
+		oldPos = pos;
+	}
+
+	return true;
+}
+
+std::string	Request::extractBoundary(std::string fieldValue)
+{
+	std::string mediType, boundary;
+	std::map<std::string, std::string> parameters;
+
+	// 유효한 Content-Type
+	if (extractContentTypeData(fieldValue, mediType, parameters))
+	{
+		// 멀티파트/폼데이터 => 바운더리 추출
+		if (mediType.compare("multipart/form-data") == 0)
+		{
+			std::map<std::string, std::string>::iterator it = parameters.find("boundary");
+			if (it != parameters.end() && Util::isValidBoundary(it->second))
+			{	
+				boundary = it->second; // boundary;
+			}
+		}
+	}
+	return boundary;
 }

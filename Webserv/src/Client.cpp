@@ -79,7 +79,12 @@ void Client::readProcess(void)
         if (_status == READ_BODY)
         {
             // 바디 가지고 무언가를 해야 한다면???
-            // 바디가 multipart/form-data 등 일 경우 => 파싱 필요
+            const std::string boundary = _request.extractBoundary(_request.findHeaderValue("content-type"));
+            if (!boundary.empty())
+            {
+                // 바디가 multipart/form-data 등 일 경우 => 파싱 필요
+                this->_contents = _request.extractMultipartBody(this->_body, boundary);
+            }
             _status = READ_END;
         }
         if (_status != READ_END)

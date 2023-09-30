@@ -449,3 +449,33 @@ std::string Util::urlDecode(std::string s)
     }
     return os.str();
 }
+
+bool Util::isValidBoundary(const std::string& boundary)
+{
+    // boundary must be at least 1 character long
+    if (boundary.empty())
+    {
+        return false;
+    }
+
+    for (std::string::const_iterator it = boundary.begin(); it != boundary.end(); ++it)
+    {
+        char c = *it;
+
+        // Check if c is printable ASCII character
+        if (!std::isprint(static_cast<unsigned char>(c)))
+        {
+            return false;
+        }
+
+        // Check if c is not allowed special character
+        if (c == ' ' || c == '\"' || c == '(' || c == ')' || c == ',' || c == '/' ||
+            c == ':' || c == ';' || c == '<' || c == '=' || c == '>' || c == '?' || 
+            c == '@' || c == '[' || c == '\\' || c == ']' || c == '{' || c == '}')
+        {
+            return false;
+        }
+    }
+
+    return true;
+}

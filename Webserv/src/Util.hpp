@@ -71,6 +71,7 @@ public:
     static std::size_t  tryReadChunk(const std::string &rawData, std::size_t &octetPos);
 
     static std::string  urlDecode(std::string s);
+    static bool         isValidBoundary(const std::string& boundary);
 };
 
 #endif

@@ -30,7 +30,8 @@ public:
     Location(
         Host &host, const std::string &uri,
         const std::vector<std::string> &limitExcept = std::vector<std::string>(),
-        bool autoindex = false,
+        // bool autoindex = false,
+        bool autoindex = true,
         const std::vector<std::string> &index = std::vector<std::string>(),
         const std::pair<int, std::string> &redirect = std::make_pair(0, "")
         // const std::pair<int, std::string> &redirect = std::make_pair(301, "/new/")
