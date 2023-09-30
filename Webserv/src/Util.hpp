@@ -52,6 +52,7 @@ public:
 
     static std::string sanitizeFilename(const std::string &filename);
     static bool startsWith(const std::string &str, const std::string &prefix);
+    static bool endsWith(const std::string &str, const std::string &suffix);
     static std::string toLowerCase(const std::string &input);
     static bool caseInsensitiveCompare(const std::string &str1, const std::string &str2);
 

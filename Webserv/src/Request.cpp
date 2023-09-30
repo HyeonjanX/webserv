@@ -150,6 +150,17 @@ void Request::parseRequestLine(std::string const &requestLine)
 		std::cout << GREEN << "|" << _method << "| |" << _requestUrl << "| |" << _httpVersion << "|" << RESET << std::endl;
 	}
 
+
+	if (!Util::startsWith(_requestUrl, "/") ||
+		_requestUrl.find("../") != std::string::npos ||
+		_requestUrl.find("./") != std::string::npos ||
+		Util::endsWith(_requestUrl, "/.") ||
+		Util::endsWith(_requestUrl, "/..")
+	)
+	{
+        throw 400; // Bad Request
+    }
+
 	if (_httpVersion.compare(std::string("HTTP/1.1")) != 0)
 	{
 		if (DEBUG)

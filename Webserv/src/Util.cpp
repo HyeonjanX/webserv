@@ -196,6 +196,27 @@ bool Util::startsWith(const std::string &str, const std::string &prefix)
     return true;
 }
 
+bool Util::endsWith(const std::string &str, const std::string &suffix)
+{
+    if (str.length() < suffix.length())
+    {
+        return false;
+    }
+
+    std::string::const_reverse_iterator strIt = str.rbegin();
+    std::string::const_reverse_iterator suffixIt = suffix.rbegin();
+
+    for (; suffixIt != suffix.rend(); ++suffixIt, ++strIt)
+    {
+        if (*strIt != *suffixIt)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 /*
 std::tolower와 ::tolower 두 함수 모두 존재하지만, 차이점이 있습니다.
 std::tolower: 이 함수는 C++ 표준 라이브러리에서 제공되며, 일반적으로 오버로딩이 가능합니다. 즉, 다양한 타입에 대해 작동할 수 있습니다. std::tolower는 템플릿을 사용할 수 있기 때문에, 다양한 문자 타입을 지원할 수 있습니다. 하지만 이 함수는 locale을 매개변수로 받을 수 있는 버전도 있어서, std::transform과 같이 알고리즘 함수에 전달할 때 문제를 일으킬 수 있습니다.
