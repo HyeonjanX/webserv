@@ -17,7 +17,7 @@ bool File::checkFileWritePermission(const struct stat &fileInfo) { return checkF
 bool File::checkFileExcutePermission(const struct stat &fileInfo) { return checkFilePermission(fileInfo, S_IXUSR); }
 
 // 현재 안 쓰고 있는 함수, 나중에 확정적으로 필요없으면 지우면 됨
-// POST의 경우, path가 들어와도 전체를 사용하지 않고, 
+// POST의 경우, path가 들어와도 전체를 사용하지 않고,
 bool File::checkWritePermission(const std::string &filepath)
 {
     std::string directory;
@@ -87,7 +87,7 @@ bool File::writeFile(const std::string &filepath, const std::string &content)
     return true;
 }
 
-std::string File::getFile(const std::string &filepath)
+std::string File::getFile(const std::string &filepath, bool autoindex)
 {
     struct stat fileInfo;
     std::string content;
@@ -96,13 +96,14 @@ std::string File::getFile(const std::string &filepath)
     {
         throw 404;
     }
-    if (!checkFileReadPermission(fileInfo))
+    if (!checkFileReadPermission(fileInfo) ||
+        (isDirectory(fileInfo) && !autoindex))
     {
         throw 403;
     }
     try
     {
-        content = readFile(filepath);
+        content = isDirectory(fileInfo) ? generateAutoIndexHTML(filepath) : readFile(filepath);
     }
     catch (std::runtime_error &e)
     {
@@ -119,7 +120,7 @@ int File::canUploadFile(const std::string filepath)
 
     std::cout << YELLOW << "======= File::uploadFile =======" << RESET << std::endl;
     std::cout << YELLOW << "filepath: " << filepath << RESET << std::endl;
-    
+
     if (fileExists(filepath, fileInfo))
     {
         return 409;
@@ -179,4 +180,36 @@ bool File::deleteFile(const std::string &filepath)
     };
 
     return true;
+}
+
+std::string File::generateAutoIndexHTML(const std::string &dirPath)
+{
+    std::ostringstream htmlStream;
+
+    htmlStream << "<html><head><title>Index of " << dirPath << "</title></head>\n";
+    htmlStream << "<body>\n<h1>Index of " << dirPath << "</h1><hr><pre><a href=\"../\">../</a>\n";
+
+    DIR *dir = opendir(dirPath.c_str());
+    if (dir == NULL)
+    {
+        throw 500; // "Error opening directory.";
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        std::string name = entry->d_name;
+        if (entry->d_type == DT_DIR) // 디렉터리일 경우 뒤에 /를 붙여줍니다.
+        {
+            name += "/";
+        }
+        htmlStream << "<a href=\"" << name << "\">" << name << "</a>" << "<br/>" ;
+        // htmlStream << "<a href=\"" << name << "\">" << name << "</a>";
+    }
+
+    closedir(dir);
+
+    htmlStream << "</pre><hr>\n</body></html>";
+
+    return htmlStream.str();
 }

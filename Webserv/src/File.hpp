@@ -8,6 +8,11 @@
 #include <stdexcept> 
 #include <vector>
 
+// autoindex
+#include <sstream>
+#include <dirent.h>
+#include <sys/types.h>
+
 class File
 {
 private:
@@ -28,13 +33,15 @@ public:
     static bool         checkFileExcutePermission(const struct stat &fileInfo);
 
     static bool         checkWritePermission(const std::string &filepath);
-    static std::string  getFile(const std::string &filepath); // GET
+    static std::string  getFile(const std::string &filepath, bool autoindex = false); // GET
     static std::string  readFile(const std::string &filepath);
     static bool         uploadFile(const std::string _filepath, const std::string &_content); // POST
     static bool         writeFile(const std::string &_filepath, const std::string &_content);
     static bool         deleteFile(const std::string &filepath); // DELETE
 
     static int          canUploadFile(const std::string filepath);
+
+    static std::string  generateAutoIndexHTML(const std::string &dirPath);
 };
 
 #endif // FILE_HPP

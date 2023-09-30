@@ -41,6 +41,10 @@ void Client::readProcess(void)
 
     _request.appendRawData(buffer, bytes_read);
 
+    std::cout << "=========== readProcess =============" << std::endl;
+    std::cout << _request.getRawData() << std::endl;
+    std::cout << "-------------------------------------" << std::endl;
+
     try
     {
         if (_status == BEFORE_READ)
@@ -203,7 +207,9 @@ void Client::afterRead(void)
     const std::string POST_METHOD("POST");
     const std::string DELETE_METHOD("DELETE");
 
-    std::cout << RED << "afterRead(): " << _request.getHttpMethod() << ", " << _request.getRequestUrl() << RESET << std::endl;
+    std::cout << RED << "afterRead() - 요청라인3요소: |"
+        << _request.getHttpMethod() << " " << _request.getRequestUrl() << "  " << _request.getHttpVersion() << "|"
+        << RESET << std::endl;
 
     // HTTP Request가 완성 되었다. => method && path
     // 1. GET
@@ -223,7 +229,8 @@ void Client::afterRead(void)
         {
             std::cout << BLUE << "GET_METHOD()" << RESET << std::endl;
             std::string filepath = root + _request.getRequestPath();
-            notCgiGetProcess(filepath);
+            bool autoindex = _matchedLocation->getAutoindex();
+            notCgiGetProcess(filepath, autoindex);
         }
         else if (method.compare(POST_METHOD) == 0)
         {
@@ -258,11 +265,11 @@ void Client::afterRead(void)
     return;
 }
 
-int Client::notCgiGetProcess(const std::string &filepath)
+int Client::notCgiGetProcess(const std::string &filepath, bool autoindex)
 {
     try
     {
-        std::string fileData = File::getFile(filepath);
+        std::string fileData = File::getFile(filepath, autoindex);
         _response.setBody(fileData);
         _response.setStatusCode(200);
         _erron = 0;
@@ -346,7 +353,7 @@ std::string Client::createDefaultPage(int statusCode)
         if (!defaultPage.empty())
         {
             const std::string &filepath = std::string(".") + defaultPage;
-            html = File::getFile(filepath);
+            html = File::getFile(filepath, false);
         }
         else
         {
