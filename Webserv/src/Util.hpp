@@ -68,6 +68,8 @@ public:
     static bool         hexToDecimalPositive(const std::string &hexStr, size_t &decimalValue);
     static bool         isLastChunk(const std::string &data);
     static std::size_t  tryReadChunk(const std::string &rawData, std::size_t &octetPos);
+
+    static std::string  urlDecode(std::string s);
 };
 
 #endif

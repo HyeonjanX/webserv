@@ -398,3 +398,33 @@ std::size_t Util::tryReadChunk(const std::string &rawData, std::size_t &octetPos
 
     return size;
 }
+
+std::string Util::urlDecode(std::string s)
+{
+    std::ostringstream os;
+    for (std::string::size_type i = 0; i < s.length(); ++i)
+    {
+        if (s[i] == '+')
+        {
+            os << ' ';
+        }
+        else if (s[i] == '%' && i + 2 < s.length())
+        {
+            int value;
+            std::istringstream is(s.substr(i + 1, 2));
+            if (is >> std::hex >> value)
+            {
+                os << static_cast<char>(value);
+                i += 2;
+            }
+            else
+            {
+                // 잘못된 형식의 % 인코딩, 그냥 무시하거나 에러 처리
+                os << '%';
+            }
+        } else {
+            os << s[i];
+        }
+    }
+    return os.str();
+}

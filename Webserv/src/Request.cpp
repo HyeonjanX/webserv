@@ -140,7 +140,7 @@ void Request::parseRequestLine(std::string const &requestLine)
 		throw 400; // Bad Request
 
 	_method = requestLine.substr(0, pos1);
-	_requestUrl = requestLine.substr(pos1 + 1, pos2 - (pos1 + 1));
+	_requestUrl = Util::urlDecode(requestLine.substr(pos1 + 1, pos2 - (pos1 + 1)));
 	_httpVersion = requestLine.substr(pos2 + 1);
 
 	// TODO: 각각 유효성 검사
