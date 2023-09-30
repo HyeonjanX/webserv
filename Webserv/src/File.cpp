@@ -87,10 +87,11 @@ bool File::writeFile(const std::string &filepath, const std::string &content)
     return true;
 }
 
-std::string File::getFile(const std::string &filepath, bool autoindex)
+std::string File::getFile(const std::string &root, const std::string &path, bool autoindex)
 {
     struct stat fileInfo;
     std::string content;
+    std::string filepath = root + path;
 
     if (!fileExists(filepath, fileInfo))
     {
@@ -103,7 +104,7 @@ std::string File::getFile(const std::string &filepath, bool autoindex)
     }
     try
     {
-        content = isDirectory(fileInfo) ? generateAutoIndexHTML(filepath) : readFile(filepath);
+        content = isDirectory(fileInfo) ? generateAutoIndexHTML(root, path) : readFile(filepath);
     }
     catch (std::runtime_error &e)
     {
@@ -182,34 +183,45 @@ bool File::deleteFile(const std::string &filepath)
     return true;
 }
 
-std::string File::generateAutoIndexHTML(const std::string &dirPath)
+std::string File::generateAutoIndexHTML(const std::string &root, const std::string &path)
 {
+    std::string dirPath = root + path;
     std::ostringstream htmlStream;
-
-    htmlStream << "<html><head><title>Index of " << dirPath << "</title></head>\n";
-    htmlStream << "<body>\n<h1>Index of " << dirPath << "</h1><hr><pre><a href=\"../\">../</a>\n";
 
     DIR *dir = opendir(dirPath.c_str());
     if (dir == NULL)
     {
         throw 500; // "Error opening directory.";
     }
+    
+    htmlStream << "<html>\n<head>\n<title>Index of " << path << "</title>\n</head>\n";
+    htmlStream << "<body>\n<h1>Index of " << path << "</h1>\n<hr>\n<pre>\n";
+
+    if (path.compare("/"))
+    {
+        htmlStream << "<a href=\"../\">../</a>\n";
+    }
 
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL)
     {
         std::string name = entry->d_name;
+        std::cout << "name: " << name <<", pass: " << Util::startsWith(name, ".") << std::endl;
+        if (Util::startsWith(name, "."))
+        {
+            continue;
+        }
         if (entry->d_type == DT_DIR) // 디렉터리일 경우 뒤에 /를 붙여줍니다.
         {
             name += "/";
         }
-        htmlStream << "<a href=\"" << name << "\">" << name << "</a>" << "<br/>" ;
+        htmlStream << "<a href=\"" << name << "\">" << name << "</a>" << "\n" ;
         // htmlStream << "<a href=\"" << name << "\">" << name << "</a>";
     }
 
     closedir(dir);
 
-    htmlStream << "</pre><hr>\n</body></html>";
+    htmlStream << "</pre>\n<hr>\n</body>\n</html>";
 
     return htmlStream.str();
 }

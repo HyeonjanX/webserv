@@ -228,9 +228,8 @@ void Client::afterRead(void)
         if (method.compare(GET_METHOD) == 0)
         {
             std::cout << BLUE << "GET_METHOD()" << RESET << std::endl;
-            std::string filepath = root + _request.getRequestPath();
             bool autoindex = _matchedLocation->getAutoindex();
-            notCgiGetProcess(filepath, autoindex);
+            notCgiGetProcess(root, _request.getRequestPath(), autoindex);
         }
         else if (method.compare(POST_METHOD) == 0)
         {
@@ -265,11 +264,11 @@ void Client::afterRead(void)
     return;
 }
 
-int Client::notCgiGetProcess(const std::string &filepath, bool autoindex)
+int Client::notCgiGetProcess(const std::string &root, const std::string &path, bool autoindex)
 {
     try
     {
-        std::string fileData = File::getFile(filepath, autoindex);
+        std::string fileData = File::getFile(root, path, autoindex);
         _response.setBody(fileData);
         _response.setStatusCode(200);
         _erron = 0;
@@ -347,13 +346,14 @@ std::string Client::createDefaultPage(int statusCode)
 {
     const std::string defaultPage("");
     std::string html;
+    std::string root(".");
 
     try
     {
         if (!defaultPage.empty())
         {
-            const std::string &filepath = std::string(".") + defaultPage;
-            html = File::getFile(filepath, false);
+            // const std::string &filepath = std::string(".") + defaultPage;
+            html = File::getFile(root, defaultPage, false);
         }
         else
         {

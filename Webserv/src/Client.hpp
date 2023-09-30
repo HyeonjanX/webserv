@@ -113,7 +113,7 @@ public:
     /* ============ 요청에 대해 수행 with 응답 생성 ============ */
     void    afterRead(void);
 
-    int notCgiGetProcess(const std::string &filepath, bool autoindex);
+    int notCgiGetProcess(const std::string &root, const std::string &filepath, bool autoindex);
     int notCgiPostProcess(const std::string &filepath, const std::string &body);
     int notCgiDeleteProcess(const std::string &filepath);
     
