@@ -19,6 +19,7 @@
 #include <map>
 #include <cctype> // for isalnum
 #include <algorithm>
+#include <vector>
 
 #define B_CHAR_NO_SPACE "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'()+_,-./:=?"; // for boundary
 
@@ -51,10 +52,27 @@ public:
 
     static std::string sanitizeFilename(const std::string &filename);
     static bool startsWith(const std::string &str, const std::string &prefix);
+    static bool endsWith(const std::string &str, const std::string &suffix);
     static std::string toLowerCase(const std::string &input);
     static bool caseInsensitiveCompare(const std::string &str1, const std::string &str2);
 
-public:
+    static std::vector<std::string>
+	splitString(std::string input, char delimiter);
+    static std::string ldtrim(const std::string &str, const std::string& delim);
+    static std::string rdtrim(const std::string &str, const std::string& delim);
+    static std::string lrdtrim(const std::string &str, const std::string& delim);
+	static std::string removeDuplicate(std::string const& input);
+    static std::string extractBasename(const std::string &path);
+    static std::string extractDirPath(const std::string &path);
+
+    static bool         hexToDecimal(const std::string &hexStr, size_t &decimalValue);
+    static bool         hexToDecimalPositive(const std::string &hexStr, size_t &decimalValue);
+    static bool         isLastChunk(const std::string &data);
+    static std::size_t  tryReadChunk(const std::string &rawData, std::size_t &octetPos);
+
+    static std::string  urlDecode(std::string s);
+    static bool         isValidBoundary(const std::string& boundary);
+    static bool         isAllLWSP(const std::string &str, std::size_t startPos, std::size_t endPos);
 };
 
 #endif

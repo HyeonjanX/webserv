@@ -1,4 +1,5 @@
 #include "Response.hpp"
+#include "Util.hpp"
 
 Response::Response(void)
     : _statusCode(0), _totalBytes(0), _sendedBytes(0) {}
@@ -38,22 +39,34 @@ void Response::clean(void)
     _filePath.clear();
 }
 
+/**
+ * 1. 요청라인 만들기(httpVersion, statusCode)
+ * 2. 헤더필드 만들기(headers)
+ * 3. 바디추가하기(body)
+ * 4. 1~3의 결과물 _data에 통합하기(oss)
+ * 5. sendProcess로 넘어가기전 초기화하기(totalBytes, sendedBytes)
+*/
 void Response::generateResponseData(void)
 {
+    const std::string SP(" ");
+    const std::string CRLF("\r\n");
     std::ostringstream oss;
 
-    oss << "HTTP/" << _httpVersion << " " << _statusCode << " " << _statusMessage << "\r\n";
+    // 1. 요청라인 만들기(httpVersion, statusCode)
+    oss << _httpVersion << SP 
+        << _statusCode << SP
+        << Util::getStatusCodeMessage(_statusCode) << CRLF;
 
+    // 2. 헤더필드 만들기(headers)
     for (std::map<std::string, std::string>::iterator it = _headers.begin(); it != _headers.end(); ++it)
     {
-        oss << it->first << ": " << it->second << "\r\n";
+        oss << it->first << ": " << it->second << CRLF;
     }
     // std::cout << "응답 생성 확인" << std::endl;
 
-    oss << "\r\n";
+    oss << CRLF;
 
-    // std::cout << "헤더까지: " << std::endl;
-    // std::cout << oss.str() << std::endl;
+    // std::cout << "헤더까지(더블 CRLF까지).길이: " << oss.str().size() << std::endl;
     
     oss << _body;
 
@@ -61,7 +74,7 @@ void Response::generateResponseData(void)
     _totalBytes = _data.size();
     _sendedBytes = 0;
 
-    // std::cout << "_body: " << _body << std::endl;
+    // std::cout << "_body.size(): " << _body.size() << std::endl;
     // std::cout << "===========================" << std::endl;
     // std::cout << _data << std::endl;
     // std::cout << "===========================" << std::endl;

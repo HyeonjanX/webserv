@@ -3,11 +3,13 @@
 
 #include <iostream>
 #include <unistd.h>
+#include <stdexcept>
 
 #include "EventHandler.hpp"
 #include "Server.hpp"
 #include "Client.hpp"
 #include "Util.hpp"
+
 
 #include <map>
 
@@ -36,8 +38,6 @@ private:
 
   void initServer(int port, int sockreuse = 1, int backlog = 16);
   void initClient(int serverSocket, Server *s = NULL);
-
-  void clientReadProcess(Client &c);
 
 public:
   void closeClient(int clientsocket);

@@ -33,13 +33,16 @@ public:
         bool autoindex = false,
         const std::vector<std::string> &index = std::vector<std::string>(),
         const std::pair<int, std::string> &redirect = std::make_pair(0, "")
+        // const std::pair<int, std::string> &redirect = std::make_pair(301, "/new/")
     );
     virtual ~Location(void);
 
 public:
-    bool isMatched(const std::string &url) const;
-    std::string getRedirectUrl(const std::string &url) const;
-    int getRedirectStatusCode(void) const;
+    bool                                isMatched(const std::string &url) const;
+    bool                                isRedirect() const;
+    std::string                         getRedirectUrl(const std::string &url) const;
+    bool                                isAllowedMethod(const std::string &method) const;
+    
 
 public:
     // getter & setter
@@ -48,16 +51,21 @@ public:
     unsigned int getUriSize(void) const;
     
     void setLimitExcept(const std::vector<std::string> &limits);
-    std::vector<std::string> getLimitExcept() const;
+    const std::vector<std::string> &getLimitExcept() const;
 
     void setAutoindex(bool ai);
     bool getAutoindex(void) const;
 
     void setIndex(const std::vector<std::string> &idx);
-    std::vector<std::string> getIndex() const;
+    const std::vector<std::string> &getIndex() const;
 
     void setRedirect(const std::pair<int, std::string> &rd);
-    std::pair<int, std::string> getRedirect() const;
+    const std::pair<int, std::string> &getRedirect() const;
+
+    int getRedirectStatusCode(void) const;
+    std::string getRedirectPath(void) const;
 };
+
+std::ostream &operator<<(std::ostream &os, const Location &location);
 
 #endif

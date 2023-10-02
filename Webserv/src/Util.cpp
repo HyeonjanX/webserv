@@ -196,6 +196,27 @@ bool Util::startsWith(const std::string &str, const std::string &prefix)
     return true;
 }
 
+bool Util::endsWith(const std::string &str, const std::string &suffix)
+{
+    if (str.length() < suffix.length())
+    {
+        return false;
+    }
+
+    std::string::const_reverse_iterator strIt = str.rbegin();
+    std::string::const_reverse_iterator suffixIt = suffix.rbegin();
+
+    for (; suffixIt != suffix.rend(); ++suffixIt, ++strIt)
+    {
+        if (*strIt != *suffixIt)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 /*
 std::tolower와 ::tolower 두 함수 모두 존재하지만, 차이점이 있습니다.
 std::tolower: 이 함수는 C++ 표준 라이브러리에서 제공되며, 일반적으로 오버로딩이 가능합니다. 즉, 다양한 타입에 대해 작동할 수 있습니다. std::tolower는 템플릿을 사용할 수 있기 때문에, 다양한 문자 타입을 지원할 수 있습니다. 하지만 이 함수는 locale을 매개변수로 받을 수 있는 버전도 있어서, std::transform과 같이 알고리즘 함수에 전달할 때 문제를 일으킬 수 있습니다.
@@ -214,4 +235,258 @@ bool Util::caseInsensitiveCompare(const std::string &str1, const std::string &st
     std::string lowerStr1 = toLowerCase(str1);
     std::string lowerStr2 = toLowerCase(str2);
     return lowerStr1 == lowerStr2;
+}
+
+std::vector<std::string>	Util::splitString
+(std::string input, char delimiter)
+{
+	std::vector<std::string>	result;
+	std::stringstream			ss(input);
+	std::string					item;
+
+	while (std::getline(ss, item, delimiter))
+		result.push_back(item);
+	return result;
+}
+
+std::string Util::ldtrim(const std::string &str, const std::string& delim)
+{
+	std::string	delimiter = " \t" + delim;
+
+    std::string::size_type pos = str.find_first_not_of(delimiter);
+    if (pos == std::string::npos)
+    {
+        return "";
+    }
+    return str.substr(pos);
+}
+
+std::string Util::rdtrim(const std::string &str, const std::string& delim)
+{
+	std::string	delimiter = " \t" + delim;
+
+    std::string::size_type pos = str.find_last_not_of(delimiter);
+    if (pos == std::string::npos)
+    {
+        return "";
+    }
+    return str.substr(0, pos + 1);
+}
+
+std::string Util::lrdtrim(const std::string &str, const std::string& delim)
+{
+    return ldtrim(rdtrim(str, delim), delim);
+}
+
+std::string	Util::removeDuplicate(std::string const& input)
+{
+	std::string	result;
+	char		currentChar;
+	bool		chars[256] = { false, };
+
+	for (std::size_t i = 0; i < input.length(); ++i)
+	{
+		currentChar = input[i];
+		if (!chars[static_cast<unsigned char>(currentChar)])
+		{
+			result += currentChar;
+			chars[static_cast<unsigned char>(currentChar)] = true;
+		}
+	}
+	return result;
+}
+
+
+// path는 /로 시작 보장 (HTTP/1.1 규칙)
+std::string Util::extractBasename(const std::string &path)
+{
+    size_t lastSlash = path.find_last_of("/");
+
+    if (lastSlash != std::string::npos)
+    {
+        return path.substr(lastSlash);
+    }
+    return std::string("");
+}
+
+std::string Util::extractDirPath(const std::string &path)
+{
+    size_t lastSlash = path.find_last_of("/");
+
+    if (lastSlash != std::string::npos)
+    {
+        return path.substr(0, lastSlash);
+    }
+    return std::string("");
+}
+
+bool Util::hexToDecimal(const std::string &hexStr, size_t &decimalValue)
+{
+    char *end;
+    errno = 0; // errno를 0으로 설정하여 이전의 오류를 지웁니다.
+    size_t tempValue = std::strtoul(hexStr.c_str(), &end, 16);
+
+	std::cout << "hexStr: |" << hexStr << "|" << std::endl;
+	std::cout << "tempValue: |" << tempValue << "|" << std::endl;
+	std::cout << "end: |" << *end << "|" << std::endl;
+
+    // 변환에 실패하거나 값이 int의 범위를 벗어나면 false를 반환합니다.
+    if (errno == ERANGE || *end != '\0')
+    {
+        return false;
+    }
+
+    decimalValue = tempValue;
+    return true;
+}
+
+bool Util::hexToDecimalPositive(const std::string &hexStr, size_t &decimalValue)
+{
+    size_t tempValue;
+    if (!Util::hexToDecimal(hexStr, tempValue) || tempValue < 0)
+    {
+        return false;
+    }
+    decimalValue = tempValue;
+    return true;
+}
+
+bool Util::isLastChunk(const std::string &data)
+{
+    const std::string CRLF_STR("\r\n");
+    size_t pos = data.find_first_not_of('0');
+
+    // "CRLF" ...
+    if (pos == 0)
+    {
+        return false;
+    }
+	
+	// 1*("0")
+    if (pos == std::string::npos)
+    {
+        return false;
+    }
+    // 1*("0") "CRLF"
+	if (data.substr(pos, 2).compare(CRLF_STR) == 0)
+    {
+		// 헤더무시한다면
+		if (data.substr(pos + 2, 2).compare(CRLF_STR) == 0)
+		{
+			std::cout << "ok" << std::endl;
+			return true;
+		}
+    }
+    return false;
+}
+
+std::size_t Util::tryReadChunk(const std::string &rawData, std::size_t &octetPos)
+{
+    const std::string CRLF_STR("\r\n");
+    size_t size;
+    size_t crlfPos1 = rawData.find(CRLF_STR);
+
+    if (crlfPos1 == 0)
+    {
+        throw std::invalid_argument("None hex digit!");
+    }
+
+    if (crlfPos1 == std::string::npos)
+    {
+        return 0; // 아직 CRLF가 없어서 파싱 중단
+    }
+
+    std::string hexStr = rawData.substr(0, crlfPos1);
+
+    if (!Util::hexToDecimalPositive(hexStr, size))
+    {
+        throw std::invalid_argument("Invalid hex digit");
+    }
+
+    if (rawData.size() < crlfPos1 + 2 + size + 2)
+    {
+        return 0;
+    }
+
+    size_t crlfPos2 = crlfPos1 + 2 + size;
+	
+    if (rawData.substr(crlfPos2, 2).compare(CRLF_STR) != 0)
+    {
+        throw std::invalid_argument("Invalid OCTET Line");
+    }
+	
+	octetPos = crlfPos1 + 2;
+
+    return size;
+}
+
+std::string Util::urlDecode(std::string s)
+{
+    std::ostringstream os;
+    for (std::string::size_type i = 0; i < s.length(); ++i)
+    {
+        if (s[i] == '+')
+        {
+            os << ' ';
+        }
+        else if (s[i] == '%' && i + 2 < s.length())
+        {
+            int value;
+            std::istringstream is(s.substr(i + 1, 2));
+            if (is >> std::hex >> value)
+            {
+                os << static_cast<char>(value);
+                i += 2;
+            }
+            else
+            {
+                // 잘못된 형식의 % 인코딩, 그냥 무시하거나 에러 처리
+                os << '%';
+            }
+        } else {
+            os << s[i];
+        }
+    }
+    return os.str();
+}
+
+// boundary := 0*69<bchars> bcharsnospace
+// bchars := bcharsnospace / " "
+// bcharsnospace := DIGIT / ALPHA / "'" / "(" / ")" /
+//                 "+" / "_" / "," / "-" / "." /
+//                 "/" / ":" / "=" / "?"
+bool Util::isValidBoundary(const std::string& boundary)
+{
+    const char * bchars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'()+_,-./:=? ";
+    // const char * bcharsnospace = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'()+_,-./:=?";
+
+    if (boundary.empty() || boundary.length() > 70)
+    {
+        return false;
+    }
+
+    if (boundary.back() == ' ')
+    {
+        return false;
+    }
+
+    if (boundary.find_first_not_of(bchars) != std::string::npos)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool Util::isAllLWSP(const std::string &str, std::size_t startPos, std::size_t endPos)
+{
+    for (std::size_t i = startPos; i < endPos; ++i)
+	{
+        char c = str[i];
+		if (c != ' ' && c != '\t')
+		{
+			return false;
+		}
+	}
+	return true;
 }

@@ -50,7 +50,7 @@ Webserver::~Webserver(void)
 void Webserver::initWebserver(void)
 {
   // 1. 시그널 핸들링
-  // signal(SIGPIPE, SIG_IGN);
+  signal(SIGPIPE, SIG_IGN);
 
   // 2. kqueue 시작
   _eventHandler.eventHandlerInit(); // kqueue() 실패시 throw
@@ -68,10 +68,11 @@ void Webserver::initServer(int port, int sockreuse, int backlog)
 {
   Server s(port, sockreuse, backlog);
 
-  _servers.erase(s.getSocket());
   _servers.insert(std::make_pair(s.getSocket(), s));
   _eventHandler.registerReadEvent(s.getSocket());
-  std::cout << port << "서버생성" << std::endl;
+  
+  // std::cout << port << "서버생성" << std::endl; // 아래 출력으로 대체
+  std::cout << s << std::endl;
 }
 
 void Webserver::initClient(int serverSocket, Server *s)
@@ -81,7 +82,7 @@ void Webserver::initClient(int serverSocket, Server *s)
   _clients.erase(c.getSocket());
   _clients.insert(std::make_pair(c.getSocket(), c));
   _eventHandler.registerReadWriteEvents(c.getSocket());
-  std::cout << "init: " << c.getSocket() << std::endl;
+  std::cout << "initClient: fd(" << c.getSocket() << ")" << std::endl;
 }
 
 void Webserver::runWebserver(void)
@@ -136,8 +137,8 @@ void Webserver::runWebserver(void)
 
           Client *c = &(cit->second);
 
-          c->readProcess();
-
+          c->readProcess(); // recv() fail시 _ws->closeClient(_socket);
+          
           continue;
         }
 
@@ -148,10 +149,13 @@ void Webserver::runWebserver(void)
 
           Client *c = &(cit->second);
 
-          c->sendProcess();
+          c->sendProcess(); // send() fail시 _ws->closeClient(_socket);
 
           continue;
         }
+
+        std::cout << BLUE << "***************** 1. CGI WRITE *****************" << RESET << std::endl;
+        std::cout << BLUE << "***************** 2. CGI READ *****************" << RESET << std::endl;
 
         /**
          * File의 이벤트가 도달할 곳
@@ -180,128 +184,11 @@ void Webserver::runWebserver(void)
   {
     std::cerr << "Exception 발생: " << e.what() << std::endl;
   }
-}
-
-void Webserver::clientReadProcess(Client &c)
-{
-  char buffer[1024];
-  ssize_t bytes_read = read(c.getSocket(), buffer, 1024);
-
-  if (bytes_read == 0)
+  catch (...)
   {
-    // 클라이언트와의 정상 종료? => 재사용을 위해  => Request와 Response 초기화필요할듯
-    std::cout << "클라이언트의 연결이 종료되었습니다." << std::endl;
+    std::cerr << "runWebserver() 실행중 알 수 없는 에러 발생" << std::endl;
+    std::cerr << "errno(" << errno << "): " << strerror(errno) << std::endl;
   }
-
-  else if (bytes_read == -1)
-  {
-    if (errno == EAGAIN || errno == EWOULDBLOCK)
-    {
-      // 타임아웃 초과
-      std::cerr << "Timeout occurred." << std::endl;
-    }
-    else
-    {
-      // read() 함수 에러
-      std::cerr << "Read error: " << strerror(errno) << std::endl;
-    }
-    // 1. read 재시도 2. 클라이언트 연결 종료 => 단, 종료전 500류의 에러를 보낼것인지 판단.
-  }
-
-  else
-  {
-    // 읽기 성공 => 처리
-
-    c._data.append(buffer, bytes_read);
-
-    std::cout << "------------------버퍼 데이터------------------" << std::endl;
-    std::cout << buffer << std::endl;
-    std::cout << "--------------------------------------------" << std::endl;
-
-    if (c._header.empty())
-    {
-      // 1. 헤더 끝까지 읽기
-      size_t pos = c._data.find("\r\n\r\n");
-      if (pos == std::string::npos)
-      {
-        c._header.append(buffer, bytes_read);
-      }
-      else
-      {
-
-        // 헤더를 읽었으니, requestLine의 유효성 판별이나
-        // Content-Length들을 파악해 본문을 얼마나 읽으면 되는지 파악
-
-        // c._header = c._data.substr(0, pos);
-        // _body = c._data.substr(pos + 4);
-
-        c._header.append(buffer, pos + 2); // 헤더가 \r\n으로 구분가능 하도록!
-        c._body.append(buffer + pos + 4, bytes_read - pos - 4);
-
-        std::cout << "클라이언트 입력에서 헤더를 찾았습니다." << std::endl;
-      }
-
-      if (c._header.size() > c._headaerLimit)
-      {
-        // 헤더 길이 초과 체크 => 응답 전송후 클라이언트 연결 종료
-      }
-    }
-    else
-    {
-      c._body.append(buffer, bytes_read);
-    }
-
-    if (!c._header.empty())
-    {
-      // 2. 본문 끝까지 읽기
-
-      // 2.1 본문 길이 초과 체크
-      if (c._body.size() >= c._bodyLimit)
-      {
-        // 바디 길이 초과 체크 => 응답 전송후 클라이언트 연결 종료
-      }
-
-      if (c._ischunk)
-      {
-        // 2.1 chuncked 처리
-        size_t pos = c._body.find("\r\n\r\n");
-        if ((pos = c._body.find("\r\n\r\n")) != std::string::npos)
-        {
-          // 끝을 찾음
-          if (pos + 4 == c._body.size())
-          {
-            // \r\n\r\n으로 끝나야 유효한 요청.
-            // \r\n단위로 짤라서 뭔가 하기...
-          }
-          else
-          {
-            // 유효하지 않은 요청 => 응답 전송후 클라이언트 연결 종료
-          }
-        }
-      }
-
-      else
-      {
-        // 2.2 일반적인 read 상태에서 처리
-        if (c._body.size() == c._contentLength)
-        {
-          // 정상 수신
-          // 1. 응답 생성 준비
-          // 2. 모니터링 WRITE 모드로 전환
-        }
-        else if (c._body.size() >= c._contentLength)
-        {
-          // 초과 수신 => 응답 전송후 클라이언트 연결 종료
-        }
-        else
-        {
-          // 계속해서 수신
-        }
-      }
-    }
-  }
-
-  // return bytes_read;
 }
 
 // kqueue 이벤트는 명시적으로 삭제할 필요 없다.

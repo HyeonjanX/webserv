@@ -1,16 +1,23 @@
 #include "File.hpp"
+#include "Util.hpp"
 #include <iostream>
 
 File::File(void)
 {
 }
 
-bool File::fileExists(const std::string &filepath)
-{
-    struct stat info;
-    return (stat(filepath.c_str(), &info) == 0);
-}
+bool File::fileExists(const std::string &filepath, struct stat &fileInfo) { return (stat(filepath.c_str(), &fileInfo) == 0); }
 
+bool File::isDirectory(const struct stat &fileInfo) { return S_ISDIR(fileInfo.st_mode); }
+
+bool File::checkFilePermission(const struct stat &fileInfo, mode_t mode) { return (fileInfo.st_mode & mode); }
+
+bool File::checkFileReadPermission(const struct stat &fileInfo) { return checkFilePermission(fileInfo, S_IRUSR); }
+bool File::checkFileWritePermission(const struct stat &fileInfo) { return checkFilePermission(fileInfo, S_IWUSR); }
+bool File::checkFileExcutePermission(const struct stat &fileInfo) { return checkFilePermission(fileInfo, S_IXUSR); }
+
+// 현재 안 쓰고 있는 함수, 나중에 확정적으로 필요없으면 지우면 됨
+// POST의 경우, path가 들어와도 전체를 사용하지 않고,
 bool File::checkWritePermission(const std::string &filepath)
 {
     std::string directory;
@@ -24,51 +31,9 @@ bool File::checkWritePermission(const std::string &filepath)
     return (access(directory.c_str(), W_OK) != -1);
 }
 
-bool File::writeFile(const std::string &filepath, const std::string &content)
-{
-    // std::ofstream outfile(filepath.c_str());
-    std::ofstream outfile(filepath.c_str(), std::ios::binary);
-
-    if (!outfile.is_open())
-    {
-        return false;
-    }
-
-    outfile << content;
-
-    if (outfile.fail())
-    {
-        outfile.close();
-        return false;
-    }
-
-    outfile.close();
-    return true;
-}
-
-bool File::uploadFile(const std::string filepath, const std::string &content)
-{
-    if (fileExists(filepath))
-    {
-        perror("writeUploadTextFile: 409 conflict");
-        throw 409;
-    }
-    if (!checkWritePermission(filepath))
-    {
-        perror("writeUploadTextFile: 403 Forbidden");
-        throw 403;
-    }
-    if (!writeFile(filepath, content))
-    {
-        perror("writeUploadTextFile: 500");
-        throw 500;
-    }
-    return true;
-}
-
 std::string File::readFile(const std::string &filepath)
 {
-    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+    std::ifstream file(filepath.c_str(), std::ios::binary | std::ios::ate);
     if (!file)
     {
         throw std::runtime_error("Fail to start ifstream");
@@ -100,30 +65,163 @@ std::string File::readFile(const std::string &filepath)
     return content;
 }
 
-std::string File::getFile(const std::string &filepath)
+bool File::writeFile(const std::string &filepath, const std::string &content)
 {
-    std::string content;
-    struct stat fileStat;
+    // std::ofstream outfile(filepath.c_str());
+    std::ofstream outfile(filepath.c_str(), std::ios::binary);
 
-    if (stat(filepath.c_str(), &fileStat) != 0)
+    if (!outfile.is_open())
+    {
+        return false;
+    }
+
+    outfile << content;
+
+    if (outfile.fail())
+    {
+        outfile.close();
+        return false;
+    }
+
+    outfile.close();
+    return true;
+}
+
+std::string File::getFile(const std::string &root, const std::string &path, bool autoindex)
+{
+    struct stat fileInfo;
+    std::string content;
+    std::string filepath = root + path;
+
+    if (!fileExists(filepath, fileInfo))
     {
         throw 404;
     }
-
-    else if (!(fileStat.st_mode & S_IRUSR))
+    if (!checkFileReadPermission(fileInfo) ||
+        (isDirectory(fileInfo) && !autoindex))
     {
         throw 403;
     }
-
     try
     {
-        content = readFile(filepath);
+        content = isDirectory(fileInfo) ? generateAutoIndexHTML(root, path) : readFile(filepath);
     }
-    catch (const char *errmsg)
+    catch (std::runtime_error &e)
     {
-        std::cerr << errmsg << std::endl;
+        std::cerr << e.what() << std::endl;
         throw 500;
     }
 
     return content;
+}
+
+int File::canUploadFile(const std::string filepath)
+{
+    struct stat fileInfo, dirInfo;
+
+    std::cout << YELLOW << "======= File::uploadFile =======" << RESET << std::endl;
+    std::cout << YELLOW << "filepath: " << filepath << RESET << std::endl;
+
+    if (fileExists(filepath, fileInfo))
+    {
+        return 409;
+    }
+
+    const std::string &dirPath = Util::extractDirPath(filepath);
+    std::cout << YELLOW << "dirPath: " << dirPath << RESET << std::endl;
+    std::cout << YELLOW << "fileExists(dirPath, dirInfo): " << fileExists(dirPath, dirInfo) << RESET << std::endl;
+    std::cout << YELLOW << "isDirectory: " << isDirectory(dirInfo) << RESET << std::endl;
+    std::cout << YELLOW << "checkFileWritePermission: " << !checkFileWritePermission(dirInfo) << RESET << std::endl;
+
+    if (!fileExists(dirPath, dirInfo) ||
+        !isDirectory(dirInfo) ||
+        !checkFileWritePermission(dirInfo))
+    {
+        return 403;
+    }
+
+    return 0;
+}
+
+bool File::uploadFile(const std::string filepath, const std::string &content)
+{
+    int statusCode = canUploadFile(filepath);
+
+    if (statusCode)
+    {
+        throw statusCode;
+    }
+
+    if (!writeFile(filepath, content))
+    {
+        throw 500;
+    }
+
+    std::cout << BLUE << "file upload ok: " << content.length() << RESET << std::endl;
+
+    return true;
+}
+
+bool File::deleteFile(const std::string &filepath)
+{
+    struct stat fileInfo;
+
+    if (!fileExists(filepath, fileInfo))
+    {
+        throw 404;
+    }
+    if (isDirectory(fileInfo) || !checkFileWritePermission(fileInfo))
+    {
+        throw 403;
+    }
+    // 실제 삭제여부 고민.
+    if (::remove(filepath.c_str())) // <cstdio>의 파일 삭제 함수
+    {
+        throw 500;
+    };
+
+    return true;
+}
+
+std::string File::generateAutoIndexHTML(const std::string &root, const std::string &path)
+{
+    std::string dirPath = root + path;
+    std::ostringstream htmlStream;
+
+    DIR *dir = opendir(dirPath.c_str());
+    if (dir == NULL)
+    {
+        throw 500; // "Error opening directory.";
+    }
+    
+    htmlStream << "<html>\n<head>\n<title>Index of " << path << "</title>\n</head>\n";
+    htmlStream << "<body>\n<h1>Index of " << path << "</h1>\n<hr>\n<pre>\n";
+
+    if (path.compare("/"))
+    {
+        htmlStream << "<a href=\"../\">../</a>\n";
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        std::string name = entry->d_name;
+        std::cout << "name: " << name <<", pass: " << Util::startsWith(name, ".") << std::endl;
+        if (Util::startsWith(name, "."))
+        {
+            continue;
+        }
+        if (entry->d_type == DT_DIR) // 디렉터리일 경우 뒤에 /를 붙여줍니다.
+        {
+            name += "/";
+        }
+        htmlStream << "<a href=\"" << name << "\">" << name << "</a>" << "\n" ;
+        // htmlStream << "<a href=\"" << name << "\">" << name << "</a>";
+    }
+
+    closedir(dir);
+
+    htmlStream << "</pre>\n<hr>\n</body>\n</html>";
+
+    return htmlStream.str();
 }
