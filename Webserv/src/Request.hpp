@@ -96,7 +96,8 @@ class	Request
 		bool						extractContentTypeData(std::string fieldValue, std::string &mediType, std::map<std::string, std::string> &parameters);
 		std::string					extractBoundary(std::string fieldValue);
 		std::vector<Content>		extractMultipartBody(std::string const &body, std::string const &boundary);
-		const std::string			&getPostData();
+		std::string			getPostData();
+		// const std::string			&getPostData();
 };
 
 #endif	/* __REQUEST_HPP__ */

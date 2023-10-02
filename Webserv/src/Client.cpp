@@ -42,7 +42,9 @@ void Client::readProcess(void)
     _request.appendRawData(buffer, bytes_read);
 
     std::cout << "=========== readProcess =============" << std::endl;
-    std::cout << _request.getRawData() << std::endl;
+    // std::cout << RED << std::string(buffer.data(), bytes_read) << RESET << std::endl;
+    // std::cout << "*************************************" << std::endl;
+    std::cout << BLUE << _request.getRawData() << RESET << std::endl;
     std::cout << "-------------------------------------" << std::endl;
 
     try
@@ -237,6 +239,7 @@ void Client::afterRead(void)
             std::cout << BLUE << "POST_METHOD()" << RESET << std::endl;
             std::string filepath = root + Util::extractBasename(_request.getRequestPath());
             const std::string &body = _request.getPostData();
+            std::cout << "body.size(): " << body.size() << std::endl;
             notCgiPostProcess(filepath, body);
         }
         else if (method.compare(DELETE_METHOD) == 0)

@@ -256,7 +256,7 @@ void Request::appendHeader(const std::string &key, const std::string &val)
 	_headers.push_back(Header(key, val));
 }
 
-// "Content-Disposition" ":" "form-data" *(";" disposition-parm)
+// "Content-Disposition" ":" "form-data" *(";" disposition-parm) CRLF
 // ["Content-Type" ":" MimeType CRLF]
 // [CRLF *OCTET]
 static void	parseBodyPart(std::vector<Content> &contents, const std::string &originBody, const std::size_t startPos, const std::size_t endPos)
@@ -353,7 +353,7 @@ static void	parseBodyPart(std::vector<Content> &contents, const std::string &ori
 		content.filename = filenameIt->second;
 	}
 
-	// crlfPos
+	// "Content-Disposition" ":" "form-data" *(";" disposition-parm) CRLF 에서 다음줄로
 	oldPos = crlfPos + 2;
 	if (oldPos == body.size())
 	{
@@ -482,9 +482,9 @@ std::vector<Content> Request::extractMultipartBody(std::string const &body, std:
 			else
 			{
 				// *(delimiter *LWSP-char CRLF body-part)
-				std::string bodyPart = body.substr(oldPos, (pos - 2) - oldPos);
+				std::string bodyPart = body.substr(oldPos, pos - oldPos);
 				std::cout << GREEN << "|" << bodyPart << "|" << RESET << std::endl;
-				parseBodyPart(contents, body, oldPos, pos - 2);
+				parseBodyPart(contents, body, oldPos, pos);
 				oldPos = pos + delimiter.size(); // <oldPos> *LWSP-char CRLF body-part
 				if ((pos = body.find(CRLF_CHARS, oldPos)) == std::string::npos)
 				{
@@ -671,7 +671,8 @@ std::string Request::extractBoundary(std::string fieldValue)
 	return boundary;
 }
 
-const std::string &Request::getPostData()
+// const std::string &Request::getPostData()
+std::string Request::getPostData()
 {
 	static const std::string &emptyString("");
 	const std::string &boundary = extractBoundary(findHeaderValue("content-type"));
@@ -679,8 +680,10 @@ const std::string &Request::getPostData()
 	if (boundary.empty())
 	{
 		// 1. chunked || 2. normal
+		std::cout << CYAN << "Encoding: " << getTransferEncoding() << RESET << std::endl;
 		return getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData();
 	}
+	std::cout << CYAN << "boundary: " << boundary << RESET << std::endl;
 	
 	// 3. mutipart/form-data
 	const std::vector<Content> &contents = extractMultipartBody(getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData(), boundary);
@@ -688,16 +691,18 @@ const std::string &Request::getPostData()
 	for (std::vector<Content>::const_iterator it = contents.begin(); it < contents.end(); ++it)
 	{
 		std::cout << "============================================" << std::endl;
-		std::cout << RED << "name: " << it->name << RESET << std::endl;
-		std::cout << BLUE << "filename: " << it->filename << RESET << std::endl;
-		std::cout << RED << "type: " << it->type << RESET << std::endl;
-		std::cout << BLUE << "data: " << it->data << RESET << std::endl;
+		std::cout << RED << "name: |" << it->name << "|" << RESET << std::endl;
+		std::cout << BLUE << "filename: |" << it->filename << "|" << RESET << std::endl;
+		std::cout << RED << "type: |" << it->type << "|" << RESET << std::endl;
+		std::cout << BLUE << "data: |" << it->data << "|" << RESET << std::endl;
 		std::cout << "============================================" << std::endl;
 
 		if (it->name.compare("file") == 0)
 		{
+			std::cout << "return it->data: " << it->data.size() << ", " << it->data << std::endl;
 			return it->data;
 		}
 	}
+	std::cout << "return emptyString" << std::endl;
 	return emptyString;
 }
