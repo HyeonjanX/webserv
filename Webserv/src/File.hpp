@@ -26,11 +26,10 @@ public:
 
     static bool         isDirectory(const struct stat &fileInfo);
 
-    static bool         checkFilePermission(const struct stat &fileInfo, mode_t mode);
-    
-    static bool         checkFileReadPermission(const struct stat &fileInfo);
-    static bool         checkFileWritePermission(const struct stat &fileInfo);
-    static bool         checkFileExcutePermission(const struct stat &fileInfo);
+    static bool         checkFilePermission(const std::string &filepath, int mode);
+    static bool         checkFileReadPermission(const std::string &filepath);
+    static bool         checkFileWritePermission(const std::string &filepath);
+    static bool         checkFileExecutePermission(const std::string &filepath);
 
     static bool         checkWritePermission(const std::string &filepath);
     static std::string  getFile(const std::string &root, const std::string &path, bool autoindex = false); // GET
@@ -40,6 +39,7 @@ public:
     static bool         deleteFile(const std::string &filepath); // DELETE
 
     static int          canUploadFile(const std::string filepath);
+    static int          canExecuteFile(const std::string& filepath);
 
     static std::string  generateAutoIndexHTML(const std::string &root, const std::string &path);
 };

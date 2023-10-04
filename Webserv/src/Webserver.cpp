@@ -70,7 +70,7 @@ void Webserver::initServer(int port, int sockreuse, int backlog)
 
   _servers.insert(std::make_pair(s.getSocket(), s));
   _eventHandler.registerReadEvent(s.getSocket());
-  
+
   // std::cout << port << "서버생성" << std::endl; // 아래 출력으로 대체
   std::cout << s << std::endl;
 }
@@ -138,7 +138,7 @@ void Webserver::runWebserver(void)
           Client *c = &(cit->second);
 
           c->readProcess(); // recv() fail시 _ws->closeClient(_socket);
-          
+
           continue;
         }
 
@@ -154,31 +154,57 @@ void Webserver::runWebserver(void)
           continue;
         }
 
-        std::cout << BLUE << "***************** 1. CGI WRITE *****************" << RESET << std::endl;
-        std::cout << BLUE << "***************** 2. CGI READ *****************" << RESET << std::endl;
+        std::map<int, Client>::iterator cit2 = searchClientByPipeFd(curr.ident);
 
-        /**
-         * File의 이벤트가 도달할 곳
-         *
-         * std::map<int, File>::iterator fit = _files.find(static_cast<int>(curr.ident));
-         * if (fit != _files.end() && EVFILT_READ && curr.flags & EV_EOF)
-         * {
-         *   // file eof
-         * }
-         * if (fit != _files.end() && EVFILT_READ)
-         * {
-         *   // file read
-         * }
-         * if (fit != _files.end() && EVFILT_WRITE)
-         * {
-         *   // file write
-         * }
-         */
-        //
+        if (cit2 != _clients.end())
+        {
+          Client *c = &(cit2->second);
+          Cgi *cgi = &(c->getCgi());
+
+          try
+          {
+            if (curr.filter == EVFILT_WRITE)
+            {
+              std::cout << YELLOW << "***************** CGI WRITE *****************" << RESET << std::endl;
+              cgi->writePipe(); // write() failt시 => 500 응답 생성 코스로
+              if (cgi->allSend())
+              {
+                cgi->closePipe(cgi->getInPipe(WRITE_FD));
+                _eventHandler.addKeventToChangeList(
+                  cgi->getOutPipe(READ_FD), EVFILT_READ, EV_ENABLE, 0, 0, static_cast<void *>(&cgi));
+              }
+            }
+            else if (curr.filter == EVFILT_READ)
+            {
+              std::cout << YELLOW << "***************** CGI READ *****************" << RESET << std::endl;
+              if (curr.flags & EV_EOF)
+              {
+                std::cout << MAGENTA << "EV_EOF" << RESET << std::endl;
+                c->makeCgiResponse();
+              }
+              else
+              {
+                std::cout << MAGENTA << "*읽기" << RESET << std::endl;
+                cgi->readPipe(); // read() fail시 => 500 응답 생성 코스로
+              }
+            }
+          }
+          catch (const char *msg)
+          {
+            std::cerr << "CGI 동작 중 문제 발생: " << msg << std::endl;
+            c->makeCgiErrorResponse();
+          }
+
+          continue;
+        }
 
         // 도달 하지 않을 곳.
       }
     }
+  }
+  catch (Cgi::ExecveException &e)
+  {
+    std::cerr << "자녀프로세스: " << e.what() << std::endl;
   }
   catch (std::exception &e)
   {
@@ -196,4 +222,16 @@ void Webserver::closeClient(int clientsocket)
 {
   close(clientsocket);
   _clients.erase(clientsocket);
+}
+
+std::map<int, Client>::iterator Webserver::searchClientByPipeFd(int fd)
+{
+  for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+  {
+    if (it->second.isPipe(fd))
+    {
+      return it;
+    }
+  }
+  return _clients.end();
 }

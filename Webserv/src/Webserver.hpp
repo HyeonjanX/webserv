@@ -9,6 +9,7 @@
 #include "Server.hpp"
 #include "Client.hpp"
 #include "Util.hpp"
+#include "Cgi.hpp"
 
 
 #include <map>
@@ -41,6 +42,7 @@ private:
 
 public:
   void closeClient(int clientsocket);
+  std::map<int, Client>::iterator searchClientByPipeFd(int fd);
 };
 
 #endif

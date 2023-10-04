@@ -35,6 +35,7 @@ class Request;
 #include "EventHandler.hpp"
 #include "Server.hpp"
 #include "Request.hpp"
+#include "Cgi.hpp"
 
 typedef enum CLIENT_STATUS
 {
@@ -46,6 +47,7 @@ typedef enum CLIENT_STATUS
     BODY_LIMIT_OVER,
     BODY_SIZE_OVER,
     READ_END,
+    EXEC_CGI,
     ERROR_400,
     BEFORE_WRITE,
     WRITING,
@@ -90,6 +92,8 @@ public:
     const Host*     _matchedHost;
     const Location* _matchedLocation;
 
+    Cgi             _cgi;
+
 public:
     // 레퍼런스와 디폴트값을 함께 사용하지 않기.
     // Client(int serverSocket);
@@ -111,13 +115,13 @@ public:
 
 public:
     /* ============ 요청에 대해 수행 with 응답 생성 ============ */
-    void    afterRead(void);
+    void        afterRead(void);
 
-    int notCgiGetProcess(const std::string &root, const std::string &filepath, bool autoindex);
-    int notCgiPostProcess(const std::string &filepath, const std::string &body);
-    int notCgiDeleteProcess(const std::string &filepath);
+    void        notCgiGetProcess(const std::string &root, const std::string &filepath, bool autoindex);
+    void        notCgiPostProcess(const std::string &filepath, const std::string &body);
+    void        notCgiDeleteProcess(const std::string &filepath);
     
-    void makeResponseData(void); // _response.generateResponseData() 호출
+    void        makeResponseData(void); // _response.generateResponseData() 호출
     std::string createDefaultPage(int statusCode);
     std::string createDefaultBody(int statusCode);
 
@@ -133,6 +137,16 @@ public:
     void    chunkRead(void);
     void    handleHeaders(void);
 
+public:
+    Request&    getRequest();
+    Response&   getResponse();
+    Cgi&        getCgi();
+
+public:
+    void        cgiProcess(const std::string &method, const std::string &filepath);
+    void        makeCgiResponse();
+    void        makeCgiErrorResponse();
+    bool        isPipe(int fd);
 };
 
 #endif

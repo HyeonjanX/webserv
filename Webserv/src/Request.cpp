@@ -650,23 +650,17 @@ std::string Request::extractBoundary(std::string fieldValue)
 	std::map<std::string, std::string> parameters;
 
 	// 유효한 Content-Type
-	std::cout << RED << "extractBoundary" << std::endl;
 	if (extractContentTypeData(fieldValue, mediType, parameters))
 	{
-		std::cout << RED << "extractBoundary 1" << std::endl;
 		// 멀티파트/폼데이터 => 바운더리 추출
 		if (mediType.compare("multipart/form-data") == 0)
 		{
-			std::cout << RED << "extractBoundary 2" << std::endl;
 			std::map<std::string, std::string>::iterator it = parameters.find("boundary");
-			std::cout << RED << "extractBoundary 3" << std::endl;
 			if (it != parameters.end() && Util::isValidBoundary(it->second))
 			{
-				std::cout << RED << "extractBoundary 4" << std::endl;
 				boundary = it->second; // boundary;
 			}
 		}
-		std::cout << RED << "extractBoundary 5" << std::endl;
 	}
 	return boundary;
 }
@@ -680,29 +674,29 @@ std::string Request::getPostData()
 	if (boundary.empty())
 	{
 		// 1. chunked || 2. normal
-		std::cout << CYAN << "Encoding: " << getTransferEncoding() << RESET << std::endl;
+		// std::cout << CYAN << "Encoding: " << getTransferEncoding() << RESET << std::endl;
 		return getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData();
 	}
-	std::cout << CYAN << "boundary: " << boundary << RESET << std::endl;
+	// std::cout << CYAN << "boundary: " << boundary << RESET << std::endl;
 	
-	// 3. mutipart/form-data
+	// 3. mutipart/form-data, throw 400
 	const std::vector<Content> &contents = extractMultipartBody(getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData(), boundary);
 	
 	for (std::vector<Content>::const_iterator it = contents.begin(); it < contents.end(); ++it)
 	{
-		std::cout << "============================================" << std::endl;
-		std::cout << RED << "name: |" << it->name << "|" << RESET << std::endl;
-		std::cout << BLUE << "filename: |" << it->filename << "|" << RESET << std::endl;
-		std::cout << RED << "type: |" << it->type << "|" << RESET << std::endl;
-		std::cout << BLUE << "data: |" << it->data << "|" << RESET << std::endl;
+		// std::cout << "============================================" << std::endl;
+		// std::cout << RED << "name: |" << it->name << "|" << RESET << std::endl;
+		// std::cout << BLUE << "filename: |" << it->filename << "|" << RESET << std::endl;
+		// std::cout << RED << "type: |" << it->type << "|" << RESET << std::endl;
+		// std::cout << BLUE << "data: |" << it->data << "|" << RESET << std::endl;
 		std::cout << "============================================" << std::endl;
 
 		if (it->name.compare("file") == 0)
 		{
-			std::cout << "return it->data: " << it->data.size() << ", " << it->data << std::endl;
+			// std::cout << "return it->data: " << it->data.size() << ", " << it->data << std::endl;
 			return it->data;
 		}
 	}
-	std::cout << "return emptyString" << std::endl;
+	// std::cout << "return emptyString" << std::endl;
 	return emptyString;
 }
