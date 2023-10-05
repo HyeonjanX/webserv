@@ -1,5 +1,7 @@
-NAME = test
-SRCS = Client.cpp\
+NAME = test	
+SRCS = \
+	Cgi.cpp\
+	Client.cpp\
 	EventHandler.cpp\
 	File.cpp\
 	Host.cpp\
