@@ -15,6 +15,8 @@
 
 #define CRLF "\r\n"
 #define DOUBLE_CRLF "\r\n\r\n"
+#define CRLF_SIZE 2
+#define DOUBLE_CRLF_SIZE 4
 
 #include <iostream> // for debug
 #include <cstdlib>
@@ -92,7 +94,7 @@ class	Request
 		void						appendHeader(const std::string &key, const std::string &val);
 
 	public:
-		int							handleHeaders(std::string &hostname);
+		void						handleHeaders(std::string &hostname, bool &expected100);
 		bool						extractContentTypeData(std::string fieldValue, std::string &mediType, std::map<std::string, std::string> &parameters);
 		std::string					extractBoundary(std::string fieldValue);
 		std::vector<Content>		extractMultipartBody(std::string const &body, std::string const &boundary);

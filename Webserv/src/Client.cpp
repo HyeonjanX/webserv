@@ -15,116 +15,106 @@ Client::Client(int serverSocket, Webserver *ws, Server *s, EventHandler *e)
         throw "fcntl() error" + std::string(strerror(errno));
     }
     std::cout << "Client 생성: " << _socket << std::endl;
-    (void)_server;
-    (void)_eventHandler;
-
 }
 
 Client::~Client(void) {}
 
 int Client::getSocket(void) const { return _socket; }
-
-std::string &Client::getData(void) { return _data; }
-
-Request& Client::getRequest() { return _request; }
-Response& Client::getResponse() { return _response; }
-Cgi& Client::getCgi() { return _cgi; }
+Request &Client::getRequest() { return _request; }
+Response &Client::getResponse() { return _response; }
+Cgi &Client::getCgi() { return _cgi; }
 
 /**
- * @brief 클라이어트 READ 버퍼 읽기 호출시 
- * 
+ * @brief 클라이어트 READ 버퍼 읽기 호출시 트리거
+ * - 응답 생성 or 100 응답 or CGI 실행
  */
 void Client::readProcess(void)
 {
-    // 1. 데이터 읽기 => 청크 모드 ? 특별 처리 : 일반처리
+    int statusCode;
 
-    static std::vector<char> buffer(READ_BUFFER_SIZE);
-    ssize_t bytes_read = recv(_socket, buffer.data(), READ_BUFFER_SIZE, 0);
-
-    if (bytes_read <= 0)
+    if (receiveRequest() <= 0)
     {
         std::cerr << "Fail to recv(): " + std::string(strerror(errno)) << std::endl;
         _ws->closeClient(_socket);
         return;
     }
 
-    _request.appendRawData(buffer, bytes_read);
-
-    std::cout << "=========== readProcess =============" << std::endl;
-    // std::cout << RED << std::string(buffer.data(), bytes_read) << RESET << std::endl;
-    // std::cout << "*************************************" << std::endl;
-    std::cout << BLUE << _request.getRawData() << RESET << std::endl;
-    std::cout << "-------------------------------------" << std::endl;
-
     try
     {
-        if (_status == BEFORE_READ)
-            readRequestLine(); // throw 400 505, to READ_REQUESTLINE
-        if (_status == READ_REQUESTLINE)
+        parseRequest();
+        if (_status == READ_POST_EXPECT_100)
         {
-            readHeader(); // throw 400, to READ_HEADER
-            if (_status == READ_HEADER)
-            {
-                handleHeaders(); // throw 405 30x 405 417, POST && 100 응답 처리 포함
-                if (_status == READ_POST_EXPECT_100)
-                {
-                    std::cout << MAGENTA << "100 응답 생성" << std::endl;
-                    _response.generateResponseData();
-                    _eventHandler->switchToWriteState(_socket);
-                    return;
-                }
-            }
-        }
-        if (_status == READ_HEADER)
-        {
-            // std::cout << MAGENTA << "============= READ_HEADER ===========" << std::endl;
-            const std::string &mode = _request.getTransferEncoding();
-            if (mode.compare("chunked") == 0)
-            {
-                chunkRead(); // throw 400 413, to READ_BODY
-            }
-            else
-            {
-                readBody(); // throw 400 413, to READ_BODY
-            }
-            // std::cout << RED << "바디 확인:" << _request.getPostData().size() << RESET << std::endl;
-            // std::cout << MAGENTA  << _request.getPostData() << RESET << std::endl;
-        }
-        if (_status == READ_BODY)
-        {
-            // 이곳에 위치할 계획이던 multipart/form-data
-            // afterRead()의 POST 호출 직전으로 위치 이동
-            _status = READ_END;
+            std::cout << MAGENTA << "100 응답 생성" << std::endl;
+            _response.generate100ResponseData();
+            _eventHandler->switchToWriteState(_socket);
+            return;
         }
         if (_status != READ_END)
             return;
         // 이 아래로는 응답을 생성하고, write모드로 전환이 이뤄진다. (not cgi)
         // cgi는 정상 동작시, kqueue 모니터링 등록한다. (cgi)
-        afterRead();
+        statusCode = doRequest();
         if (_status == EXEC_CGI)
         {
             _eventHandler->turnOffRead(_socket);
             return;
         }
     }
-    catch (int statusCode)
+    catch (int errorStatusCode)
     {
-        // 에러 => statusCode를 들고 기본 응답 생성.
+        // 30x 리다이렉트 코드도 이리로 온다.
         _status = READ_END;
-        _response.setStatusCode(statusCode);
-
+        statusCode = errorStatusCode;
         _defaultBodyNeed = 1;
         _erron = 1;
     }
 
-    // READ_END, 응답 생성
-    if (_defaultBodyNeed)
-        _response.setBody(createDefaultPage(_response.getStatusCode()));
-
-    makeResponseData();
+    makeResponseData(statusCode, _defaultBodyNeed);
     _eventHandler->switchToWriteState(_socket);
 
     return;
+}
+
+ssize_t Client::receiveRequest(void)
+{
+    // 1. 데이터 읽기 => 청크 모드 ? 특별 처리 : 일반처리
+
+    static std::vector<char> buffer(READ_BUFFER_SIZE);
+    ssize_t bytes_read = recv(_socket, buffer.data(), READ_BUFFER_SIZE, 0);
+
+    if (bytes_read > 0)
+    {
+        _request.appendRawData(buffer, bytes_read);
+
+        std::cout << "=========== readProcess =============" << std::endl;
+        // std::cout << RED << std::string(buffer.data(), bytes_read) << RESET << std::endl;
+        // std::cout << "*************************************" << std::endl;
+        std::cout << BLUE << _request.getRawData() << RESET << std::endl;
+        std::cout << "-------------------------------------" << std::endl;
+    }
+
+
+    return bytes_read;
+}
+
+void    Client::parseRequest(void)
+{
+    if (_status == BEFORE_READ)
+        readRequestLine(); // throw 400 505
+    if (_status == READ_REQUESTLINE)
+    {
+        readHeader(); // throw 400
+        if (_status == READ_HEADER)
+            handleHeaders(); // throw 405 30x 405 417, to READ_POST_EXPECT_100
+    }
+    if (_status == READ_HEADER)
+        readBody();
+    if (_status == READ_BODY)
+    {
+        // 이곳에 위치할 계획이던 multipart/form-data
+        // doRequest()의 POST 호출 직전으로 위치 이동
+        _status = READ_END;
+    }
 }
 
 /**
@@ -137,8 +127,10 @@ void Client::readRequestLine(void)
 
     std::cout << BLUE << "readRequestLine()" << std::endl;
 
-    const std::string rawData = _request.getRawData();
+    const std::string &rawData = _request.getRawData();
+    
     size_t pos = rawData.find("\r\n");
+    
     if (pos != std::string::npos)
     {
         std::cout << BLUE << rawData.substr(0, pos) << RESET << std::endl;
@@ -161,33 +153,31 @@ void Client::readHeader(void)
 
     std::cout << YELLOW << "======== readHeader() ========" << RESET << std::endl;
 
-    std::string::size_type pos = 0;
-    std::string::size_type oldPos = 0;
-    std::string::size_type colPos;
+    std::string::size_type pos = 0, oldPos = 0, colPos; 
+    
+    const std::string &rawData = _request.getRawData();
 
-    const std::string rawData = _request.getRawData();
-
-    while ((pos = rawData.find("\r\n", oldPos)) != std::string::npos)
+    while ((pos = rawData.find(CRLF, oldPos)) != std::string::npos)
     {
         if (pos == oldPos)
         {
+            // 헤더 끝까지 읽기 완료
             _request.setRawData(rawData.substr(pos + 2));
             _status = READ_HEADER;
             return;
         }
 
         std::string line = rawData.substr(oldPos, pos - oldPos);
-        // std::cout << BLUE << "line: |" << line << "|" << RESET << std::endl;
-        colPos = line.find(':');
-        if (colPos == std::string::npos)
-        {
+
+        if ((colPos = line.find(':')) == std::string::npos)
             throw 400; // Bad Request
-        }
+        
         std::string key = Util::toLowerCase(line.substr(0, colPos));
         std::string val = Util::lrtrim(line.substr(colPos + 1));
-        // std::cout << YELLOW << "헤더 " << key << " : " << val << RESET << std::endl;
+        
         _request.appendHeader(key, val);
-        oldPos = pos + 2;
+        
+        oldPos = pos + CRLF_SIZE;
     }
 
     if (oldPos != 0)
@@ -196,104 +186,110 @@ void Client::readHeader(void)
     }
 }
 
+/**
+ * @brief 컨테츠 길이만큼 or Chunked 규칙에 맞게 Body를 읽습니다.
+ *  - 바디 제한 길이 && ContentLength와 비교
+ * @throws int statusCode: 400 잘못된 컨텐츠 길이, 413 Content Too Large
+ */
 void Client::readBody(void)
 {
-    // READ_HEADER => READ_BODY
-    // throw 400, 413 Payload Too Large
-
-    // rawData == 바디임.
-    const std::string &rawData = _request.getRawData();
-
-    // 1. 바디 제한 길이 확인
-    // if (rawData.size() >= _bodyLimit)
-    //     throw 413; // 413 Payload Too Large | Content Too Large
-
-    // 3. 본문 길이 확인
-    size_t contentLength = _request.getContentLength();
-    std::cout << GREEN << "크기체크 => rawData:" << rawData.size() << ", contentLength: " << contentLength << RESET << std::endl;
-    if (rawData.size() > contentLength)
-        throw 400; // 400 or 413
-
-    if (rawData.size() == contentLength)
+    if (_request.getTransferEncoding().compare("chunked") == 0)
+        chunkRead(); // throw 400 413
+    else
     {
-        _status = READ_BODY;
+        const size_t readBodyLength = _request.getRawData().size();
+        const size_t contentLength = _request.getContentLength();
+        const size_t clientMaxBodySize = _matchedHost->getClientMaxBodySize();
+
+        std::cout << GREEN << "크기체크 => rawData:" << readBodyLength << ", contentLength: " << contentLength << RESET << std::endl;
+
+        if (readBodyLength >= clientMaxBodySize)
+            throw 413; // 413 Content Too Large
+        if (readBodyLength > contentLength)
+            throw 400;
+        if (readBodyLength == contentLength)
+            _status = READ_BODY;
     }
 }
 
 /**
  * @brief 
  * 
- * throw
- * - 400: 
+ * @param method 
+ * @return int stausCode: Response 응답코드에 사용할 값이다.
+ * 
+ * @throws
+ * - 400:
  * - 405: GET / POST / DELETE 외 메서드는 지원 X
  */
-void Client::afterRead(void)
+int Client::doNonCgiProcess(const std::string &method)
 {
     const std::string GET_METHOD("GET");
     const std::string POST_METHOD("POST");
     const std::string DELETE_METHOD("DELETE");
 
-    std::cout << RED << "afterRead() - 요청라인3요소: |"
-        << _request.getHttpMethod() << " " << _request.getRequestUrl() << "  " << _request.getHttpVersion() << "|"
-        << RESET << std::endl;
+    const std::string &root = _matchedHost->getRoot();
+    const std::string &path = _request.getRequestPath();
 
-    // HTTP Request가 완성 되었다. => method && path
-    // 1. GET
-    const std::string &method = _request.getHttpMethod();
+    std::cout << BLUE << method << "_METHOD()" << RESET << std::endl;
 
-    std::cout << method << std::endl;
-
-    // 2. location과 매칭해야한다.
-    // std::string root(".");
-    std::string root("../data");
-
-    // 3. CGI vs Not CGI
-    bool cgion = true; // 어디서 어떻게 받아와야 할까?
-    if (!cgion)
+    if (method.compare(GET_METHOD) == 0)
     {
-        if (method.compare(GET_METHOD) == 0)
-        {
-            std::cout << BLUE << "GET_METHOD()" << RESET << std::endl;
-            bool autoindex = _matchedLocation->getAutoindex();
-            notCgiGetProcess(root, _request.getRequestPath(), autoindex);
-        }
-        else if (method.compare(POST_METHOD) == 0)
-        {
-            std::cout << BLUE << "POST_METHOD()" << RESET << std::endl;
-            std::string filepath = root + Util::extractBasename(_request.getRequestPath());
-            const std::string &body = _request.getPostData(); // throw 400
-            std::cout << "body.size(): " << body.size() << std::endl;
-            notCgiPostProcess(filepath, body);
-        }
-        else if (method.compare(DELETE_METHOD) == 0)
-        {
-            std::cout << BLUE << "DELETE_METHOD()" << RESET << std::endl;
-            std::string filepath = root + _request.getRequestPath();
-            notCgiDeleteProcess(filepath);
-        }
-        else
-        {
-            throw 405; // 405 Method Not Allowed
-        }
-        // 치명적인 에러 => 응답 필요 X, 클라이언트 삭제
-        // 평범한 에러 => 에러 응답 생성 필요 O => 아래로 진행
+        bool autoindex = _matchedLocation->getAutoindex();
+
+        return notCgiGetProcess(root, path, autoindex);
+    }
+    else if (method.compare(POST_METHOD) == 0)
+    {
+        // POST의 경우, 경로를 제외한 path만 받아들인다.
+        std::string filepath = root + Util::extractBasename(path);
+
+        const std::string &body = _request.getPostData(); // throw 400
+
+        // std::cout << "body.size(): " << body.size() << std::endl;
+
+        return notCgiPostProcess(filepath, body);
+    }
+    else if (method.compare(DELETE_METHOD) == 0)
+    {
+        std::string filepath = root + path;
+
+        return notCgiDeleteProcess(filepath);
     }
     else
     {
-        if (method.compare(GET_METHOD) && method.compare(POST_METHOD))
-        {
-            throw 405; // 405 Method Not Allowed, CGI 는 일단 GET과 POST만 
-        }
-        std::cout << BLUE << "CGI()1" << RESET << std::endl;
-        // 1. filepath
-        root = std::string("../");
-        std::string filepath = root + Util::extractBasename(_request.getRequestPath());
-        cgiProcess(method, filepath); // kqueue에 read + write(POST) 등록
-        std::cout << BLUE << "CGI()2" << RESET << std::endl;
-        
-        _status = EXEC_CGI;
+        throw 405; // 405 Method Not Allowed
     }
-    return;
+}
+
+/**
+ * @brief 
+ * 
+ * @return int statusCode: Response 응답에 쓰일 값이다.
+ * 
+ * @throws
+ * - 400:
+ * - 405: GET / POST / DELETE 외 메서드는 지원 X
+ * - 500
+ */
+int Client::doRequest(void)
+{
+    std::cout << RED << "doRequest() - 요청라인3요소: |"
+              << _request.getHttpMethod() << " " << _request.getRequestUrl() << "  " << _request.getHttpVersion() << "|"
+              << RESET << std::endl;
+
+    const std::string &method = _request.getHttpMethod();
+    const std::string &path = _request.getRequestPath();
+    const std::string &cgiExt = _matchedLocation->getCgiExt();
+
+    if (cgiExt.empty() || !Util::endsWith(path, cgiExt))
+        return doNonCgiProcess(method); // return statusCode, throw 405
+    else
+    {
+        cgiProcess(method); // throw 405, 500
+        _status = EXEC_CGI;
+        return 0;
+    }
 }
 
 /**
@@ -302,23 +298,27 @@ void Client::afterRead(void)
  * @param root 
  * @param path 
  * @param autoindex 
+ * @return int statusCode: Response 응답에 사용 될 값이다.
  */
-void    Client::notCgiGetProcess(const std::string &root, const std::string &path, bool autoindex)
+int Client::notCgiGetProcess(const std::string &root, const std::string &path, bool autoindex)
 {
+    int statusCode;
+
     try
     {
         std::string fileData = File::getFile(root, path, autoindex);
         _response.setBody(fileData);
-        _response.setStatusCode(200);
+        statusCode = 200;
         _erron = 0;
         _defaultBodyNeed = 0; // 바디는 fileData
     }
-    catch (int statusCode)
+    catch (int errorStatusCode)
     {
-        _response.setStatusCode(statusCode);
+        statusCode = errorStatusCode;
         _erron = 1;           // _erron 삭제 해도 될 수도
         _defaultBodyNeed = 1; // 에러는 기본 바디 필요
     }
+    return statusCode;
 }
 
 /**
@@ -326,44 +326,52 @@ void    Client::notCgiGetProcess(const std::string &root, const std::string &pat
  * 
  * @param filepath 
  * @param body 
+ * @return int statusCode: Response 응답에 사용 될 값이다.
  */
-void    Client::notCgiPostProcess(const std::string &filepath, const std::string &body)
+int Client::notCgiPostProcess(const std::string &filepath, const std::string &body)
 {
+    int statusCode;
+
     try
     {
         File::uploadFile(filepath, body);
-        _response.setStatusCode(201); // created
+        statusCode = 201; // created
         _erron = 0;
         _defaultBodyNeed = 1; // Post는 바디 콘텐츠 X
     }
-    catch (int statusCode)
+    catch (int errorStatusCode)
     {
-        _response.setStatusCode(statusCode);
+        statusCode = errorStatusCode;
         _erron = 1;
         _defaultBodyNeed = 1;
     }
+    return statusCode;
 }
 
 /**
  * @brief 
  * 
  * @param filepath 
+ * @return int statusCode: Response 응답에 사용 될 값이다.
  */
-void    Client::notCgiDeleteProcess(const std::string &filepath)
+int Client::notCgiDeleteProcess(const std::string &filepath)
 {
+    int statusCode;
+
     try
     {
         File::deleteFile(filepath);
-        _response.setStatusCode(200);
+        statusCode = 200;
         _erron = 0;
         _defaultBodyNeed = 1; // Delete는 바디 콘텐츠 X
     }
-    catch (int statusCode)
+    catch (int errorStatusCode)
     {
-        _response.setStatusCode(statusCode);
+        statusCode = errorStatusCode;
         _erron = 1;
         _defaultBodyNeed = 1;
     }
+    return statusCode;
 }
 
 /**
@@ -372,17 +380,24 @@ void    Client::notCgiDeleteProcess(const std::string &filepath)
  * 1.2 리다이렉트 => Location 헤더 설정
  * 2. _response.generateResponseData() 호출: Response가 가진것들을 활용해 _data로 만듬.
  */
-void Client::makeResponseData(void)
+void Client::makeResponseData(int statusCode, int defaultBodyNeed)
 {
+    // 두 인자를 새롭게 받아 와서 활용.
+    _response.setStatusCode(statusCode);
+    
+    if (defaultBodyNeed)
+        _response.setBody(createDefaultPage(statusCode));
+    
     // 1.1 _response.헤더<Cotent-length && Date>세팅(리스폰스.바디, 현재:Date)
     _response.setHeader(std::string("Content-Length"), std::string(Util::ft_itoa(_response.getBody().length())));
     _response.setHeader(std::string("Date"), Util::getDateString());
 
     // 1.2 300번대 리다이렉트
-    if (_response.getStatusCode() / 100 == 3) // _matchedLocation && _matchedLocation->isRedirect()
+    if (statusCode / 100 == 3) // _matchedLocation && _matchedLocation->isRedirect()
     {
         _response.setHeader(std::string("Location"),
-            std::string("http://") + _request.findHeaderValue(std::string("host")) + _matchedLocation->getRedirectUrl(_request.getRequestUrl()));
+                            std::string("http://") + _request.findHeaderValue(std::string("host"))
+                            + _matchedLocation->getRedirectUrl(_request.getRequestUrl()));
     }
 
     // 2. _response.generateResponseData() 호출: Response가 가진것들을 활용해 _data로 만듬.
@@ -391,6 +406,7 @@ void Client::makeResponseData(void)
 
 std::string Client::createDefaultPage(int statusCode)
 {
+    // TODO: 디폴트 페이지를 찾아야한다. filepath = root + defaultPage
     const std::string defaultPage("");
     std::string html;
     std::string root(".");
@@ -496,8 +512,8 @@ void Client::cleanRequestReponse(void)
 }
 
 /**
- * @brief 
- * 
+ * @brief _matchedHost와 _matchedLocation가 결정된다!
+ *
  * @throws int statusCode (400: about Host헤더, 405: Location에서 허용하지 않은 메서드, 30x: 정상적인 리다이렉트, 417: POST && 100 불가)
  */
 void Client::handleHeaders(void)
@@ -505,120 +521,79 @@ void Client::handleHeaders(void)
     const std::string POST_METHOD("POST");
 
     std::string hostname;
+    bool expected100 = false;
 
-    int statusCode = _request.handleHeaders(hostname);
-
-    std::string root("../data"); // 임시
+    _request.handleHeaders(hostname, expected100);
 
     if (hostname.empty())
-    {
         throw 400;
-    }
 
-    // 헤더 => HOST에서 host 매칭 && path에서 location 매칭
     _matchedHost = _server->matchHost(hostname);
     _matchedLocation = _matchedHost->matchLocation(_request.getRequestPath());
 
-    // location->허용메서드 확인
+    const std::string &root = _matchedHost->getRoot();
+
     if (!_matchedLocation->isAllowedMethod(_request.getHttpMethod()))
-    {
         throw 405; // Method Not Allowed
-    }
 
     // 리다이렉트 확인
+    // TODO: Config 설정에서 리다이렉트 상태코드는 30x이도록 체크.
     if (_matchedLocation->isRedirect())
-    {
-        // TODO: 리다이렉트 상태코드는 30x이도록 체크.
-        throw _matchedLocation->getRedirect().first; // 정상적이면 30x에러
-    }
+        throw _matchedLocation->getRedirect().first;
 
-    if (statusCode == 100 && _request.getHttpMethod().compare(POST_METHOD) == 0)
+    // POST 100 응답
+    if (expected100 && _request.getHttpMethod().compare(POST_METHOD) == 0)
     {
-        std::string filepath = root + Util::extractBasename(_request.getRequestPath());
+        const std::string &filepath = root + Util::extractBasename(_request.getRequestPath());
         if (File::canUploadFile(filepath)) // 0: o.k
-        {
             throw 417; // Expectation Failed
-        }
         _status = READ_POST_EXPECT_100;
-        _response.setStatusCode(statusCode);
     }
 }
-
-/*
-chunked-body   = *chunk
-                last-chunk
-                trailer-part
-                CRLF
-
-chunk          = chunk-size [ chunk-ext ] CRLF
-                 chunk-data CRLF
-chunk-size     = 1*HEXDIG
-last-chunk     = 1*("0") [ chunk-ext ] CRLF
-
-chunk-data     = 1*OCTET ; a sequence of chunk-size octets
-
-chunk-ext      = *( ";" chunk-ext-name [ "=" chunk-ext-val ] )
-chunk-ext-name = token
-chunk-ext-val  = token / quoted-string
-
-trailer-part   = *( header-field CRLF )
-*/
-
 /**
- * 
  * @brief 
- * 
+ *
  * @throws int statusCode (413: 클라이언트 바디 제한 초과, 400: 청크읽기 과정에서 에러 발생)
-
-*/
-
-/**
- * @brief ㅁㄴㅇ
- * 
- * @throws int statusCode (413: 클라이언트 바디 제한 초과, 400: 청크읽기 과정에서 에러 발생)
- * 
+ *
  * \verbatim
  * chunked-body   = *chunk
  *                 last-chunk
  *                 trailer-part
  *                 CRLF
- * 
+ *
  * chunk          = chunk-size [ chunk-ext ] CRLF
  *                  chunk-data CRLF
  * chunk-size     = 1*HEXDIG
  * last-chunk     = 1*("0") [ chunk-ext ] CRLF
- * 
+ *
  * chunk-data     = 1*OCTET ; a sequence of chunk-size octets
- * 
+ *
  * chunk-ext      = *( ";" chunk-ext-name [ "=" chunk-ext-val ] )
  * chunk-ext-name = token
  * chunk-ext-val  = token / quoted-string
- * 
+ *
  * trailer-part   = *( header-field CRLF )
  * \endverbatim
  */
 void Client::chunkRead(void)
 {
-    const size_t CRLF_SIZE = 2;
-    std::string data, chunkOctet;
-    std::size_t size, octecPos;
+    const size_t clientMaxBodySize = _matchedHost->getClientMaxBodySize();
+    std::size_t chunkSize, octecPos;
 
     try
     {
         while (!Util::isLastChunk(_request.getRawData()))
         {
-            if ((size = Util::tryReadChunk(_request.getRawData(), octecPos)) == 0)
+            if ((chunkSize = Util::tryReadChunk(_request.getRawData(), octecPos)) == 0)
                 return; // 추가 read가 필요함
 
-            _request.getChunkOctetData().append(_request.getRawData().substr(octecPos, size));
-            _request.setRawData(_request.getRawData().substr(octecPos + size + CRLF_SIZE));
+            _request.getChunkOctetData().append(_request.getRawData().substr(octecPos, chunkSize));
+            _request.setRawData(_request.getRawData().substr(octecPos + chunkSize + CRLF_SIZE));
 
             // std::cout << RED << "_chunkOctetData.length: " << _request.getChunkOctetData().length() << RESET << std::endl;
 
-            if (_request.getChunkOctetData().size() > _bodyLimit)
-            {
+            if (_request.getChunkOctetData().size() > clientMaxBodySize)
                 throw 413;
-            }
         }
 
         // LastChunk를 찾아 끝내도 됨.
@@ -639,8 +614,16 @@ void Client::chunkRead(void)
     }
 }
 
-void    Client::cgiProcess(const std::string &method, const std::string &filepath)
+void Client::cgiProcess(const std::string &method)
 {
+    // CGI 는 일단 GET과 POST만 지원.
+    if (method.compare("GET") && method.compare("POST"))
+    {
+        throw 405; // 405 Method Not Allowed,
+    }
+
+    const std::string &filepath = _matchedHost->getRoot() + _request.getRequestPath();
+
     // 2. 존재 && 권한체크(filepath)
     int statusCode = File::canExecuteFile(filepath);
     if (statusCode)
@@ -657,33 +640,31 @@ void    Client::cgiProcess(const std::string &method, const std::string &filepat
     {
         _cgi.exec(method, filepath);
     }
-    catch(const char* msg)
+    catch (const char *msg)
     {
         std::cerr << "cgiProcess 실패: " << msg << std::endl;
+        _cgi.clearCgi();
         throw 500;
     }
-    
+
     // 6. 이벤트 등록
     if (method.compare("POST") == 0 && !_cgi.getPostData().empty())
     {
         // POST
         std::cout << "POST 이벤트 등록: " << _cgi.getInPipe(WRITE_FD) << ", " << _cgi.getOutPipe(READ_FD) << std::endl;
-        _eventHandler->addKeventToChangeList(
-            _cgi.getInPipe(WRITE_FD), EVFILT_WRITE, EV_ADD, 0, 0, static_cast<void *>(&_cgi));
-        _eventHandler->addKeventToChangeList(
-            _cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, static_cast<void *>(&_cgi));
+        _eventHandler->addKeventToChangeList(_cgi.getInPipe(WRITE_FD), EVFILT_WRITE, EV_ADD, 0, 0, NULL);
+        _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, NULL);
     }
     else
     {
-        std::cout << "GET 이벤트 등록: " <<  _cgi.getOutPipe(READ_FD) << std::endl;
+        std::cout << "GET 이벤트 등록: " << _cgi.getOutPipe(READ_FD) << std::endl;
         // GET
-        _eventHandler->addKeventToChangeList(
-            _cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, static_cast<void *>(&_cgi));
+        _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, NULL);
     }
     _eventHandler->turnOffRead(_socket);
 }
 
-void    Client::makeCgiResponse()
+void Client::makeCgiResponse()
 {
     _cgi.closePipe(_cgi.getOutPipe(READ_FD));
 
@@ -695,22 +676,21 @@ void    Client::makeCgiResponse()
     std::cout << "================ * * * * * ==============" << std::endl;
 
     _response.setBody(readData);
-    _response.setStatusCode(200);
-    makeResponseData();
-
-    _eventHandler->turnOnWrite(_socket);
-
-    _cgi.clearCgi();
-}
-
-void    Client::makeCgiErrorResponse()
-{
-    _response.setBody(createDefaultPage(500));
-    makeResponseData();
     
+    makeResponseData(200, 0);
+
     _eventHandler->turnOnWrite(_socket);
 
     _cgi.clearCgi();
 }
 
-bool    Client::isPipe(int fd) { return _cgi.isPipe(fd); }
+void Client::makeCgiErrorResponse()
+{
+    makeResponseData(500, 1);
+
+    _eventHandler->turnOnWrite(_socket);
+
+    _cgi.clearCgi();
+}
+
+bool Client::isPipe(int fd) { return _cgi.isPipe(fd); }

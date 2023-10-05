@@ -71,71 +71,66 @@ private:
     EventHandler *_eventHandler;
 
 public:
-    std::string _data;
-    std::string _requestLine;
-    std::string _header;
-    std::vector<std::pair<std::string, std::string> > _header2;
-    std::string _body;
+    size_t                  _contentLength;
 
-    // ssize_t _bytes_read;
-    size_t _contentLength;
+    int                     _status;
+    int                     _ischunk;
+    int                     _erron;
+    int                     _defaultBodyNeed;
 
-    int _status;
-    int _ischunk;
-    int _erron;
-    int _defaultBodyNeed;
+    std::string             _errMessage;
 
-    std::string _errMessage;
+    Response                _response;
 
-    Response        _response;
+    const Host*             _matchedHost;
+    const Location*         _matchedLocation;
 
-    const Host*     _matchedHost;
-    const Location* _matchedLocation;
-
-    Cgi             _cgi;
+    Cgi                     _cgi;
 
 public:
     // 레퍼런스와 디폴트값을 함께 사용하지 않기.
     // Client(int serverSocket);
     Client(int serverSocket, Webserver *ws = NULL, Server *s = NULL, EventHandler *e = NULL);
-    virtual ~Client(void);
+    virtual     ~Client(void);
 
 public:
-    int getSocket(void) const;
-    std::string &getData(void);
-    // size_t getDataLength(void);
+    int         getSocket(void) const;
 
 public:
     /* ============ 요청을 읽어들이는 역할 수행 ============ */
-    void    readProcess(void);
+    void        readProcess(void);
+    
+    ssize_t     receiveRequest(void);
+    void        parseRequest(void);
 
-    void    readRequestLine(void);
-    void    readHeader(void);
-    void    readBody(void);
+    void        readRequestLine(void);
+    void        readHeader(void);
+    void        readBody(void);
 
 public:
     /* ============ 요청에 대해 수행 with 응답 생성 ============ */
-    void        afterRead(void);
+    int         doRequest(void);
 
-    void        notCgiGetProcess(const std::string &root, const std::string &filepath, bool autoindex);
-    void        notCgiPostProcess(const std::string &filepath, const std::string &body);
-    void        notCgiDeleteProcess(const std::string &filepath);
+    int         doNonCgiProcess(const std::string &method);
+    int         notCgiGetProcess(const std::string &root, const std::string &filepath, bool autoindex);
+    int         notCgiPostProcess(const std::string &filepath, const std::string &body);
+    int         notCgiDeleteProcess(const std::string &filepath);
     
-    void        makeResponseData(void); // _response.generateResponseData() 호출
+    void        makeResponseData(int statusCode, int defaultBodyNeed); // _response.generateResponseData() 호출
     std::string createDefaultPage(int statusCode);
     std::string createDefaultBody(int statusCode);
 
 public:
     /* ============ 생성된 응답을 보내는 역할 수행 ============ */
-    void    sendProcess(void);
+    void        sendProcess(void);
 
-    int     checkSendBytes() const;
-    void    cleanRequestReponse(void);
+    int         checkSendBytes() const;
+    void        cleanRequestReponse(void);
 
 public:
     /* ============ 쩌리들 ============ */
-    void    chunkRead(void);
-    void    handleHeaders(void);
+    void        chunkRead(void);
+    void        handleHeaders(void);
 
 public:
     Request&    getRequest();
@@ -143,7 +138,7 @@ public:
     Cgi&        getCgi();
 
 public:
-    void        cgiProcess(const std::string &method, const std::string &filepath);
+    void        cgiProcess(const std::string &method);
     void        makeCgiResponse();
     void        makeCgiErrorResponse();
     bool        isPipe(int fd);

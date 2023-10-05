@@ -14,6 +14,7 @@ Host::Host(
     initLocation("/");
     // initLocation("/old/");
 }
+Host::~Host(void) {}
 
 void Host::initLocation(const std::string &uri)
 {
@@ -30,7 +31,14 @@ void Host::initLocation(const std::string &uri)
     _locations.push_back(lo);
 }
 
-Host::~Host(void) {}
+// 게터
+const Server                        &Host::getServer(void) const { return _server; }
+const std::string                   &Host::getHostname(void) const { return _hostname; }
+const std::string                   &Host::getRoot(void) const { return _root; }
+size_t                              Host::getClientMaxBodySize(void) const { return _clientMaxBodySize; }
+const std::map<int, std::string>    &Host::getErrorPage(void) const { return _errorPage; }
+const std::vector<Location>         &Host::getLocations(void) const { return _locations; }
+
 
 bool Host::isClientMaxBodySizeExceeded(unsigned int size) const { return _clientMaxBodySize < size; }
 
@@ -79,10 +87,6 @@ const Location*   Host::matchLocation(const std::string &path) const
 
     return matched;
 }
-
-const Server &Host::getServer(void) const { return _server; }
-std::string Host::getHostname(void) const { return _hostname; }
-const std::vector<Location> Host::getLocations(void) const { return _locations; }
 
 std::ostream &operator<<(std::ostream &os, const Host &host)
 {

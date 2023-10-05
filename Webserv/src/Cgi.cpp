@@ -186,12 +186,10 @@ void Cgi::readPipe()
     _readData.append(buffer.data(), readBytes);
 }
 
+// 탐색시 getInPipe[WRITE_FD], getOutPipe[READ_FD]만 필요하다.
 bool    Cgi::isPipe(int fd)
 {
-    return _inPipe[READ_FD] == fd ||
-        _inPipe[WRITE_FD] == fd ||
-        _outPipe[READ_FD] == fd ||
-        _outPipe[WRITE_FD] == fd;
+    return fd != -1 && ( _inPipe[WRITE_FD] == fd || _outPipe[READ_FD] == fd);
 }
 
 void    Cgi::pipePrint() const

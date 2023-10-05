@@ -170,8 +170,7 @@ void Webserver::runWebserver(void)
               if (cgi->allSend())
               {
                 cgi->closePipe(cgi->getInPipe(WRITE_FD));
-                _eventHandler.addKeventToChangeList(
-                  cgi->getOutPipe(READ_FD), EVFILT_READ, EV_ENABLE, 0, 0, static_cast<void *>(&cgi));
+                _eventHandler.addKeventToChangeList(cgi->getOutPipe(READ_FD), EVFILT_READ, EV_ENABLE, 0, 0, NULL);
               }
             }
             else if (curr.filter == EVFILT_READ)
@@ -184,7 +183,7 @@ void Webserver::runWebserver(void)
               }
               else
               {
-                std::cout << MAGENTA << "*읽기" << RESET << std::endl;
+                std::cout << MAGENTA << "읽기" << RESET << std::endl;
                 cgi->readPipe(); // read() fail시 => 500 응답 생성 코스로
               }
             }

@@ -48,12 +48,13 @@ void Response::clean(void)
 */
 void Response::generateResponseData(void)
 {
+    const std::string HTTP_VERSION = "HTTP/1.1"; // 우리는 1.1만 지원, 잘못된 HTTP 요청시 대응하기 위함
     const std::string SP(" ");
     const std::string CRLF("\r\n");
     std::ostringstream oss;
 
     // 1. 요청라인 만들기(httpVersion, statusCode)
-    oss << _httpVersion << SP 
+    oss << HTTP_VERSION << SP 
         << _statusCode << SP
         << Util::getStatusCodeMessage(_statusCode) << CRLF;
 
@@ -78,6 +79,21 @@ void Response::generateResponseData(void)
     // std::cout << "===========================" << std::endl;
     // std::cout << _data << std::endl;
     // std::cout << "===========================" << std::endl;
+}
+
+void Response::generate100ResponseData(void)
+{
+    const int STATUS_100_CODE = 100;
+    const std::string HTTP_VERSION = "HTTP/1.1"; // 우리는 1.1만 지원, 잘못된 HTTP 요청시 대응하기 위함
+    const std::string SP(" ");
+    const std::string CRLF("\r\n");
+    std::ostringstream oss;
+
+    oss << HTTP_VERSION << SP << STATUS_100_CODE << SP << Util::getStatusCodeMessage(STATUS_100_CODE) << CRLF;
+    oss << CRLF;
+    _data = oss.str();
+    _totalBytes = _data.size();
+    _sendedBytes = 0;
 }
 
 void Response::setHttpVersion(const std::string &version)

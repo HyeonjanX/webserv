@@ -39,13 +39,12 @@ class Host
 {
 
 private:
-  Server&                                 _server;
-  std::string                             _hostname;          // identity
-  std::string                             _root;
-  unsigned int                            _clientMaxBodySize;
-  std::map<int, std::string>              _errorPage;
-  std::vector<Location>                   _locations;
-  // std::vector<Location*>                  _locations;
+  Server&                       _server;
+  std::string                   _hostname;
+  std::string                   _root;
+  size_t                        _clientMaxBodySize;
+  std::map<int, std::string>    _errorPage;
+  std::vector<Location>         _locations;
 
 public:
   Host(
@@ -60,19 +59,21 @@ private:
   void initLocation(const std::string &url);
 
 public:
-
-  bool                  isClientMaxBodySizeExceeded(unsigned int size) const;
-  bool                  isMatched(const std::string &hostname) const;
-  std::string           getErrorPage(int statusCode) const;
-  const Location*       matchLocation(const std::string &uri) const;
-
+  // 게터
+  const Server                      &getServer(void) const;
+  const std::string                 &getHostname(void) const;
+  const std::string                 &getRoot(void) const;
+  size_t                            getClientMaxBodySize(void) const;
+  const std::map<int, std::string>  &getErrorPage(void) const;
+  const std::vector<Location>       &getLocations(void) const;
 
 public:
-  // 게터 세터
-  const Server &getServer(void) const;
-  std::string getHostname(void) const;
-  const std::vector<Location> getLocations(void) const;
+  bool                              isClientMaxBodySizeExceeded(unsigned int size) const;
+  bool                              isMatched(const std::string &hostname) const;
+  std::string                       getErrorPage(int statusCode) const;
+  const Location*                   matchLocation(const std::string &uri) const;
 };
 
 std::ostream &operator<<(std::ostream &os, const Host &host);
+
 #endif

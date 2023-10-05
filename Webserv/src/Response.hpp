@@ -38,6 +38,7 @@ public:
     void clean(void);
 
     void generateResponseData(void);
+    void generate100ResponseData(void);
 
 public:
     // Getter and Setter for httpVersion

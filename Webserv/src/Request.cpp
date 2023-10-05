@@ -141,13 +141,14 @@ void Request::parseRequestLine(std::string const &requestLine)
 	_requestUrl = Util::urlDecode(requestLine.substr(pos1 + 1, pos2 - (pos1 + 1)));
 	_httpVersion = requestLine.substr(pos2 + 1);
 
-	// TODO: 각각 유효성 검사
-
 	if (DEBUG)
 	{
 		std::cout << GREEN << "|" << _method << "| |" << _requestUrl << "| |" << _httpVersion << "|" << RESET << std::endl;
 	}
 
+	// _method 유효성 검사 X => token이여서 제한이 쫌 없다.
+
+	// _requestUrl 유효성검사
 	if (!Util::startsWith(_requestUrl, "/") ||
 		_requestUrl.find("../") != std::string::npos ||
 		_requestUrl.find("./") != std::string::npos ||
@@ -157,6 +158,7 @@ void Request::parseRequestLine(std::string const &requestLine)
 		throw 400; // Bad Request
 	}
 
+	// _httpVersion 유효성검사
 	if (_httpVersion.compare(std::string("HTTP/1.1")) != 0)
 	{
 		if (DEBUG)
@@ -518,13 +520,11 @@ std::vector<Content> Request::extractMultipartBody(std::string const &body, std:
 	return contents;
 }
 
-int Request::handleHeaders(std::string &hostname)
+void	Request::handleHeaders(std::string &hostname, bool &expected100)
 {
-	std::vector<Header>::const_iterator it = _headers.begin();
 	const bool DEBUG = false;
-	int statusCode = 0;
 
-	for (; it < _headers.end(); ++it)
+	for (std::vector<Header>::const_iterator it = _headers.begin(); it < _headers.end(); ++it)
 	{
 		if (DEBUG)
 		{
@@ -545,7 +545,7 @@ int Request::handleHeaders(std::string &hostname)
 
 		if (it->key == "expect" && it->value == "100-continue")
 		{
-			statusCode = 100;
+			expected100 = true;
 		}
 
 		if (it->key == "host")
@@ -553,8 +553,6 @@ int Request::handleHeaders(std::string &hostname)
 			hostname = it->value;
 		}
 	}
-
-	return statusCode;
 }
 
 // RFC 7230

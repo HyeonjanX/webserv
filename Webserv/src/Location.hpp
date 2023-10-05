@@ -25,12 +25,15 @@ private:
     bool                        _autoindex;
     std::vector<std::string>    _index;
     std::pair<int, std::string> _redirect;
+    std::string                 _cgiExt; // .py .php .js .ts 등
+    std::string                 _root;
 
 public:
     Location(
         Host &host, const std::string &uri,
         const std::vector<std::string> &limitExcept = std::vector<std::string>(),
-        bool autoindex = false,
+        // bool autoindex = false,
+        bool autoindex = true,
         const std::vector<std::string> &index = std::vector<std::string>(),
         const std::pair<int, std::string> &redirect = std::make_pair(0, "")
         // const std::pair<int, std::string> &redirect = std::make_pair(301, "/new/")
@@ -46,24 +49,30 @@ public:
 
 public:
     // getter & setter
-    const Host &getHost(void) const;
-    std::string getUri(void) const;
-    unsigned int getUriSize(void) const;
+    const Host                          &getHost(void) const;
+    std::string                         getUri(void) const;
+    size_t                              getUriSize(void) const;
     
-    void setLimitExcept(const std::vector<std::string> &limits);
-    const std::vector<std::string> &getLimitExcept() const;
+    void                                setLimitExcept(const std::vector<std::string> &limits);
+    const   std::vector<std::string>    &getLimitExcept() const;
 
-    void setAutoindex(bool ai);
-    bool getAutoindex(void) const;
+    void                                setAutoindex(bool ai);
+    bool                                getAutoindex(void) const;
 
-    void setIndex(const std::vector<std::string> &idx);
-    const std::vector<std::string> &getIndex() const;
+    void                                setIndex(const std::vector<std::string> &idx);
+    const   std::vector<std::string>    &getIndex() const;
 
-    void setRedirect(const std::pair<int, std::string> &rd);
-    const std::pair<int, std::string> &getRedirect() const;
+    void                                setRedirect(const std::pair<int, std::string> &rd);
+    const   std::pair<int, std::string> &getRedirect() const;
 
-    int getRedirectStatusCode(void) const;
-    std::string getRedirectPath(void) const;
+    int                                 getRedirectStatusCode(void) const;
+    std::string                         getRedirectPath(void) const;
+
+    void                                setCgiExt(std::string cgiExt);
+    std::string                         getCgiExt(void) const;
+
+    void                                setRoot(std::string root);
+    std::string                         getRoot(void) const;
 };
 
 std::ostream &operator<<(std::ostream &os, const Location &location);
