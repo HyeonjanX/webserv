@@ -1,42 +1,29 @@
 #include "Host.hpp"
 #include <stdexcept>
 
-Host::Host(
-    const Server &server,
-    const std::string &hostname,
-    const std::string &root,
-    unsigned int clientMaxBodySize)
-        :   _server(const_cast<Server &>(server)),
-            _hostname(hostname),
-            _root(root),
-            _clientMaxBodySize(clientMaxBodySize)
+Host::Host(const Server &server, const t_host &c) :
+    _server(const_cast<Server &>(server)), _hostname(c._server_name), _root(c._root),
+    _clientMaxBodySize(c._client_max_body_size), _errorPage(c._error_page)
 {
-    initLocation("/");
-    // initLocation("/old/");
-}
-Host::~Host(void) {}
-
-void Host::initLocation(const std::string &uri)
-{
-    for (std::vector<Location>::iterator it = _locations.begin(); it < _locations.end(); ++it)
+    // _index(c._index) 아직 없음
+    // _locations
+    const std::vector<t_location> &locations = c._locations;
+    
+    for (size_t i = 0; i < locations.size(); ++i)
     {
-        if (it.base()->getUri() == uri)
-        {
-            throw std::runtime_error("Duplicated location's path");
-        }
+        Location lo(*this, locations[i]);
+        _locations.push_back(lo);
     }
-    
-    Location lo(*this, uri);
-    
-    _locations.push_back(lo);
 }
+
+Host::~Host(void) {}
 
 // 게터
 const Server                        &Host::getServer(void) const { return _server; }
 const std::string                   &Host::getHostname(void) const { return _hostname; }
 const std::string                   &Host::getRoot(void) const { return _root; }
 size_t                              Host::getClientMaxBodySize(void) const { return _clientMaxBodySize; }
-const std::map<int, std::string>    &Host::getErrorPage(void) const { return _errorPage; }
+const std::vector<t_status_page>    &Host::getErrorPage(void) const { return _errorPage; }
 const std::vector<Location>         &Host::getLocations(void) const { return _locations; }
 
 
@@ -46,10 +33,15 @@ bool Host::isMatched(const std::string &hostname) const { return Util::caseInsen
 
 std::string Host::getErrorPage(int statusCode) const
 {
-    std::map<int, std::string>::const_iterator it;
-
-    it = _errorPage.find(statusCode);
-    return it != _errorPage.end() ? it->second : std::string("");
+    for (size_t i = 0; i < _errorPage.size(); ++i)
+    {
+        for (size_t j = 0; j < _errorPage[i]._status.size(); ++j)
+        {
+            if (_errorPage[i]._status[j] == statusCode)
+                return _errorPage[i]._page;
+        }
+    }
+    return std::string("");
 }
 
 /*

@@ -5,8 +5,6 @@
 
 int main(int ac, char **av)
 {
-    // Util::initHttpErrorMap();
-
     try
     {
         Webserver ws(ac, av);
@@ -24,7 +22,7 @@ int main(int ac, char **av)
     }
     catch (const char *str)
     {
-        std::cerr << "ws 에러 발생: " << std::string(str) << std::endl;
+        std::cerr << "ws 에러 발생: " << str << std::endl;
     }
     catch (...)
     {

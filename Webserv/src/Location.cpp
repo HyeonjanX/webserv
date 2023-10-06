@@ -1,39 +1,27 @@
 #include "Location.hpp"
 #include "Util.hpp"
 
-Location::Location(
-    Host &host,
-    const std::string &uri,
-    const std::vector<std::string> &limitExcept,
-    bool autoindex,
-    const std::vector<std::string> &index,
-    const std::pair<int, std::string> &redirect
-)   :   _host(host),
-        _uri(uri),
-        _limitExcept(limitExcept),
-        _autoindex(autoindex),
-        _index(index),
-        _redirect(redirect)
+Location::Location(Host &host, const t_location c):
+    _host(host), _uri(c.m_path), _limitExcept(c._limit_except), _autoindex(c._autoindex),
+    _index(c._index), _redirect(c._return), _cgiExt(c._cgi), _root(c._root)
 {
-    // 초기화 로직
-    // FOR TEST
-    _limitExcept.push_back(std::string("GET"));
-    _limitExcept.push_back(std::string("POST"));
+    // Nothing to do.
+    std::cout << "Location 생성시 root: " << _root << std::endl;
 }
 
 Location::~Location() { /* 소멸자 로직 */ }
 
 bool    Location::isMatched(const std::string &path) const { return Util::startsWith(path, _uri); }
 
-bool    Location::isRedirect() const { return _redirect.first != 0; }
+bool    Location::isRedirect() const { return _redirect._status > 0; }
 
 std::string Location::getRedirectUrl(const std::string &path) const
 {
-    if (_redirect.first == 0)
+    if (_redirect._status == 0)
     {
         return std::string("");
     }
-    return _redirect.second + path.substr(_uri.length());
+    return _redirect._page + path.substr(_uri.length());
 }
 
 bool    Location::isAllowedMethod(const std::string &method) const
@@ -68,11 +56,11 @@ bool        Location::getAutoindex() const { return _autoindex; }
 void        Location::setIndex(const std::vector<std::string> &idx) { _index = idx; }
 const       std::vector<std::string> &Location::getIndex() const { return _index; }
 
-void        Location::setRedirect(const std::pair<int, std::string> &rd) { _redirect = rd; }
-const       std::pair<int, std::string> &Location::getRedirect() const { return _redirect; }
+void        Location::setRedirect(const t_redirect &rd) { _redirect = rd; }
+const       t_redirect &Location::getRedirect() const { return _redirect; }
 
-int         Location::getRedirectStatusCode(void) const { return _redirect.first; }
-std::string Location::getRedirectPath(void) const { return _redirect.second; }
+int         Location::getRedirectStatusCode(void) const { return _redirect._status; }
+std::string Location::getRedirectPath(void) const { return _redirect._page; }
 
 void        Location::setCgiExt(std::string cgiExt) { _cgiExt = cgiExt; }
 std::string Location::getCgiExt(void) const { return _cgiExt; }

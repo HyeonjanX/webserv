@@ -3,11 +3,17 @@
 
 #include <fcntl.h>
 
-Server::Server(int port, int sockreuse, int backlog)
+Server::Server(int port, const std::vector<t_host> &serverConfig, int sockreuse, int backlog)
     : _port(port), _sockreuse(sockreuse), _backlog(backlog)
 {
-    std::cout << "서버 생성자" << std::endl;
-    initServer();
+    for (size_t i = 0; i < serverConfig.size(); i++)
+    {
+        Host h(*this, serverConfig[i]);
+        _hosts.push_back(h);
+        
+    }
+    socketInit(_port, _addr, _sockreuse);
+    initListen(_backlog);
 }
 
 Server::~Server(void) {}
@@ -24,17 +30,6 @@ Server::~Server(void) {}
  * - sin_port: 포트
  *   - htons: 호스트의 데이터 체계에서 네트워크의 것으로
  */
-void Server::initServer(void)
-{
-    // 호스트 init
-    initHost("a");
-    initHost("b");
-    initHost("c");
-
-    socketInit(_port, _addr, _sockreuse); // IPv4, TCP, port, 0.0.0.0
-    initListen(_backlog);                 //
-}
-
 void Server::socketInit(int port, struct sockaddr_in &addr, int sockreuse)
 {
     if ((_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -68,22 +63,6 @@ void Server::initListen(int backlog)
     {
         throw("fcntl() error");
     }
-}
-
-void Server::initHost(const std::string &hostname)
-{
-    for (std::vector<Host>::iterator it = _hosts.begin(); it < _hosts.end(); ++it)
-    {
-        if (it.base()->getHostname() == hostname)
-        {
-            // 중복 불가 => 에러처리
-            throw std::runtime_error("Duplicated Host:port");
-        }
-    }
-    
-    Host h(*this, hostname);
-    
-    _hosts.push_back(h);
 }
 
 int Server::getSocket(void) const { return _socket; }

@@ -5,6 +5,7 @@
 #include <map>
 
 #include "Host.hpp"
+#include "Config.hpp"
 
 class Server;
 class Host;
@@ -24,20 +25,13 @@ private:
     std::vector<std::string>    _limitExcept;
     bool                        _autoindex;
     std::vector<std::string>    _index;
-    std::pair<int, std::string> _redirect;
+    t_redirect                  _redirect;
     std::string                 _cgiExt; // .py .php .js .ts 등
     std::string                 _root;
 
 public:
-    Location(
-        Host &host, const std::string &uri,
-        const std::vector<std::string> &limitExcept = std::vector<std::string>(),
-        // bool autoindex = false,
-        bool autoindex = true,
-        const std::vector<std::string> &index = std::vector<std::string>(),
-        const std::pair<int, std::string> &redirect = std::make_pair(0, "")
-        // const std::pair<int, std::string> &redirect = std::make_pair(301, "/new/")
-    );
+    Location(Host &host, const t_location locationConfig);
+    
     virtual ~Location(void);
 
 public:
@@ -62,8 +56,8 @@ public:
     void                                setIndex(const std::vector<std::string> &idx);
     const   std::vector<std::string>    &getIndex() const;
 
-    void                                setRedirect(const std::pair<int, std::string> &rd);
-    const   std::pair<int, std::string> &getRedirect() const;
+    void                                setRedirect(const t_redirect &rd);
+    const   t_redirect                  &getRedirect() const;
 
     int                                 getRedirectStatusCode(void) const;
     std::string                         getRedirectPath(void) const;

@@ -1,4 +1,5 @@
 #include "Client.hpp"
+#define DEBUG_PRINT true
 
 Client::Client(int serverSocket, Webserver *ws, Server *s, EventHandler *e)
     : _ws(ws), _server(s), _eventHandler(e), _contentLength(0), _status(0), _ischunk(0), _erron(0), _defaultBodyNeed(0)
@@ -63,6 +64,7 @@ void Client::readProcess(void)
     catch (int errorStatusCode)
     {
         // 30x 리다이렉트 코드도 이리로 온다.
+        std::cout << RED << "readProcess catch: " << errorStatusCode << RESET << std::endl;
         _status = READ_END;
         statusCode = errorStatusCode;
         _defaultBodyNeed = 1;
@@ -99,6 +101,8 @@ ssize_t Client::receiveRequest(void)
 
 void    Client::parseRequest(void)
 {
+    if (DEBUG_PRINT) std::cout << "=========== parseRequest() ===========" << std::endl;
+
     if (_status == BEFORE_READ)
         readRequestLine(); // throw 400 505
     if (_status == READ_REQUESTLINE)
@@ -111,6 +115,7 @@ void    Client::parseRequest(void)
         readBody();
     if (_status == READ_BODY)
     {
+        if (DEBUG_PRINT) std::cout << "=========== READ_BODY ===========" << std::endl;
         // 이곳에 위치할 계획이던 multipart/form-data
         // doRequest()의 POST 호출 직전으로 위치 이동
         _status = READ_END;
@@ -125,7 +130,7 @@ void Client::readRequestLine(void)
 {
     // BEFORE_READ => READ_REQUESTLINE
 
-    std::cout << BLUE << "readRequestLine()" << std::endl;
+    if (DEBUG_PRINT) std::cout << BLUE << "=========== readRequestLine() ===========" << RESET << std::endl;
 
     const std::string &rawData = _request.getRawData();
     
@@ -193,6 +198,8 @@ void Client::readHeader(void)
  */
 void Client::readBody(void)
 {
+    if (DEBUG_PRINT) std::cout << "=========== readBody() ===========" << std::endl;
+
     if (_request.getTransferEncoding().compare("chunked") == 0)
         chunkRead(); // throw 400 413
     else
@@ -228,8 +235,12 @@ int Client::doNonCgiProcess(const std::string &method)
     const std::string POST_METHOD("POST");
     const std::string DELETE_METHOD("DELETE");
 
-    const std::string &root = _matchedHost->getRoot();
+    // const std::string &root = _matchedHost->getRoot();
+    const std::string &root = _matchedLocation->getRoot();
     const std::string &path = _request.getRequestPath();
+
+    if (DEBUG_PRINT) std::cout << YELLOW << "doNonCgiProcess => root/path: " <<
+        root << "/" << path << std::endl;
 
     std::cout << BLUE << method << "_METHOD()" << RESET << std::endl;
 
@@ -518,6 +529,8 @@ void Client::cleanRequestReponse(void)
  */
 void Client::handleHeaders(void)
 {
+    if (DEBUG_PRINT) std::cout << "========= handleHeaders ===========" << std::endl;
+    
     const std::string POST_METHOD("POST");
 
     std::string hostname;
@@ -539,7 +552,7 @@ void Client::handleHeaders(void)
     // 리다이렉트 확인
     // TODO: Config 설정에서 리다이렉트 상태코드는 30x이도록 체크.
     if (_matchedLocation->isRedirect())
-        throw _matchedLocation->getRedirect().first;
+        throw _matchedLocation->getRedirect()._status;
 
     // POST 100 응답
     if (expected100 && _request.getHttpMethod().compare(POST_METHOD) == 0)

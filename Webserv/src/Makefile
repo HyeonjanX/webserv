@@ -1,5 +1,8 @@
 NAME = test	
 SRCS = \
+	Config.cpp\
+	JsonData.cpp\
+	JsonParser.cpp\
 	Cgi.cpp\
 	Client.cpp\
 	EventHandler.cpp\
