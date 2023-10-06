@@ -99,6 +99,7 @@ std::string const &Request::getRequestUrl(void) const
 {
 	return this->_requestUrl;
 }
+// url에서 ?를 경계로 path만 추출하여 전달
 std::string	Request::getRequestPath(void) const
 {
 	std::size_t pos = _requestUrl.find('?');

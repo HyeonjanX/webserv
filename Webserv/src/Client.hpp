@@ -112,7 +112,7 @@ public:
     int         doRequest(void);
 
     int         doNonCgiProcess(const std::string &method);
-    int         notCgiGetProcess(const std::string &root, const std::string &filepath, bool autoindex);
+    int         notCgiGetProcess(const std::string &root, const std::string &filepath, bool autoindex, const std::vector<std::string> &index);
     int         notCgiPostProcess(const std::string &filepath, const std::string &body);
     int         notCgiDeleteProcess(const std::string &filepath);
     

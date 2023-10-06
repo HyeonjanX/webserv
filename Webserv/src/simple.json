@@ -1,0 +1,15 @@
+{
+    "server": {
+        "listen": 80,
+        "location": {
+            "path": "/"
+        }
+    },
+    "server": {
+        "listen": 8081,
+        "location": {
+            "path": "/",
+            "autoindex": true
+        }
+    }
+}

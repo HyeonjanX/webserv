@@ -36,7 +36,7 @@ Config::~Config(void) {}
 // 	return result;
 // }
 
-static int getMeasurementSize(const std::string &measure)
+static long getMeasurementSize(const std::string &measure)
 {
 	long size;
 	char unit;
@@ -79,7 +79,7 @@ static int getMeasurementSize(const std::string &measure)
 	else if (size < 0)
 		return -3;
 
-	return static_cast<int>(size);
+	return size;
 }
 
 static bool isValidUrlString(const std::string &url)
@@ -139,17 +139,21 @@ void Config::initializeDirectives()
 	_serverDirectives["listen"] = TYPE_INTEGER;
 	_serverDirectives["server_name"] = TYPE_STRING;
 	_serverDirectives["root"] = TYPE_STRING;
-	_serverDirectives["client_max_body_size"] = TYPE_STRING;
+	_serverDirectives["client_max_body_size"] = TYPE_INTEGER;
 	_serverDirectives["error_page"] = TYPE_ARRAY;
 	_serverDirectives["index"] = TYPE_ARRAY;
 	_serverDirectives["location"] = TYPE_OBJECT;
 
 	// 로케이션 지시어 초기화
 	_locationDirectives["path"] = TYPE_STRING;
-	_locationDirectives["limit_except"] = TYPE_ARRAY;
+	_locationDirectives["root"] = TYPE_STRING;
+	_locationDirectives["alias"] = TYPE_STRING;
+	_locationDirectives["client_max_body_size"] = TYPE_INTEGER;
+	_locationDirectives["cgi"] = TYPE_STRING;
 	_locationDirectives["autoindex"] = TYPE_BOOLEAN;
-	_locationDirectives["client_max_body_size"] = TYPE_STRING;
+	_locationDirectives["limit_except"] = TYPE_ARRAY;
 	_locationDirectives["index"] = TYPE_ARRAY;
+	_locationDirectives["error_page"] = TYPE_ARRAY;
 	_locationDirectives["return"] = TYPE_ARRAY;
 }
 
@@ -227,7 +231,10 @@ void Config::parseServer(std::map<int, std::vector<t_host> > &servers, const std
 		else if (key.compare("error_page") == 0)
 			serverParseErrorPage(host, it->second);
 		else if (key.compare("location") == 0)
-			parseLocation(host, it->second.getObjData());
+		{
+			continue;
+			//parseLocation(host, it->second.getObjData());
+		}
 		else
 		{
 			std::cerr << "key: " << key << std::endl;
@@ -235,8 +242,20 @@ void Config::parseServer(std::map<int, std::vector<t_host> > &servers, const std
 		}
 	}
 
+	for (std::vector<JsonData::kv>::const_iterator it = serverKeyValues.begin();
+		 it != serverKeyValues.end();
+		 ++it)
+	{
+		const std::string key = it->first;
+
+		if (key.compare("location") == 0)
+			parseLocation(host, it->second.getObjData());
+	}
 
 	std::map<int, std::vector<t_host> >::iterator it = servers.find(host._listen);
+
+	// Host complete => location create
+	// for ...
 
 	std::cout << "현재 ID: " << host._listen << host._server_name << std::endl;
 	if (it == servers.end())
@@ -246,11 +265,19 @@ void Config::parseServer(std::map<int, std::vector<t_host> > &servers, const std
 		serverIdentyIsDuplicated(it->second, host);
 		servers[host._listen].push_back(host);
 	}
+
 }
 
 void Config::parseLocation(t_host &host, const std::vector<JsonData::kv> &locationKeyValues)
 {
-	t_location location;
+	t_location			location;
+	enum				e_loc_status { LOC_ROOT, LOC_SIZE, LOC_INDEX, LOC_ERRPG, NUMLOCS };
+	std::vector<bool>	locFlags(NUMLOCS, false);
+
+
+	/* *************************************************************************** *
+	* 상속 포인트1				                                                     *
+	* ****************************************************************************/
 
 	for (std::vector<JsonData::kv>::const_iterator it = locationKeyValues.begin();
 		 it != locationKeyValues.end();
@@ -266,23 +293,49 @@ void Config::parseLocation(t_host &host, const std::vector<JsonData::kv> &locati
 		}
 
 		if (key.compare("path") == 0)
+		{
 			locationParsePath(location, it->second);
+		}
 		else if (key.compare("root") == 0)
+		{
 			locationParseRoot(location, it->second);
+			locFlags[LOC_ROOT] = true;
+		}
+		else if (key.compare("alias") == 0)
+		{
+			locationParseAlias(location, it->second);
+		}
 		else if (key.compare("client_max_body_size") == 0)
+		{
 			locationParseClientMaxBodySize(location, it->second);
+			locFlags[LOC_SIZE] = true;
+		}
 		else if (key.compare("cgi") == 0)
+		{
 			locationParseCgi(location, it->second);
+		}
 		else if (key.compare("autoindex") == 0)
+		{
 			locationParseAutoIndex(location, it->second);
+		}
 		else if (key.compare("limit_except") == 0)
+		{
 			locationParseLimitExcept(location, it->second);
+		}
 		else if (key.compare("index") == 0)
+		{
 			locationParseIndex(location, it->second);
+			locFlags[LOC_INDEX] = true;
+		}
 		else if (key.compare("error_page") == 0)
+		{
 			locationParseErrorPage(location, it->second);
+			locFlags[LOC_ERRPG] = true;
+		}
 		else if (key.compare("return") == 0)
+		{
 			locationParseReturn(location, it->second);
+		}
 		else
 		{
 			std::cerr << "key: " << key << std::endl;
@@ -292,8 +345,25 @@ void Config::parseLocation(t_host &host, const std::vector<JsonData::kv> &locati
 
 	if (location.m_path.empty())
 		throw "location에서 path 지시어는 필수 입니다.";
+
+	/* *************************************************************************** *
+	* 상속 포인트2				                                                     *
+	* ****************************************************************************/
+
+	// root
+	if (locFlags[LOC_ROOT] == false)
+		location._root = host._root;
 	
-	if (location._error_page.empty())
+	// client max body size
+	if (locFlags[LOC_SIZE] == false)
+		location._client_max_body_size = host._client_max_body_size;
+
+	// index
+	if (locFlags[LOC_INDEX] == false)
+		location._index = host._index;
+
+	// error page
+	if (locFlags[LOC_ERRPG] == false)
 		location._error_page = host._error_page;
 
 	locationPathIsDuplicated(host._locations, location);
@@ -437,10 +507,22 @@ void Config::locationParseRoot(t_location &location, const JsonData &value)
 	location._root = rootPath;
 }
 
+void Config::locationParseAlias(t_location &location, const JsonData &value)
+{
+	std::string aliasPath = value.getStringData();
+
+	if (isValidUrlString(aliasPath) == false)
+	{
+		std::cerr << "Invalid Location root: " << aliasPath << std::endl;
+		throw "유효하지 않은 로케이션 앨리어스입니다.";
+	}
+	location._alias = aliasPath;
+}
+
 void Config::locationParseClientMaxBodySize(t_location &location, const JsonData &value)
 {
 	std::string clientMaxBodySize = value.getStringData();
-	int size = getMeasurementSize(clientMaxBodySize);
+	long size = getMeasurementSize(clientMaxBodySize);
 
 	if (size < 0)
 	{

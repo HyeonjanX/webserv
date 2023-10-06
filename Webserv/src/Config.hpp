@@ -25,6 +25,7 @@ typedef struct s_location
 {
     std::string                 m_path; // must be unique
     std::string                 _root;
+    std::string                 _alias;
     std::size_t                 _client_max_body_size;
     std::string                 _cgi;
     bool                        _autoindex;
@@ -33,7 +34,7 @@ typedef struct s_location
     std::vector<t_status_page>  _error_page;
     t_redirect                  _return;
 
-    s_location(void): _root("."), _client_max_body_size(1000000), _autoindex(false) {
+    s_location(void):  _client_max_body_size(1 * 1024 * 1024), _autoindex(false) {
         _index.push_back("index.html");
     }
 }	t_location;
@@ -48,7 +49,7 @@ typedef struct s_host
     std::vector<t_status_page>  _error_page;
     std::vector<t_location>     _locations;
 
-    s_host(void): _listen(80) {}
+    s_host(void): _listen(80), _client_max_body_size(1 * 1024 * 1024), _root(".") {}
 }	t_host;
 
 class	Config
@@ -92,6 +93,7 @@ class	Config
         // 로케이션 파싱
         void                        locationParsePath(t_location &location, const JsonData &value);
         void                        locationParseRoot(t_location &location, const JsonData &value);
+        void                        locationParseAlias(t_location &location, const JsonData &value);
         void                        locationParseClientMaxBodySize(t_location &location, const JsonData &value);
         void                        locationParseCgi(t_location &location, const JsonData &value);
         void                        locationParseAutoIndex(t_location &location, const JsonData &value);

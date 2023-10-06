@@ -13,7 +13,7 @@ Location::~Location() { /* 소멸자 로직 */ }
 
 bool    Location::isMatched(const std::string &path) const { return Util::startsWith(path, _uri); }
 
-bool    Location::isRedirect() const { return _redirect._status > 0; }
+bool    Location::isRedirect() const { return _redirect._status > 0; /* -1이나 0이면 세팅 X*/ }
 
 std::string Location::getRedirectUrl(const std::string &path) const
 {
@@ -67,6 +67,9 @@ std::string Location::getCgiExt(void) const { return _cgiExt; }
 
 void        Location::setRoot(std::string root) { _root = root; }
 std::string Location::getRoot(void) const { return _root; }
+
+void        Location::setClientMaxBodySize(size_t value) { _clientMaxBodySize = value; }
+size_t      Location::getClientMaxBodySize(void) const { return _clientMaxBodySize; }
 
 std::ostream &operator<<(std::ostream &os, const Location &location)
 {

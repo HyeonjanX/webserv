@@ -150,6 +150,71 @@ std::string File::getFile(const std::string &root, const std::string &path, bool
 /**
  * @brief
  *
+ * @param root
+ * @param path
+ * @param autoindex
+ * @return std::string 디렉토링 리스팅용 HTML || 읽은 파일 데이터
+ *
+ * @throws int statusCode (404: 파일 존재, 403: 읽기 권한, 500: 읽기과정에서의 오류)
+ */
+std::string File::getFile(const std::string &root, const std::string &path, bool autoindex, const std::vector<std::string> &index)
+{
+    struct stat fileInfo;
+    std::string content;
+    std::string filepath = root + path;
+
+    if (!fileExists(filepath, fileInfo))
+        throw 404;
+    
+    try
+    {
+        if (!isDirectory(fileInfo))
+        {
+            if (!checkFileReadPermission(filepath))
+                throw 403;
+            content = readFile(filepath);
+        }
+        else if (/*isDiectory: true && */autoindex) 
+        {
+            if (!checkFileReadPermission(filepath))
+            {
+                throw 403;
+            }
+            content = generateAutoIndexHTML(root, path);
+        }
+        else /* isDiectory: true && autoindex: false */
+        {
+            for (size_t i = 0; i < index.size(); ++i)
+            {
+                std::string newFilepath = filepath + index[i];
+                struct stat newFileInfo;
+                if (!fileExists(newFilepath, newFileInfo))
+                    continue;
+                if (isDirectory(newFileInfo) || !checkFileReadPermission(newFilepath))
+                    throw 403;
+                content = readFile(filepath);
+            }
+            throw 404;
+        }
+    }
+    catch(int statusCode)
+    {
+        throw statusCode;
+    }
+    catch(const std::runtime_error &e)
+    {
+        // readFile과정에서 실패시, 어떤 사유로 에러가 발생했는지 확인할 수 있다.
+        std::cerr << e.what() << std::endl;
+        throw 500;
+    }
+
+    return content;
+}
+
+
+/**
+ * @brief
+ *
  * @param filepath
  * @return int statusCode (409: 중복파일, 403: 디렉토리 유효성 && 쓰기 권한)
  *

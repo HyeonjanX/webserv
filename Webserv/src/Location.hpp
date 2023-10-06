@@ -28,6 +28,8 @@ private:
     t_redirect                  _redirect;
     std::string                 _cgiExt; // .py .php .js .ts 등
     std::string                 _root;
+    size_t                      _clientMaxBodySize;
+
 
 public:
     Location(Host &host, const t_location locationConfig);
@@ -67,6 +69,10 @@ public:
 
     void                                setRoot(std::string root);
     std::string                         getRoot(void) const;
+    
+    void                                setClientMaxBodySize(size_t value);
+    size_t                              getClientMaxBodySize(void) const;
+
 };
 
 std::ostream &operator<<(std::ostream &os, const Location &location);

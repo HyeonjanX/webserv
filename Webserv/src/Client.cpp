@@ -15,6 +15,12 @@ Client::Client(int serverSocket, Webserver *ws, Server *s, EventHandler *e)
     {
         throw "fcntl() error" + std::string(strerror(errno));
     }
+    // TODO: 테스트위해서 설정
+    int sockreuse = 1;
+    if (setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR, &sockreuse, sizeof(int)) < 0)
+    {
+        throw("setsockopt(SO_REUSEADDR) for client failed");
+    }
     std::cout << "Client 생성: " << _socket << std::endl;
 }
 
@@ -206,10 +212,14 @@ void Client::readBody(void)
     {
         const size_t readBodyLength = _request.getRawData().size();
         const size_t contentLength = _request.getContentLength();
-        const size_t clientMaxBodySize = _matchedHost->getClientMaxBodySize();
+        const size_t clientMaxBodySize = _matchedLocation->getClientMaxBodySize();
 
-        std::cout << GREEN << "크기체크 => rawData:" << readBodyLength << ", contentLength: " << contentLength << RESET << std::endl;
+        std::cout << GREEN <<
+            "크기체크 => rawData:" << readBodyLength <<
+            ", contentLength: " << contentLength <<
+            ", clientMaxBodySize: " << clientMaxBodySize << RESET << std::endl;
 
+        // TODO: FIX
         if (readBodyLength >= clientMaxBodySize)
             throw 413; // 413 Content Too Large
         if (readBodyLength > contentLength)
@@ -235,7 +245,6 @@ int Client::doNonCgiProcess(const std::string &method)
     const std::string POST_METHOD("POST");
     const std::string DELETE_METHOD("DELETE");
 
-    // const std::string &root = _matchedHost->getRoot();
     const std::string &root = _matchedLocation->getRoot();
     const std::string &path = _request.getRequestPath();
 
@@ -247,8 +256,9 @@ int Client::doNonCgiProcess(const std::string &method)
     if (method.compare(GET_METHOD) == 0)
     {
         bool autoindex = _matchedLocation->getAutoindex();
+        const std::vector<std::string> &index = _matchedLocation->getIndex();
 
-        return notCgiGetProcess(root, path, autoindex);
+        return notCgiGetProcess(root, path, autoindex, index);
     }
     else if (method.compare(POST_METHOD) == 0)
     {
@@ -311,13 +321,13 @@ int Client::doRequest(void)
  * @param autoindex 
  * @return int statusCode: Response 응답에 사용 될 값이다.
  */
-int Client::notCgiGetProcess(const std::string &root, const std::string &path, bool autoindex)
+int Client::notCgiGetProcess(const std::string &root, const std::string &path, bool autoindex, const std::vector<std::string> &index)
 {
     int statusCode;
 
     try
     {
-        std::string fileData = File::getFile(root, path, autoindex);
+        std::string fileData = File::getFile(root, path, autoindex, index);
         _response.setBody(fileData);
         statusCode = 200;
         _erron = 0;
@@ -544,7 +554,7 @@ void Client::handleHeaders(void)
     _matchedHost = _server->matchHost(hostname);
     _matchedLocation = _matchedHost->matchLocation(_request.getRequestPath());
 
-    const std::string &root = _matchedHost->getRoot();
+    const std::string &root = _matchedLocation->getRoot();
 
     if (!_matchedLocation->isAllowedMethod(_request.getHttpMethod()))
         throw 405; // Method Not Allowed
@@ -558,8 +568,12 @@ void Client::handleHeaders(void)
     if (expected100 && _request.getHttpMethod().compare(POST_METHOD) == 0)
     {
         const std::string &filepath = root + Util::extractBasename(_request.getRequestPath());
-        if (File::canUploadFile(filepath)) // 0: o.k
+        int statusCode = File::canUploadFile(filepath);
+        if (statusCode)
+        {
+            std::cerr << "100 체크 => 업로드 불가: " << statusCode << std::endl;
             throw 417; // Expectation Failed
+        }
         _status = READ_POST_EXPECT_100;
     }
 }
@@ -590,7 +604,7 @@ void Client::handleHeaders(void)
  */
 void Client::chunkRead(void)
 {
-    const size_t clientMaxBodySize = _matchedHost->getClientMaxBodySize();
+    const size_t clientMaxBodySize = _matchedLocation->getClientMaxBodySize();
     std::size_t chunkSize, octecPos;
 
     try
@@ -635,7 +649,7 @@ void Client::cgiProcess(const std::string &method)
         throw 405; // 405 Method Not Allowed,
     }
 
-    const std::string &filepath = _matchedHost->getRoot() + _request.getRequestPath();
+    const std::string &filepath = _matchedLocation->getRoot() + _request.getRequestPath();
 
     // 2. 존재 && 권한체크(filepath)
     int statusCode = File::canExecuteFile(filepath);

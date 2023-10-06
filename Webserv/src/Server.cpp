@@ -43,7 +43,7 @@ void Server::socketInit(int port, struct sockaddr_in &addr, int sockreuse)
 
     if (sockreuse == 1 && setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR, &sockreuse, sizeof(int)) < 0)
     {
-        throw("setsockopt(SO_REUSEADDR) failed");
+        throw("setsockopt(SO_REUSEADDR) for server failed");
     }
 
     if (bind(_socket, (struct sockaddr *)&_addr, sizeof(_addr)) == -1)
