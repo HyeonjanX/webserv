@@ -1,14 +1,60 @@
-NAME = test
-SRCS = Client.cpp\
-	EventHandler.cpp\
-	File.cpp\
-	Host.cpp\
-	Location.cpp\
-	Request.cpp\
-	Response.cpp\
-	Server.cpp\
-	Util.cpp\
-	Webserver.cpp\
-	main.cpp
+CXX = c++
+CXXFLAGS = -Wall -Wextra -Werror
+CXXFLAGS += -std=c++98 -MD
+LDFLAGS =
+INCLUDE = -I.
+RM = rm -rf
 
-include ./template.mk
+SRCDIR = ./src/
+OBJDIR = ./obj/
+
+SOURCE = Cgi.cpp \
+	   Client.cpp \
+	   Config.cpp \
+	   EventHandler.cpp \
+	   File.cpp \
+	   Host.cpp \
+	   JsonData.cpp \
+	   JsonParser.cpp \
+	   Location.cpp \
+	   Request.cpp \
+	   Response.cpp \
+	   Server.cpp \
+	   Util.cpp \
+	   Webserver.cpp \
+	   main.cpp
+SRCS = $(addprefix $(SRCDIR), $(SOURCE))
+OBJECT = $(patsubst %.cpp, %.o, $(SOURCE))
+OBJS = $(addprefix $(OBJDIR), $(OBJECT))
+DEPS = $(OBJS:.o=.d)
+
+ifdef DEBUG
+	CXXFLAGS += -g -DDEBUG
+endif
+
+NAME = Webserv
+
+$(OBJDIR)%.o: $(SRCDIR)%.cpp
+	@mkdir -p $(OBJDIR)
+	$(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@ $(LDFLAGS)
+
+$(NAME): $(OBJS)
+	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME) $(LDFLAGS)
+
+-include $(DEPS)
+
+.PHONY: all debug clean fclean re
+
+all: $(NAME)
+
+debug: fclean
+	$(MAKE) all DEBUG=1
+
+clean:
+	$(RM) $(OBJDIR)
+
+fclean: clean
+	$(RM) $(NAME)
+
+re: fclean
+	$(MAKE) all
