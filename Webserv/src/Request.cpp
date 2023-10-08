@@ -301,6 +301,7 @@ static void	parseBodyPart(std::vector<Content> &contents, const std::string &ori
 
 	std::string::size_type pos = 0, oldPos = 0;
 
+	// Q. 잘 이해가 안되는 부분...
 	while (oldPos < dispositionParms.size())
 	{
 		if (dispositionParms[oldPos] != ';')

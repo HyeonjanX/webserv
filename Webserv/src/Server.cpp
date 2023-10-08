@@ -41,6 +41,7 @@ void Server::socketInit(int port, struct sockaddr_in &addr, int sockreuse)
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(port);
 
+    // Q. sockreuse가 필요한 상황은? sockreuse가 되면 setsockopt가 실패하는가?
     if (sockreuse == 1 && setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR, &sockreuse, sizeof(int)) < 0)
     {
         throw("setsockopt(SO_REUSEADDR) for server failed");

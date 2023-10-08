@@ -27,11 +27,13 @@ Webserver::Webserver(int ac, char **av)
     }
     else if (ac == 2)
     {
+        // Q. 만약 config 파일을 읽지 못하면?
         _configPath = std::string(av[1]);
         std::cout << av[1] << "에서 config를 읽어옵니다." << std::endl;
     }
     else
     {
+        // Q. 만약 default config 파일을 읽지 못하면?
         _configPath = "./config/default.config";
         std::cout << "디폴트 위치" << _configPath << "에서 config 읽어옵니다." << std::endl;
     }
@@ -54,6 +56,7 @@ Webserver::~Webserver(void)
 
 void Webserver::initWebserver(void)
 {
+    // Q. 만약 SIGPIPE가 발생하면, 시그널 핸들러로 다시 웹서버를 실행시켜야 할까?
     // 1. 시그널 핸들링
     signal(SIGPIPE, SIG_IGN);
 
@@ -95,6 +98,7 @@ void Webserver::initClient(int serverSocket, Server *s)
 
 void Webserver::runWebserver(void)
 {
+    // Q. 이미 바깥에 try 구문이 있는데, 여기서 한 번 더 사용해야 할 필요가 있을까?
     try
     {
         while (1)
@@ -114,6 +118,7 @@ void Webserver::runWebserver(void)
                 std::map<int, Client>::iterator cit = _clients.find(static_cast<int>(curr.ident));
                 if (cit != _clients.end() && curr.filter == EVFILT_TIMER)
                 {
+                    // Q. 잘못된 주석이죠...??
                     // 4. 클라이언트 소켓의 WRITE 이벤트
                     if (DEBUG_PRINT) std::cout << YELLOW << "***************** Client TIMER *****************" << RESET << std::endl;
 
@@ -211,6 +216,7 @@ void Webserver::runWebserver(void)
                         else if (curr.filter == EVFILT_READ)
                         {
                             if (DEBUG_PRINT) std::cout << YELLOW << "***************** CGI READ *****************" << RESET << std::endl;
+                            // Q. EOF가 발생할 때는 언제인가?
                             if (curr.flags & EV_EOF)
                             {
                                 if (DEBUG_PRINT) std::cout << MAGENTA << "EV_EOF" << RESET << std::endl;

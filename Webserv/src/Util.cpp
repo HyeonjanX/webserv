@@ -403,6 +403,7 @@ std::size_t Util::tryReadChunk(const std::string &rawData, std::size_t &octetPos
         throw std::invalid_argument("Invalid hex digit");
     }
 
+    // Q. 이 부분의 의미는?
     if (rawData.size() < crlfPos1 + 2 + size + 2)
     {
         return 0;

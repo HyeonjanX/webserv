@@ -470,6 +470,7 @@ void Client::makeResponseData(int statusCode, int defaultBodyNeed)
     _response.setHeader(std::string("Content-Length"), std::string(Util::ft_itoa(_response.getBody().length())));
     _response.setHeader(std::string("Date"), Util::getDateString());
 
+    // Q. 리다이렉트는 어떻게 작동되는걸까?
     // 1.2 300번대 리다이렉트
     if (statusCode / 100 == 3) // _matchedLocation && _matchedLocation->isRedirect()
     {
