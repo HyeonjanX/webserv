@@ -6,7 +6,7 @@ INCLUDE = -I.
 RM = rm -rf
 
 SRCDIR = ./src/
-OBJDIR = ./obj/
+OBJDIR = ./build/
 
 SOURCE = Cgi.cpp \
 	   Client.cpp \
