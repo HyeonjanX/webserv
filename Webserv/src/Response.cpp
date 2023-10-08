@@ -1,33 +1,22 @@
 #include "Response.hpp"
 #include "Util.hpp"
 
+#define DEBUG_PRINT false
+
 Response::Response(void)
     : _statusCode(0), _totalBytes(0), _sendedBytes(0) {}
 
-Response::Response(const std::string &httpVersion, int statusCode, const std::string &statusMessage)
-    : _httpVersion(httpVersion), _statusCode(statusCode), _statusMessage(statusMessage), _totalBytes(0), _sendedBytes(0) {}
-
 Response::~Response(void) {}
 
-void Response::init(const std::string &httpVersion, int statusCode, const std::string &statusMessage)
-{
-    _httpVersion = httpVersion;
-    _statusCode = statusCode;
-    _statusMessage = statusMessage;
-
-    _headers.clear();
-    _body.clear();
-
-    _data.clear();
-    _totalBytes = 0;
-    _sendedBytes = 0;
-}
 void Response::clean(void)
 {
-    std::cout << "Response::clean 호출: Response를 비워냅니다!" << std::endl;
+    if (DEBUG_PRINT)
+    {
+        std::cout << "Response::clean 호출: Response를 비워냅니다!" << std::endl;
+    }
+
     _httpVersion.clear();
     _statusCode = 0;
-    _statusMessage.clear();
 
     _headers.clear();
     _body.clear();
@@ -36,7 +25,7 @@ void Response::clean(void)
     _totalBytes = 0;
     _sendedBytes = 0;
 
-    _filePath.clear();
+    _cookie.clear();
 }
 
 /**
@@ -59,26 +48,28 @@ void Response::generateResponseData(void)
         << Util::getStatusCodeMessage(_statusCode) << CRLF;
 
     // 2. 헤더필드 만들기(headers)
-    for (std::map<std::string, std::string>::iterator it = _headers.begin(); it != _headers.end(); ++it)
-    {
+    for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it)
         oss << it->first << ": " << it->second << CRLF;
-    }
-    // std::cout << "응답 생성 확인" << std::endl;
+
+    // 3. 쿠키 굽기
+    for (std::map<std::string, t_set_cookie>::const_iterator it = _cookie.begin(); it != _cookie.end(); ++it)
+        oss << "Set-Cookie: " << it->second.key << "=" << it->second.value << "; httponly; Max-Age=" << it->second.expire  << ";" << CRLF;
 
     oss << CRLF;
 
-    // std::cout << "헤더까지(더블 CRLF까지).길이: " << oss.str().size() << std::endl;
-    
     oss << _body;
 
     _data = oss.str();
     _totalBytes = _data.size();
     _sendedBytes = 0;
 
-    // std::cout << "_body.size(): " << _body.size() << std::endl;
-    // std::cout << "===========================" << std::endl;
-    // std::cout << _data << std::endl;
-    // std::cout << "===========================" << std::endl;
+    if (DEBUG_PRINT)
+    {
+        std::cout << "_body.size(): " << _body.size() << std::endl;
+        std::cout << "===========================" << std::endl;
+        std::cout << _data << std::endl;
+        std::cout << "===========================" << std::endl;
+    }
 }
 
 void Response::generate100ResponseData(void)
@@ -110,10 +101,6 @@ void Response::setStatusCode(int code) { _statusCode = code; }
 
 int Response::getStatusCode() const { return _statusCode; }
 
-void Response::setStatusMessage(const std::string &message) { _statusMessage = message; }
-
-std::string Response::getStatusMessage() const { return _statusMessage; }
-
 void Response::setHeader(const std::string &key, const std::string &value) { _headers[key] = value; }
 
 bool Response::hasHeader(const std::string &key) const { return _headers.find(key) != _headers.end(); }
@@ -144,4 +131,4 @@ size_t Response::getTotalBytes(void) const { return _totalBytes; }
 
 size_t Response::getSendedBytes(void) const { return _sendedBytes; }
 
-void Response::setFilePath(const std::string &filePath) { _filePath = filePath; }
+void Response::addCookie(const std::string &key, const std::string &value, size_t expire) { _cookie[key] = t_set_cookie(key, value, expire); }

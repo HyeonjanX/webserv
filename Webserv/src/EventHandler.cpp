@@ -43,8 +43,6 @@ int EventHandler::newEvents()
                     NULL);
   if (_nevents == -1)
     throw "kevent error on newEvents" + std::string(strerror(errno));
-  else
-    std::cout << "newEvents: " << _nevents << std::endl;
   _changeList.clear();
 
   return (_nevents);
@@ -64,7 +62,6 @@ void EventHandler::registerReadWriteEvents(int clientSocket)
 {
   addKeventToChangeList(clientSocket, EVFILT_READ, EV_ADD, 0, 0, NULL);
   addKeventToChangeList(clientSocket, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, NULL);
-  std::cout << "등록" << std::endl;
 }
 
 /**
@@ -108,6 +105,19 @@ void EventHandler::turnOnWrite(int clientSocket)
 void EventHandler::turnOffWrite(int clientSocket)
 {
   addKeventToChangeList(clientSocket, EVFILT_WRITE, EV_DISABLE, 0, 0, NULL);
+}
+
+/**
+ * NOTE_SECONDS: 1초
+*/
+void EventHandler::registerTimerEvent(int clientSocket, intptr_t sec)
+{
+  addKeventToChangeList(clientSocket, EVFILT_TIMER, EV_ADD | EV_ONESHOT, NOTE_SECONDS, sec, NULL);
+}
+
+void EventHandler::unregisterTimerEvent(int clientSocket)
+{
+  addKeventToChangeList(clientSocket, EVFILT_TIMER, EV_DELETE, 0, 0, NULL);
 }
 
 const struct kevent &EventHandler::getEvent(int index) const

@@ -11,7 +11,7 @@
 /* ************************************************************************** */
 
 #include "Request.hpp"
-
+#define DEBUG_PRINT false
 /**
  * Constructor & Destroctor
  */
@@ -123,13 +123,12 @@ std::string &Request::getChunkOctetData(void)
 
 void Request::parseRequestLine(std::string const &requestLine)
 {
-	const bool DEBUG = true;
 	const char sp = ' ';
 
 	std::size_t pos1;
 	std::size_t pos2;
 
-	if (DEBUG)
+	if (DEBUG_PRINT)
 	{
 		std::cout << GREEN << "요청라인: " << requestLine << RESET << std::endl;
 	}
@@ -142,7 +141,7 @@ void Request::parseRequestLine(std::string const &requestLine)
 	_requestUrl = Util::urlDecode(requestLine.substr(pos1 + 1, pos2 - (pos1 + 1)));
 	_httpVersion = requestLine.substr(pos2 + 1);
 
-	if (DEBUG)
+	if (DEBUG_PRINT)
 	{
 		std::cout << GREEN << "|" << _method << "| |" << _requestUrl << "| |" << _httpVersion << "|" << RESET << std::endl;
 	}
@@ -162,10 +161,7 @@ void Request::parseRequestLine(std::string const &requestLine)
 	// _httpVersion 유효성검사
 	if (_httpVersion.compare(std::string("HTTP/1.1")) != 0)
 	{
-		if (DEBUG)
-		{
-			std::cout << GREEN << 505 << RESET << std::endl;
-		}
+		std::cerr << GREEN << "_httpVersion 505 error: " << _httpVersion << RESET << std::endl;
 		throw 505; // HTTP Version Not Supported
 	}
 }
@@ -265,7 +261,7 @@ void Request::appendHeader(const std::string &key, const std::string &val)
 static void	parseBodyPart(std::vector<Content> &contents, const std::string &originBody, const std::size_t startPos, const std::size_t endPos)
 {
 	std::string body = originBody.substr(startPos, endPos - startPos);
-	std::cout << CYAN << "parseBodyPart애서 body체크|" << body << "|끝" << RESET << std::endl;
+	if (DEBUG_PRINT) std::cout << CYAN << "parseBodyPart애서 body체크|" << body << "|끝" << RESET << std::endl;
 	Content content;
 	// const char *LWSP_CHARS = " \t";
 	const char *CRLF_CHARS = "\r\n";
@@ -280,14 +276,14 @@ static void	parseBodyPart(std::vector<Content> &contents, const std::string &ori
 	{
 		throw "Content-Disposition 헤더의 끝을 의미할 CRLF가 없습니다.";
 	}
-	std::cout << "crlfPos :" << crlfPos << std::endl;
+	if (DEBUG_PRINT) std::cout << "crlfPos :" << crlfPos << std::endl;
 	std::string contentDispositionHeader = body.substr(0, crlfPos);
 
 	std::string::size_type colonPos = contentDispositionHeader.find(':');
 
 	if (colonPos == std::string::npos)
 	{
-		std::cout << "|" << contentDispositionHeader << "|" << std::endl;
+		if (DEBUG_PRINT) std::cout << "|" << contentDispositionHeader << "|" << std::endl;
 		throw "Content-Disposition 헤더의 key : value를 나눌 콜론이 없습니다.";
 	}
 
@@ -297,7 +293,7 @@ static void	parseBodyPart(std::vector<Content> &contents, const std::string &ori
 	if (!Util::caseInsensitiveCompare(contentDispositionHeaderKey, "Content-Disposition") ||
 		!Util::startsWith(contentDispositionHeaderValue, "form-data"))
 	{
-		std::cout << "|" << contentDispositionHeaderKey << "|" << contentDispositionHeaderValue << "|" << std::endl;
+		if (DEBUG_PRINT) std::cout << "|" << contentDispositionHeaderKey << "|" << contentDispositionHeaderValue << "|" << std::endl;
 		throw "Content-Disposition: form-data를 만족하지 않습니다.";
 	}
 
@@ -335,7 +331,7 @@ static void	parseBodyPart(std::vector<Content> &contents, const std::string &ori
 		{
 			throw "disposition-parm의 key값이 중복되었습니다.";
 		}
-		std::cout << YELLOW << "값추가 => key: " << key << ", value: " << value << RESET << std::endl;
+		if (DEBUG_PRINT) std::cout << YELLOW << "값추가 => key: " << key << ", value: " << value << RESET << std::endl;
 		dispositionParams[key] = value;
 
 		oldPos = crlfPos2;
@@ -379,7 +375,7 @@ static void	parseBodyPart(std::vector<Content> &contents, const std::string &ori
 
 	// ["Content-Type" ":" MimeType CRLF]
 	std::string contentTypeHeader = body.substr(oldPos, pos - oldPos);
-	std::cout << "contentTypeHeader: |" << contentTypeHeader << "|" << std::endl;
+	if (DEBUG_PRINT) std::cout << "contentTypeHeader: |" << contentTypeHeader << "|" << std::endl;
 
 	std::string::size_type colonPos2 = contentTypeHeader.find(':');
 
@@ -393,8 +389,8 @@ static void	parseBodyPart(std::vector<Content> &contents, const std::string &ori
 
 	if (!Util::caseInsensitiveCompare(contentTypeHeaderKey, "Content-Type"))
 	{
-		std::cout << RED << "|" << contentTypeHeaderKey << "|" << std::endl;
-		std::cout << RED << "|" << contentTypeHeaderValue << "|" << std::endl;
+		std::cerr << RED << "|" << contentTypeHeaderKey << "|" << std::endl;
+		std::cerr << RED << "|" << contentTypeHeaderValue << "|" << std::endl;
 		throw "Content-Disposition 헤더 이후에는 Content-Type 헤더만 나올 수 있습니다.";
 	}
 	
@@ -474,7 +470,7 @@ std::vector<Content> Request::extractMultipartBody(std::string const &body, std:
 			{
 				// close-delimiter *LWSP-char
 				std::string bodyPart = body.substr(oldPos, pos - oldPos);
-				std::cout << MAGENTA << "|" << bodyPart << "|" << RESET << std::endl;
+				if (DEBUG_PRINT) std::cout << MAGENTA << "|" << bodyPart << "|" << RESET << std::endl;
 				parseBodyPart(contents, body, oldPos, pos);
 				break;
 			}
@@ -486,7 +482,7 @@ std::vector<Content> Request::extractMultipartBody(std::string const &body, std:
 			{
 				// *(delimiter *LWSP-char CRLF body-part)
 				std::string bodyPart = body.substr(oldPos, pos - oldPos);
-				std::cout << GREEN << "|" << bodyPart << "|" << RESET << std::endl;
+				if (DEBUG_PRINT) std::cout << GREEN << "|" << bodyPart << "|" << RESET << std::endl;
 				parseBodyPart(contents, body, oldPos, pos);
 				oldPos = pos + delimiter.size(); // <oldPos> *LWSP-char CRLF body-part
 				if ((pos = body.find(CRLF_CHARS, oldPos)) == std::string::npos)
@@ -507,8 +503,8 @@ std::vector<Content> Request::extractMultipartBody(std::string const &body, std:
 		pos = body.find_first_not_of(LWSP_CHARS, oldPos);
 		if (pos != std::string::npos && body.substr(pos, 2).compare(CRLF_CHARS) != 0)
 		{
-			std::cout << GREEN << "|" << body.substr(oldPos) << "|" << RESET << std::endl;
-			std::cout << GREEN << "|" << body.substr(pos) << "|" << RESET << std::endl;
+			std::cerr << GREEN << "|" << body.substr(oldPos) << "|" << RESET << std::endl;
+			std::cerr << GREEN << "|" << body.substr(pos) << "|" << RESET << std::endl;
 			throw "epilogue가 잘 못 되었습니다.";
 		}
 	}
@@ -523,11 +519,10 @@ std::vector<Content> Request::extractMultipartBody(std::string const &body, std:
 
 void	Request::handleHeaders(std::string &hostname, bool &expected100)
 {
-	const bool DEBUG = false;
 
 	for (std::vector<Header>::const_iterator it = _headers.begin(); it < _headers.end(); ++it)
 	{
-		if (DEBUG)
+		if (DEBUG_PRINT)
 		{
 			std::cout << "handleHeaders >> " << CYAN << it->key << ": " << it->value << RESET << std::endl;
 		}
@@ -589,17 +584,17 @@ bool Request::extractContentTypeData(std::string fieldValue, std::string &mediTy
 	}
 	mediType = fieldValue.substr(0, pos);
 
-	std::cout << BLUE << "extractContentTypeData" << std::endl;
+	if (DEBUG_PRINT) std::cout << BLUE << "extractContentTypeData" << std::endl;
 
 	while (pos != std::string::npos)
 	{
-		std::cout << BLUE << "extractContentTypeData inner 1" << std::endl;
+		if (DEBUG_PRINT) std::cout << BLUE << "extractContentTypeData inner 1" << std::endl;
 		std::string parameter, key, value;
 
 		// *( OWS ";" OWS parameter ) 에서 parameter 시작점
 		oldPos = fieldValue.find_first_not_of(OWS_SEMI_COLON, pos);
 
-		std::cout << BLUE << "extractContentTypeData inner 2" << std::endl;
+		if (DEBUG_PRINT) std::cout << BLUE << "extractContentTypeData inner 2" << std::endl;
 		if (oldPos == std::string::npos)
 		{
 			return false;
@@ -607,7 +602,7 @@ bool Request::extractContentTypeData(std::string fieldValue, std::string &mediTy
 
 		pos = fieldValue.find_first_of(OWS_SEMI_COLON, oldPos); // parameter 끝점
 
-		std::cout << BLUE << "extractContentTypeData inner 3" << std::endl;
+		if (DEBUG_PRINT) std::cout << BLUE << "extractContentTypeData inner 3" << std::endl;
 		if (pos == std::string::npos)
 		{
 			parameter = fieldValue.substr(oldPos);
@@ -628,7 +623,7 @@ bool Request::extractContentTypeData(std::string fieldValue, std::string &mediTy
 		key = parameter.substr(0, equalPos);
 		value = parameter.substr(equalPos + 1);
 
-		std::cout << BLUE << "extractContentTypeData inner 5" << std::endl;
+		if (DEBUG_PRINT) std::cout << BLUE << "extractContentTypeData inner 5" << std::endl;
 
 		// 빈 값 && 중복 불허
 		if (key.empty() || value.empty() || parameters.find(key) != parameters.end())
@@ -664,7 +659,6 @@ std::string Request::extractBoundary(std::string fieldValue)
 	return boundary;
 }
 
-// const std::string &Request::getPostData()
 std::string Request::getPostData()
 {
 	static const std::string &emptyString("");

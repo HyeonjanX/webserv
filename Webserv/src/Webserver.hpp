@@ -19,6 +19,17 @@
 // #include <vector> at EventHandler.hpp
 class Client;
 
+typedef struct s_session
+{
+    std::string id;
+    int         count;
+    std::time_t expirationTime;
+
+    s_session(std::string str, int val, std::time_t time): id(str), count(val), expirationTime(time) {}
+    s_session(int val): count(val) {}
+    s_session(): count(0), expirationTime(0) {}
+}	t_session;
+
 class Webserver
 {
 private:
@@ -27,6 +38,7 @@ private:
     std::map<int, std::vector<t_host> >     _serverConfigs;
     std::map<int, Server>                   _servers;
     std::map<int, Client>                   _clients;
+    std::map<std::string, t_session>        _sessions;
 
 public:
     Webserver(int ac, char **av);
@@ -41,9 +53,12 @@ private:
     void initClient(int serverSocket, Server *s = NULL);
 
 public:
-    void closeClient(int clientsocket);
+    void closeClient(Client &c);
 
     std::map<int, Client>::iterator searchClientByPipeFd(int fd);
+
+public:
+    std::map<std::string, t_session> &getSessions(void);
 };
 
 #endif

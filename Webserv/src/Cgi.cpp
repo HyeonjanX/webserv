@@ -45,8 +45,8 @@ void                Cgi::setPostData(std::string postData) { _postData = postDat
 
 void Cgi::clearCgi()
 {
-    clearChild();
     clearPipe();
+    clearChild();
     _pid = 0;
     _status = 0;
     _env.clear();
@@ -61,6 +61,7 @@ void Cgi::clearChild()
     if (_pid)
     {
         kill(_pid, SIGKILL);
+        waitpid(_pid, NULL, WNOHANG);
         _pid = 0;
     }
 }
@@ -97,13 +98,7 @@ void Cgi::exec(const std::string &method, const std::string &filepath)
     // 2. 권한체크(filepath)
 
     // 3. pipe 생성 && 논블록 처리
-    // if ((pipe(_outPipe) == -1 || fcntl(_outPipe[READ_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1) ||
-    //     (method.compare("POST") == 0 && (pipe(_inPipe) == -1 || fcntl(_inPipe[WRITE_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1)))
-    // {
-    //     throw "exec과정에서 pipe() or fcntl() 실패";
-    // }
 
-    // POST 아니여도 입력 파이프 생성 버전
     if ((pipe(_outPipe) == -1 || fcntl(_outPipe[READ_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1) ||
         (pipe(_inPipe) == -1 || fcntl(_inPipe[WRITE_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1))
     {
@@ -118,12 +113,6 @@ void Cgi::exec(const std::string &method, const std::string &filepath)
     else if (_pid == 0)
     {
         // 자녀 프로세스
-        // if (dup2(_outPipe[WRITE_FD], STDOUT_FILENO) == -1 ||
-        //     (method.compare("POST") == 0 && dup2(_inPipe[READ_FD], STDIN_FILENO) == -1))
-        // {
-        //     throw "자녀프로세스에서 dup2() 실패";
-        // }
-        // POST 아니여도 입력 파이프 생성 버전
         if (dup2(_outPipe[WRITE_FD], STDOUT_FILENO) == -1 ||
             dup2(_inPipe[READ_FD], STDIN_FILENO) == -1)
         {

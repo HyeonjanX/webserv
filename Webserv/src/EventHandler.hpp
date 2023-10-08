@@ -8,6 +8,8 @@
 #include <vector>
 
 #define MAX_EVENTS 64
+#define TIMER_TIME_OUT_SEC 60
+#define TIMER_KEEP_ALIVE_SEC 5
 
 class EventHandler
 {
@@ -43,6 +45,9 @@ public:
   void turnOffRead(int clientSocket);
   void turnOnWrite(int clientSocket);
   void turnOffWrite(int clientSocket);
+
+  void registerTimerEvent(int clientSocket, intptr_t sec);
+  void unregisterTimerEvent(int clientSocket);
 
 public:
   const struct kevent &getEvent(int index) const;

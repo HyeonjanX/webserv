@@ -1,5 +1,6 @@
 #include "Webserver.hpp"
 
+#define DEBUG_PRINT false
 
 // #include "Color.hpp"
 // #include "Logger.hpp"
@@ -66,6 +67,9 @@ void Webserver::initWebserver(void)
     {
         initServer(it->first, it->second);
     }
+
+    // 4. 랜덤생성 함수를 위해
+    srand(time(0));
 }
 
 void Webserver::initServer(int port, const std::vector<t_host> &serverConfig)
@@ -85,7 +89,8 @@ void Webserver::initClient(int serverSocket, Server *s)
     _clients.erase(c.getSocket());
     _clients.insert(std::make_pair(c.getSocket(), c));
     _eventHandler.registerReadWriteEvents(c.getSocket());
-    std::cout << "initClient: fd(" << c.getSocket() << ")" << std::endl;
+    _eventHandler.registerTimerEvent(c.getSocket(), TIMER_KEEP_ALIVE_SEC);
+    if (DEBUG_PRINT) std::cout << "initClient: fd(" << c.getSocket() << ")" << std::endl;
 }
 
 void Webserver::runWebserver(void)
@@ -95,9 +100,31 @@ void Webserver::runWebserver(void)
         while (1)
         {
             int nevents = _eventHandler.newEvents();
-            std::cout << "nevents: " << nevents << std::endl;
-            std::cout << "_clients: " << _clients.size() << std::endl;
-            std::cout << "_servers: " << _servers.size() << std::endl;
+            if (DEBUG_PRINT)
+            {
+                std::cout << "nevents: " << nevents << std::endl;
+                std::cout << "_clients: " << _clients.size() << std::endl;
+                std::cout << "_servers: " << _servers.size() << std::endl;
+            }
+
+            for (int i = 0; i < nevents; ++i)
+            {
+                struct kevent curr = _eventHandler.getEvent(i);
+
+                std::map<int, Client>::iterator cit = _clients.find(static_cast<int>(curr.ident));
+                if (cit != _clients.end() && curr.filter == EVFILT_TIMER)
+                {
+                    // 4. 클라이언트 소켓의 WRITE 이벤트
+                    if (DEBUG_PRINT) std::cout << YELLOW << "***************** Client TIMER *****************" << RESET << std::endl;
+
+                    Client *c = &(cit->second);
+
+                    closeClient(*c);
+
+                    continue;
+                }
+            }
+
             for (int i = 0; i < nevents; ++i)
             {
                 struct kevent curr = _eventHandler.getEvent(i);
@@ -109,7 +136,7 @@ void Webserver::runWebserver(void)
                 if (sit != _servers.end())
                 {
                     // 1. 서버소켓의 READ 이벤트
-                    std::cout << GREEN << "-------------- 소켓생성 -----------------" << RESET << std::endl;
+                    if (DEBUG_PRINT) std::cout << GREEN << "-------------- 소켓생성 -----------------" << RESET << std::endl;
 
                     Server *s = &sit->second;
 
@@ -120,42 +147,47 @@ void Webserver::runWebserver(void)
 
                 std::map<int, Client>::iterator cit = _clients.find(static_cast<int>(curr.ident));
 
-                // 클라이언트가 FIN요청을 보내서, 연결이 종료됨 => 재사용 불가 => 이미 닫힌 연결 => 안 닫으면 계속해서 READ 이벤트가 발생.
-                if (cit != _clients.end() && curr.filter == EVFILT_READ && (curr.flags & EV_EOF))
+                if (cit != _clients.end())
                 {
-                    // 2. 클라이언트의 소켓 연결 종료 이벤트
-                    std::cout << MAGENTA << "***************** 클라이언트부터 소켓 연결 종료 *****************" << RESET << std::endl;
+                    // 클라이언트가 FIN요청을 보내서, 연결이 종료됨 => 재사용 불가 => 이미 닫힌 연결 => 안 닫으면 계속해서 READ 이벤트가 발생.
+                    if (curr.filter == EVFILT_READ && (curr.flags & EV_EOF))
+                    {
+                        // 2. 클라이언트의 소켓 연결 종료 이벤트
+                        if (DEBUG_PRINT) std::cout << MAGENTA << "***************** 클라이언트부터 소켓 연결 종료 *****************" << RESET << std::endl;
 
-                    Client *c = &(cit->second);
+                        Client *c = &(cit->second);
 
-                    closeClient(c->getSocket());
+                        closeClient(*c);
 
-                    continue;
+                        continue;
+                    }
+
+                    if (curr.filter == EVFILT_READ)
+                    {
+                        // 3. 클라이언트 소켓의 READ 이벤트
+                        if (DEBUG_PRINT) std::cout << CYAN << "***************** Client READ *****************" << RESET << std::endl;
+
+                        Client *c = &(cit->second);
+
+                        c->readProcess();
+
+                        continue;
+                    }
+
+                    if (curr.filter == EVFILT_WRITE)
+                    {
+                        // 4. 클라이언트 소켓의 WRITE 이벤트
+                        if (DEBUG_PRINT) std::cout << BLUE << "***************** Client WRITE *****************" << RESET << std::endl;
+
+                        Client *c = &(cit->second);
+
+                        c->sendProcess();
+
+                        continue;
+                    }
                 }
 
-                if (cit != _clients.end() && curr.filter == EVFILT_READ)
-                {
-                    // 3. 클라이언트 소켓의 READ 이벤트
-                    std::cout << CYAN << "***************** Client READ *****************" << RESET << std::endl;
-
-                    Client *c = &(cit->second);
-
-                    c->readProcess(); // recv() fail시 _ws->closeClient(_socket);
-
-                    continue;
-                }
-
-                if (cit != _clients.end() && EVFILT_WRITE)
-                {
-                    // 4. 클라이언트 소켓의 WRITE 이벤트
-                    std::cout << BLUE << "***************** Client WRITE *****************" << RESET << std::endl;
-
-                    Client *c = &(cit->second);
-
-                    c->sendProcess(); // send() fail시 _ws->closeClient(_socket);
-
-                    continue;
-                }
+                
 
                 std::map<int, Client>::iterator cit2 = searchClientByPipeFd(curr.ident);
 
@@ -168,7 +200,7 @@ void Webserver::runWebserver(void)
                     {
                         if (curr.filter == EVFILT_WRITE)
                         {
-                            std::cout << YELLOW << "***************** CGI WRITE *****************" << RESET << std::endl;
+                            if (DEBUG_PRINT) std::cout << YELLOW << "***************** CGI WRITE *****************" << RESET << std::endl;
                             cgi->writePipe(); // write() failt시 => 500 응답 생성 코스로
                             if (cgi->allSend())
                             {
@@ -178,15 +210,15 @@ void Webserver::runWebserver(void)
                         }
                         else if (curr.filter == EVFILT_READ)
                         {
-                            std::cout << YELLOW << "***************** CGI READ *****************" << RESET << std::endl;
+                            if (DEBUG_PRINT) std::cout << YELLOW << "***************** CGI READ *****************" << RESET << std::endl;
                             if (curr.flags & EV_EOF)
                             {
-                                std::cout << MAGENTA << "EV_EOF" << RESET << std::endl;
+                                if (DEBUG_PRINT) std::cout << MAGENTA << "EV_EOF" << RESET << std::endl;
                                 c->makeCgiResponse();
                             }
                             else
                             {
-                                std::cout << MAGENTA << "읽기" << RESET << std::endl;
+                                if (DEBUG_PRINT) std::cout << MAGENTA << "읽기" << RESET << std::endl;
                                 cgi->readPipe(); // read() fail시 => 500 응답 생성 코스로
                             }
                         }
@@ -219,11 +251,11 @@ void Webserver::runWebserver(void)
     }
 }
 
-// kqueue 이벤트는 명시적으로 삭제할 필요 없다.
-void Webserver::closeClient(int clientsocket)
+void Webserver::closeClient(Client &c)
 {
-    close(clientsocket);
-    _clients.erase(clientsocket);
+    c.cleanForClose();
+    close(c.getSocket());
+    _clients.erase(c.getSocket());
 }
 
 std::map<int, Client>::iterator Webserver::searchClientByPipeFd(int fd)
@@ -237,3 +269,5 @@ std::map<int, Client>::iterator Webserver::searchClientByPipeFd(int fd)
     }
     return _clients.end();
 }
+
+std::map<std::string, t_session> &Webserver::getSessions(void) { return _sessions; };

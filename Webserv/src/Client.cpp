@@ -1,5 +1,7 @@
 #include "Client.hpp"
-#define DEBUG_PRINT true
+
+#define DEBUG_PRINT false
+#define DEBUG_SESSION_PRINT true
 
 Client::Client(int serverSocket, Webserver *ws, Server *s, EventHandler *e)
     : _ws(ws), _server(s), _eventHandler(e), _contentLength(0), _status(0), _ischunk(0), _erron(0), _defaultBodyNeed(0)
@@ -21,10 +23,47 @@ Client::Client(int serverSocket, Webserver *ws, Server *s, EventHandler *e)
     {
         throw("setsockopt(SO_REUSEADDR) for client failed");
     }
-    std::cout << "Client 생성: " << _socket << std::endl;
+    if (DEBUG_PRINT)
+        std::cout << "Client 생성: " << _socket << std::endl;
 }
 
 Client::~Client(void) {}
+
+static std::map<std::string, std::string> parseCookies(const std::string &cookieHeader)
+{
+    std::map<std::string, std::string> cookies;
+    std::stringstream ss(cookieHeader);
+    std::string token;
+
+    while (std::getline(ss, token, ';'))
+    {
+        std::string::size_type pos = token.find('=');
+        if (pos != std::string::npos)
+        {
+            std::string key = Util::lrtrim(token.substr(0, pos));
+            std::string value = Util::lrtrim(token.substr(pos + 1));
+            cookies[key] = value;
+        }
+    }
+
+    return cookies;
+}
+
+static std::string generateSessionId(const std::map<std::string, t_session> &sessions)
+{
+    const int sessionIdSize = 20;
+    std::string sessionId;
+    const char alphanum[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"; // 사용할 문자들
+
+    do
+    {
+        sessionId.clear();
+        for (int i = 0; i < sessionIdSize; ++i)
+            sessionId += alphanum[rand() % (sizeof(alphanum) - 1)];
+    } while (sessions.find(sessionId) != sessions.end());
+
+    return sessionId;
+}
 
 int Client::getSocket(void) const { return _socket; }
 Request &Client::getRequest() { return _request; }
@@ -42,7 +81,7 @@ void Client::readProcess(void)
     if (receiveRequest() <= 0)
     {
         std::cerr << "Fail to recv(): " + std::string(strerror(errno)) << std::endl;
-        _ws->closeClient(_socket);
+        _ws->closeClient(*this);
         return;
     }
 
@@ -51,7 +90,8 @@ void Client::readProcess(void)
         parseRequest();
         if (_status == READ_POST_EXPECT_100)
         {
-            std::cout << MAGENTA << "100 응답 생성" << std::endl;
+            if (DEBUG_PRINT)
+                std::cout << MAGENTA << "100 응답 생성" << std::endl;
             _response.generate100ResponseData();
             _eventHandler->switchToWriteState(_socket);
             return;
@@ -70,7 +110,8 @@ void Client::readProcess(void)
     catch (int errorStatusCode)
     {
         // 30x 리다이렉트 코드도 이리로 온다.
-        std::cout << RED << "readProcess catch: " << errorStatusCode << RESET << std::endl;
+        if (DEBUG_PRINT)
+            std::cout << RED << "readProcess catch: " << errorStatusCode << RESET << std::endl;
         _status = READ_END;
         statusCode = errorStatusCode;
         _defaultBodyNeed = 1;
@@ -94,22 +135,30 @@ ssize_t Client::receiveRequest(void)
     {
         _request.appendRawData(buffer, bytes_read);
 
-        std::cout << "=========== readProcess =============" << std::endl;
-        // std::cout << RED << std::string(buffer.data(), bytes_read) << RESET << std::endl;
-        // std::cout << "*************************************" << std::endl;
-        std::cout << BLUE << _request.getRawData() << RESET << std::endl;
-        std::cout << "-------------------------------------" << std::endl;
+        if (DEBUG_PRINT)
+        {
+            std::cout << "=========== readProcess =============" << std::endl;
+            // std::cout << RED << std::string(buffer.data(), bytes_read) << RESET << std::endl;
+            // std::cout << "*************************************" << std::endl;
+            std::cout << BLUE << _request.getRawData() << RESET << std::endl;
+            std::cout << "-------------------------------------" << std::endl;
+        }
     }
-
 
     return bytes_read;
 }
 
-void    Client::parseRequest(void)
+void Client::parseRequest(void)
 {
-    if (DEBUG_PRINT) std::cout << "=========== parseRequest() ===========" << std::endl;
+    if (DEBUG_PRINT)
+        std::cout << "=========== parseRequest() ===========" << std::endl;
 
     if (_status == BEFORE_READ)
+    {
+        _eventHandler->registerTimerEvent(_socket, TIMER_TIME_OUT_SEC);
+        _status = READ_STARTED;
+    }
+    if (_status == READ_STARTED)
         readRequestLine(); // throw 400 505
     if (_status == READ_REQUESTLINE)
     {
@@ -121,7 +170,8 @@ void    Client::parseRequest(void)
         readBody();
     if (_status == READ_BODY)
     {
-        if (DEBUG_PRINT) std::cout << "=========== READ_BODY ===========" << std::endl;
+        if (DEBUG_PRINT)
+            std::cout << "=========== READ_BODY ===========" << std::endl;
         // 이곳에 위치할 계획이던 multipart/form-data
         // doRequest()의 POST 호출 직전으로 위치 이동
         _status = READ_END;
@@ -136,15 +186,17 @@ void Client::readRequestLine(void)
 {
     // BEFORE_READ => READ_REQUESTLINE
 
-    if (DEBUG_PRINT) std::cout << BLUE << "=========== readRequestLine() ===========" << RESET << std::endl;
+    if (DEBUG_PRINT)
+        std::cout << BLUE << "=========== readRequestLine() ===========" << RESET << std::endl;
 
     const std::string &rawData = _request.getRawData();
-    
+
     size_t pos = rawData.find("\r\n");
-    
+
     if (pos != std::string::npos)
     {
-        std::cout << BLUE << rawData.substr(0, pos) << RESET << std::endl;
+        if (DEBUG_PRINT)
+            std::cout << BLUE << rawData.substr(0, pos) << RESET << std::endl;
 
         _request.parseRequestLine(rawData.substr(0, pos));
         _request.setRawData(rawData.substr(pos + 2));
@@ -153,7 +205,8 @@ void Client::readRequestLine(void)
 
         _status = READ_REQUESTLINE;
 
-        std::cout << YELLOW << _request.getHttpMethod() << _request.getRequestUrl() << _request.getHttpVersion() << RESET << std::endl;
+        if (DEBUG_PRINT)
+            std::cout << YELLOW << _request.getHttpMethod() << _request.getRequestUrl() << _request.getHttpVersion() << RESET << std::endl;
     }
 }
 
@@ -162,10 +215,11 @@ void Client::readHeader(void)
 {
     // READ_REQUESTLINE => READ_HEADER
 
-    std::cout << YELLOW << "======== readHeader() ========" << RESET << std::endl;
+    if (DEBUG_PRINT)
+        std::cout << YELLOW << "======== readHeader() ========" << RESET << std::endl;
 
-    std::string::size_type pos = 0, oldPos = 0, colPos; 
-    
+    std::string::size_type pos = 0, oldPos = 0, colPos;
+
     const std::string &rawData = _request.getRawData();
 
     while ((pos = rawData.find(CRLF, oldPos)) != std::string::npos)
@@ -182,12 +236,12 @@ void Client::readHeader(void)
 
         if ((colPos = line.find(':')) == std::string::npos)
             throw 400; // Bad Request
-        
+
         std::string key = Util::toLowerCase(line.substr(0, colPos));
         std::string val = Util::lrtrim(line.substr(colPos + 1));
-        
+
         _request.appendHeader(key, val);
-        
+
         oldPos = pos + CRLF_SIZE;
     }
 
@@ -204,7 +258,8 @@ void Client::readHeader(void)
  */
 void Client::readBody(void)
 {
-    if (DEBUG_PRINT) std::cout << "=========== readBody() ===========" << std::endl;
+    if (DEBUG_PRINT)
+        std::cout << "=========== readBody() ===========" << std::endl;
 
     if (_request.getTransferEncoding().compare("chunked") == 0)
         chunkRead(); // throw 400 413
@@ -214,10 +269,8 @@ void Client::readBody(void)
         const size_t contentLength = _request.getContentLength();
         const size_t clientMaxBodySize = _matchedLocation->getClientMaxBodySize();
 
-        std::cout << GREEN <<
-            "크기체크 => rawData:" << readBodyLength <<
-            ", contentLength: " << contentLength <<
-            ", clientMaxBodySize: " << clientMaxBodySize << RESET << std::endl;
+        if (DEBUG_PRINT)
+            std::cout << GREEN << "크기체크 => rawData:" << readBodyLength << ", contentLength: " << contentLength << ", clientMaxBodySize: " << clientMaxBodySize << RESET << std::endl;
 
         // TODO: FIX
         if (readBodyLength >= clientMaxBodySize)
@@ -230,11 +283,11 @@ void Client::readBody(void)
 }
 
 /**
- * @brief 
- * 
- * @param method 
+ * @brief
+ *
+ * @param method
  * @return int stausCode: Response 응답코드에 사용할 값이다.
- * 
+ *
  * @throws
  * - 400:
  * - 405: GET / POST / DELETE 외 메서드는 지원 X
@@ -248,10 +301,11 @@ int Client::doNonCgiProcess(const std::string &method)
     const std::string &root = _matchedLocation->getRoot();
     const std::string &path = _request.getRequestPath();
 
-    if (DEBUG_PRINT) std::cout << YELLOW << "doNonCgiProcess => root/path: " <<
-        root << "/" << path << std::endl;
+    if (DEBUG_PRINT)
+        std::cout << YELLOW << "doNonCgiProcess => root/path: " << root << "/" << path << std::endl;
 
-    std::cout << BLUE << method << "_METHOD()" << RESET << std::endl;
+    if (DEBUG_PRINT)
+        std::cout << BLUE << method << "_METHOD()" << RESET << std::endl;
 
     if (method.compare(GET_METHOD) == 0)
     {
@@ -284,10 +338,10 @@ int Client::doNonCgiProcess(const std::string &method)
 }
 
 /**
- * @brief 
- * 
+ * @brief
+ *
  * @return int statusCode: Response 응답에 쓰일 값이다.
- * 
+ *
  * @throws
  * - 400:
  * - 405: GET / POST / DELETE 외 메서드는 지원 X
@@ -295,9 +349,12 @@ int Client::doNonCgiProcess(const std::string &method)
  */
 int Client::doRequest(void)
 {
-    std::cout << RED << "doRequest() - 요청라인3요소: |"
-              << _request.getHttpMethod() << " " << _request.getRequestUrl() << "  " << _request.getHttpVersion() << "|"
-              << RESET << std::endl;
+    if (DEBUG_PRINT)
+    {
+        std::cout << RED << "doRequest() - 요청라인3요소: |"
+                  << _request.getHttpMethod() << " " << _request.getRequestUrl() << "  " << _request.getHttpVersion() << "|"
+                  << RESET << std::endl;
+    }
 
     const std::string &method = _request.getHttpMethod();
     const std::string &path = _request.getRequestPath();
@@ -314,11 +371,11 @@ int Client::doRequest(void)
 }
 
 /**
- * @brief 
- * 
- * @param root 
- * @param path 
- * @param autoindex 
+ * @brief
+ *
+ * @param root
+ * @param path
+ * @param autoindex
  * @return int statusCode: Response 응답에 사용 될 값이다.
  */
 int Client::notCgiGetProcess(const std::string &root, const std::string &path, bool autoindex, const std::vector<std::string> &index)
@@ -343,10 +400,10 @@ int Client::notCgiGetProcess(const std::string &root, const std::string &path, b
 }
 
 /**
- * @brief 
- * 
- * @param filepath 
- * @param body 
+ * @brief
+ *
+ * @param filepath
+ * @param body
  * @return int statusCode: Response 응답에 사용 될 값이다.
  */
 int Client::notCgiPostProcess(const std::string &filepath, const std::string &body)
@@ -370,9 +427,9 @@ int Client::notCgiPostProcess(const std::string &filepath, const std::string &bo
 }
 
 /**
- * @brief 
- * 
- * @param filepath 
+ * @brief
+ *
+ * @param filepath
  * @return int statusCode: Response 응답에 사용 될 값이다.
  */
 int Client::notCgiDeleteProcess(const std::string &filepath)
@@ -405,10 +462,10 @@ void Client::makeResponseData(int statusCode, int defaultBodyNeed)
 {
     // 두 인자를 새롭게 받아 와서 활용.
     _response.setStatusCode(statusCode);
-    
+
     if (defaultBodyNeed)
         _response.setBody(createDefaultPage(statusCode));
-    
+
     // 1.1 _response.헤더<Cotent-length && Date>세팅(리스폰스.바디, 현재:Date)
     _response.setHeader(std::string("Content-Length"), std::string(Util::ft_itoa(_response.getBody().length())));
     _response.setHeader(std::string("Date"), Util::getDateString());
@@ -417,8 +474,7 @@ void Client::makeResponseData(int statusCode, int defaultBodyNeed)
     if (statusCode / 100 == 3) // _matchedLocation && _matchedLocation->isRedirect()
     {
         _response.setHeader(std::string("Location"),
-                            std::string("http://") + _request.findHeaderValue(std::string("host"))
-                            + _matchedLocation->getRedirectUrl(_request.getRequestUrl()));
+                            std::string("http://") + _request.findHeaderValue(std::string("host")) + _matchedLocation->getRedirectUrl(_request.getRequestUrl()));
     }
 
     // 2. _response.generateResponseData() 호출: Response가 가진것들을 활용해 _data로 만듬.
@@ -478,8 +534,8 @@ std::string Client::createDefaultBody(int statusCode)
 // send 실패시 throw 가능
 void Client::sendProcess(void)
 {
-    // std::cout << RED << "0: " << _response.getDataLength() << RESET << std::endl;
-    std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
+    if (DEBUG_PRINT)
+        std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
 
     ssize_t bytes_sent = send(_socket, _response.getData().c_str(), _response.getDataLength(), 0);
 
@@ -488,31 +544,37 @@ void Client::sendProcess(void)
         // MSG_NOSIGNAL가 없어서 signal(SIGPIPE, SIG_IGN);를 통해서 SIGPIPE가 들어와도 프로세스가 종료되지 않도록.
         // 클라이언트에서 먼저 종료시: Broken pipe
         std::cerr << "Fail to send(): " + std::string(strerror(errno)) << std::endl;
-        _ws->closeClient(_socket);
+        _ws->closeClient(*this);
         return;
     }
 
-    // std::cout << "====================== 보낸 데이터 (응답 확인용) ===============" << std::endl;
-    // std::cout << _response.getData().substr(0, bytes_sent) << std::endl;
-    // std::cout << "====================== ********* ===============" << std::endl;
+    // if (DEBUG_PRINT)
+    // {
+    //     std::cout << "====================== 보낸 데이터 (응답 확인용) ===============" << std::endl;
+    //     std::cout << _response.getData().substr(0, bytes_sent) << std::endl;
+    //     std::cout << "====================== ********* ===============" << std::endl;
+    // }
 
     _response.updateData(bytes_sent);
     _response.updateSendedBytes(bytes_sent);
 
-    std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl;
+    if (DEBUG_PRINT)
+        std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl;
 
     if (checkSendBytes() >= 0)
     {
         _eventHandler->switchToReadState(_socket);
+        _eventHandler->registerTimerEvent(_socket, TIMER_KEEP_ALIVE_SEC);
         if (_status == READ_POST_EXPECT_100)
         {
-            std::cout << RED << "100 응답 전송 후" << RESET << std::endl;
+            if (DEBUG_PRINT)
+                std::cout << RED << "100 응답 전송 후" << RESET << std::endl;
             _status = READ_HEADER;
             _response.clean();
             _response.setHttpVersion(_request.getHttpVersion());
             return;
         }
-        cleanRequestReponse();
+        cleanClientRequestReponse();
     }
 
     return;
@@ -521,17 +583,6 @@ void Client::sendProcess(void)
 /** return (보낸바이트 - 보내야할바이트), 0 >= 0 이면 송신 끝을 의미 **/
 int Client::checkSendBytes() const { return _response.getSendedBytes() - _response.getTotalBytes(); }
 
-void Client::cleanRequestReponse(void)
-{
-    // 2번째 요청시 문제 발생. 양 clean 코드류에서 문제 발생하는듯.
-    _status = BEFORE_READ;
-    _ischunk = 0;
-    _erron = 0;
-    _defaultBodyNeed = 0;
-    _request.resetRequest();
-    _response.clean();
-}
-
 /**
  * @brief _matchedHost와 _matchedLocation가 결정된다!
  *
@@ -539,8 +590,9 @@ void Client::cleanRequestReponse(void)
  */
 void Client::handleHeaders(void)
 {
-    if (DEBUG_PRINT) std::cout << "========= handleHeaders ===========" << std::endl;
-    
+    if (DEBUG_PRINT)
+        std::cout << "========= handleHeaders ===========" << std::endl;
+
     const std::string POST_METHOD("POST");
 
     std::string hostname;
@@ -549,7 +601,15 @@ void Client::handleHeaders(void)
     _request.handleHeaders(hostname, expected100);
 
     if (hostname.empty())
+    {
+        std::cerr << "hostname empty 400 error" << std::endl;
         throw 400;
+    }
+
+    sessionProcess();
+
+    if (DEBUG_PRINT)
+        std::cout << "========= matching host & location ===========" << std::endl;
 
     _matchedHost = _server->matchHost(hostname);
     _matchedLocation = _matchedHost->matchLocation(_request.getRequestPath());
@@ -578,7 +638,7 @@ void Client::handleHeaders(void)
     }
 }
 /**
- * @brief 
+ * @brief
  *
  * @throws int statusCode (413: 클라이언트 바디 제한 초과, 400: 청크읽기 과정에서 에러 발생)
  *
@@ -625,8 +685,10 @@ void Client::chunkRead(void)
 
         // LastChunk를 찾아 끝내도 됨.
 
-        std::cout << BLUE << "lastchunk 발견: " << _request.getRawData() << RESET << std::endl;
-        std::cout << BLUE << "_chunkOctetData.length: " << _request.getChunkOctetData().length() << RESET << std::endl;
+        if (DEBUG_PRINT)
+            std::cout << BLUE << "lastchunk 발견: " << _request.getRawData() << RESET << std::endl;
+        if (DEBUG_PRINT)
+            std::cout << BLUE << "_chunkOctetData.length: " << _request.getChunkOctetData().length() << RESET << std::endl;
 
         _status = READ_BODY;
     }
@@ -678,13 +740,15 @@ void Client::cgiProcess(const std::string &method)
     if (method.compare("POST") == 0 && !_cgi.getPostData().empty())
     {
         // POST
-        std::cout << "POST 이벤트 등록: " << _cgi.getInPipe(WRITE_FD) << ", " << _cgi.getOutPipe(READ_FD) << std::endl;
+        if (DEBUG_PRINT)
+            std::cout << "POST 이벤트 등록: " << _cgi.getInPipe(WRITE_FD) << ", " << _cgi.getOutPipe(READ_FD) << std::endl;
         _eventHandler->addKeventToChangeList(_cgi.getInPipe(WRITE_FD), EVFILT_WRITE, EV_ADD, 0, 0, NULL);
         _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, NULL);
     }
     else
     {
-        std::cout << "GET 이벤트 등록: " << _cgi.getOutPipe(READ_FD) << std::endl;
+        if (DEBUG_PRINT)
+            std::cout << "GET 이벤트 등록: " << _cgi.getOutPipe(READ_FD) << std::endl;
         // GET
         _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, NULL);
     }
@@ -697,13 +761,16 @@ void Client::makeCgiResponse()
 
     const std::string &readData = _cgi.getReadData();
 
-    std::cout << "================ CGI의 응답 수신 완료 _readData ==============" << std::endl;
-    std::cout << "_readData.size() :" << readData.size() << std::endl;
-    std::cout << readData << std::endl;
-    std::cout << "================ * * * * * ==============" << std::endl;
+    if (DEBUG_PRINT)
+    {
+        std::cout << "================ CGI의 응답 수신 완료 _readData ==============" << std::endl;
+        std::cout << "_readData.size() :" << readData.size() << std::endl;
+        std::cout << readData << std::endl;
+        std::cout << "================ * * * * * ==============" << std::endl;
+    }
 
     _response.setBody(readData);
-    
+
     makeResponseData(200, 0);
 
     _eventHandler->turnOnWrite(_socket);
@@ -721,3 +788,102 @@ void Client::makeCgiErrorResponse()
 }
 
 bool Client::isPipe(int fd) { return _cgi.isPipe(fd); }
+
+void Client::clean()
+{
+    _contentLength = 0;
+
+    _status = BEFORE_READ;
+    _ischunk = 0;
+    _erron = 0;
+    _defaultBodyNeed = 0;
+
+    _matchedHost = 0;
+    _matchedLocation = 0;
+}
+
+void Client::cleanRequestReponse(void)
+{
+    _request.resetRequest();
+    _response.clean();
+}
+
+void Client::cleanClientRequestReponse(void)
+{
+    clean();
+    cleanRequestReponse();
+}
+
+void Client::cleanCgi()
+{
+    _cgi.clearCgi();
+}
+
+void Client::cleanAll()
+{
+    cleanCgi();
+    cleanClientRequestReponse();
+}
+
+void Client::cleanForClose()
+{
+    cleanCgi();
+}
+
+void Client::sessionProcess()
+{
+    if (DEBUG_PRINT)
+        std::cout << "========= cookie check ===========" << std::endl;
+    // ****** 쿠키 자리 ******** //
+    std::map<std::string, t_session> &sessions = _ws->getSessions();
+    std::map<std::string, t_session>::iterator sessionIt = sessions.end();
+
+    const std::string &cookieValue = _request.findHeaderValue("Cookie");
+
+    if (!cookieValue.empty())
+    {
+        if (DEBUG_PRINT)
+            std::cout << "========= parse Cookies ===========" << std::endl;
+        std::map<std::string, std::string> cookies = parseCookies(cookieValue);
+        std::map<std::string, std::string>::iterator it = cookies.find("sessionid");
+        if (it != cookies.end())
+            sessionIt = sessions.find(it->second);
+        // if (DEBUG_PRINT) std::cout << "it: " << std::endl;
+    }
+
+    std::time_t currentTime = std::time(nullptr);
+    if (sessionIt == sessions.end() || currentTime >= sessionIt->second.expirationTime)
+    {
+        if (DEBUG_SESSION_PRINT)
+        {
+            if (sessionIt == sessions.end())
+                std::cout << "no id" << std::endl;
+            else
+                std::cout << "curr " << currentTime << " bigger than expire " << sessionIt->second.expirationTime << std::endl;
+        }
+        if (sessionIt != sessions.end())
+            sessions.erase(sessionIt->first);
+        
+        const std::string &sessionId = generateSessionId(sessions);
+        
+        sessions[sessionId] = t_session(sessionId, 1, currentTime + COOKIE_EXPIRE_SEC);
+        
+        if (DEBUG_SESSION_PRINT)
+            std::cout << "세션 시작: id(" << sessions[sessionId].id
+                        << "), count(" << sessions[sessionId].count
+                        << "), expirationTime(" << sessions[sessionId].expirationTime  << ")" << std::endl;
+
+        _response.addCookie("sessionid", sessionId, COOKIE_EXPIRE_SEC);
+    }
+    else
+    {
+        sessionIt->second.count++;
+        sessionIt->second.expirationTime = currentTime + COOKIE_EXPIRE_SEC;
+
+        if (DEBUG_SESSION_PRINT)
+            std::cout << "카운트 +1: id(" << sessionIt->second.id
+                        << "), count(" << sessionIt->second.count
+                        << "), expirationTime(" << sessionIt->second.expirationTime  << ")" << std::endl;
+    }
+    std::cout << "sessions.size(): " << sessions.size() << std::endl;
+}

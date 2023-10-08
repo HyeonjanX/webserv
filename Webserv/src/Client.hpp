@@ -26,6 +26,8 @@
 #define BACKLOG 128
 #define READ_BUFFER_SIZE 1000000
 
+#define COOKIE_EXPIRE_SEC 30
+
 class Server;
 class EventHandler;
 class Webserver;
@@ -40,6 +42,7 @@ class Request;
 typedef enum CLIENT_STATUS
 {
     BEFORE_READ,
+    READ_STARTED,
     READ_REQUESTLINE,
     READ_HEADER,
     READ_POST_EXPECT_100,
@@ -57,18 +60,20 @@ typedef enum CLIENT_STATUS
 class Client
 {
 public:
-    static const size_t _headaerLimit = 1000;
-    static const size_t _bodyLimit = 100000000;
+    static const size_t     _headaerLimit = 1000000; // 꼭 쓰진 않아도 될듯?
 
 private:
-    int _socket;
-    struct sockaddr_in _addr;
 
-    Request _request;
+    int                     _socket;
+    struct sockaddr_in      _addr;
 
-    Webserver *_ws;
-    Server *_server;
-    EventHandler *_eventHandler;
+    Webserver               *_ws;
+    Server                  *_server;
+    EventHandler            *_eventHandler;
+
+    Request                 _request;
+    Response                _response;
+    Cgi                     _cgi;
 
 public:
     size_t                  _contentLength;
@@ -78,14 +83,8 @@ public:
     int                     _erron;
     int                     _defaultBodyNeed;
 
-    std::string             _errMessage;
-
-    Response                _response;
-
     const Host*             _matchedHost;
     const Location*         _matchedLocation;
-
-    Cgi                     _cgi;
 
 public:
     // 레퍼런스와 디폴트값을 함께 사용하지 않기.
@@ -125,7 +124,6 @@ public:
     void        sendProcess(void);
 
     int         checkSendBytes() const;
-    void        cleanRequestReponse(void);
 
 public:
     /* ============ 쩌리들 ============ */
@@ -133,15 +131,30 @@ public:
     void        handleHeaders(void);
 
 public:
+    /* ============ 게터 인터페이스 ============ */
     Request&    getRequest();
     Response&   getResponse();
     Cgi&        getCgi();
 
 public:
+    /* ============ CGI 함수들 ============ */
     void        cgiProcess(const std::string &method);
     void        makeCgiResponse();
     void        makeCgiErrorResponse();
     bool        isPipe(int fd);
+
+public:
+    /* ============ clean 함수들 ============ */
+    void        clean();
+    void        cleanRequestReponse(void);
+    void        cleanClientRequestReponse(void);
+    void        cleanCgi();
+    void        cleanAll();
+    void        cleanForClose();
+
+public:
+    /* ============ session 함수들 ============ */
+    void        sessionProcess();
 };
 
 #endif

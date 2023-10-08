@@ -338,7 +338,7 @@ std::string File::generateAutoIndexHTML(const std::string &root, const std::stri
     while ((entry = readdir(dir)) != NULL)
     {
         std::string name = entry->d_name;
-        std::cout << "name: " << name << ", pass: " << Util::startsWith(name, ".") << std::endl;
+        // std::cout << "name: " << name << ", pass: " << Util::startsWith(name, ".") << std::endl;
         if (Util::startsWith(name, "."))
         {
             continue;
