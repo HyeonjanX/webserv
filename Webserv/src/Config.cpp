@@ -94,6 +94,30 @@ static bool isValidUrlString(const std::string &url)
 	return true;
 }
 
+static bool	isValidDirectoryPath(const std::string &url, char mark)
+{
+	if (mark == 'P'
+		&& (url.empty() || url[0] != '/' || url[url.length() - 1] != '/'))
+	{
+		return false;
+	}
+	else if (mark == 'R'
+		&& (url.empty() || url[url.length() - 1] != '/'))
+	{
+		return false;
+	}
+
+	// 연속되는 슬래쉬 방지
+	for (std::size_t i = 1; i < url.length(); ++i)
+	{
+		if (url[i] == '/' && url[i - 1] == '/')
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 static bool isConvertibleToInt(const std::string &str, int &outNum)
 {
 	std::stringstream ss(str);
@@ -483,11 +507,13 @@ void Config::serverParseErrorPage(t_host &host, const JsonData &value)
 	host._error_page.push_back(ret);
 }
 
+// path와 root 모두 /[string]/ 형식을 따라야만 가능하게 설정
 void Config::locationParsePath(t_location &location, const JsonData &value)
 {
 	std::string urlPath = value.getStringData();
 
-	if (isValidUrlString(urlPath) == false)
+	if ((isValidUrlString(urlPath) == false)
+		|| (isValidDirectoryPath(urlPath, 'P') == false))
 	{
 		std::cerr << "Invalid Location path: " << urlPath << std::endl;
 		throw "유효하지 않은 로케이션 경로입니다.";
@@ -499,7 +525,8 @@ void Config::locationParseRoot(t_location &location, const JsonData &value)
 {
 	std::string rootPath = value.getStringData();
 
-	if (isValidUrlString(rootPath) == false)
+	if ((isValidUrlString(rootPath) == false)
+		|| (isValidDirectoryPath(rootPath, 'R') == false))
 	{
 		std::cerr << "Invalid Location root: " << rootPath << std::endl;
 		throw "유효하지 않은 로케이션 루트입니다.";
@@ -507,6 +534,7 @@ void Config::locationParseRoot(t_location &location, const JsonData &value)
 	location._root = rootPath;
 }
 
+// 아마 이 함수는 지워야 할 것 같습니다. 루트를 대신 사용하기에...
 void Config::locationParseAlias(t_location &location, const JsonData &value)
 {
 	std::string aliasPath = value.getStringData();

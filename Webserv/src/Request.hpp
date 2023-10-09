@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:09 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/19 17:44:14 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/10/09 22:22:10 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -77,7 +77,8 @@ class	Request
 		std::vector<Content> const&	getContents(void) const;
 		std::string const&			getHttpMethod(void) const;
 		std::string const&			getRequestUrl(void) const;
-		std::string					getRequestPath(void) const;
+		std::string const			getRequestPath(void) const;
+		std::string const			getRequestQueryString(void) const;
 		std::string const&			getHttpVersion(void) const;
 		std::string const&			getChunkOctetData(void) const;
 		std::string&				getChunkOctetData(void);

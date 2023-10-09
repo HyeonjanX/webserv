@@ -2,7 +2,9 @@
     "server": {
         "listen": 80,
         "location": {
-            "path": "/"
+            "path": "/",
+			"root": "data/",
+			"autoindex": true
         }
     },
     "server": {

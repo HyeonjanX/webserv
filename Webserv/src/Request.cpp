@@ -6,7 +6,7 @@
 /*   By: gychoi <gychoi@student.42seoul.kr>         +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/09/05 16:33:39 by gychoi            #+#    #+#             */
-/*   Updated: 2023/09/19 18:27:01 by gychoi           ###   ########.fr       */
+/*   Updated: 2023/10/09 22:22:00 by gychoi           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -99,11 +99,24 @@ std::string const &Request::getRequestUrl(void) const
 {
 	return this->_requestUrl;
 }
+
 // url에서 ?를 경계로 path만 추출하여 전달
-std::string	Request::getRequestPath(void) const
+std::string const Request::getRequestPath(void) const
 {
-	std::size_t pos = _requestUrl.find('?');
-	return pos ? _requestUrl.substr(0, pos) : _requestUrl;
+	std::size_t pos = this->_requestUrl.find('?');
+
+	return pos != std::string::npos
+		? this->_requestUrl.substr(0, pos)
+		: this->_requestUrl;
+}
+
+std::string	const Request::getRequestQueryString(void) const
+{
+	std::size_t	pos = this->_requestUrl.find('?');
+
+	return pos != std::string::npos
+		? this->_requestUrl.substr(pos + 1)
+		: std::string();
 }
 
 std::string const &Request::getHttpVersion(void) const

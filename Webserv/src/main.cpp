@@ -19,8 +19,8 @@ void    signalHandler(int signal)
     if (signal == SIGINT)
     {
         ATEXIT_CHECK();
+    	std::exit(1);
     }
-    std::exit(1);
 }
 
 int main(int ac, const char **av)

@@ -64,6 +64,7 @@ public:
 	static std::string removeDuplicate(std::string const& input);
     static std::string extractBasename(const std::string &path);
     static std::string extractDirPath(const std::string &path);
+	static std::string getRootedPath(std::string path, std::string locPath, std::string root);
 
     static bool         hexToDecimal(const std::string &hexStr, size_t &decimalValue);
     static bool         hexToDecimalPositive(const std::string &hexStr, size_t &decimalValue);

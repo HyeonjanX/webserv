@@ -27,13 +27,11 @@ Webserver::Webserver(int ac, const char **av)
     }
     else if (ac == 2)
     {
-        // Q. 만약 config 파일을 읽지 못하면?
         _configPath = std::string(av[1]);
         std::cout << av[1] << "에서 config를 읽어옵니다." << std::endl;
     }
     else
     {
-        // Q. 만약 default config 파일을 읽지 못하면?
         _configPath = "./config/default.config";
         std::cout << "디폴트 위치" << _configPath << "에서 config 읽어옵니다." << std::endl;
     }

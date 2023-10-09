@@ -320,6 +320,15 @@ std::string Util::extractDirPath(const std::string &path)
     return std::string("");
 }
 
+// path는 url을 제외한 문자열로 들어와야 합니다. -> 이미 그렇게 들어오는 중
+// 1. 가장 첫 번째 uri를 대상으로만 진행.
+// 2. 모든 경로를 디렉토리로 판단.
+std::string	Util::getRootedPath
+(std::string path, std::string locPath, std::string root)
+{
+	return root + path.substr(locPath.size());
+}
+
 bool Util::hexToDecimal(const std::string &hexStr, size_t &decimalValue)
 {
     char *end;
