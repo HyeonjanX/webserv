@@ -69,6 +69,35 @@ static std::string generateSessionId(const std::map<std::string, t_session> &ses
     return sessionId;
 }
 
+static void handleCgiHeaders(const std::string &header, int &statusCode)
+{
+    std::vector<std::pair<std::string, std::string> > keyValuePairs = Util::getKeyValuePairs(header);
+    for (std::vector<std::pair<std::string, std::string> >::const_iterator it = keyValuePairs.begin();
+        it != keyValuePairs.end(); ++it)
+    {
+        if (it->first.compare("status") == 0)
+        {
+            std::string value = it->second;
+            std::string code, msg;
+            std::size_t spPos = value.find(' ');
+            if (spPos != std::string::npos)
+            {
+                code = value.substr(0, spPos);
+                msg = Util::lrtrim(value.substr(spPos + 1));
+            }
+            else
+                code = value;
+            char *end;
+
+            long num = std::strtol(code.c_str(), &end, 10);
+
+            if (*end == 0 && 1 <= num && num <= 599)
+                statusCode = static_cast<int>(num);
+            return ;
+        }
+    }
+}
+
 int Client::getSocket(void) const { return _socket; }
 Request &Client::getRequest() { return _request; }
 Response &Client::getResponse() { return _response; }
@@ -775,71 +804,46 @@ void Client::cgiProcess(const std::string &method)
 
     // 6. 이벤트 등록
     if (method.compare("POST") == 0 && !_cgi.getPostData().empty())
-    {
-        // POST
-        if (DEBUG_PRINT || true)
-            std::cout << "POST 이벤트 등록: " << _cgi.getInPipe(WRITE_FD) << ", " << _cgi.getOutPipe(READ_FD) << std::endl;
         _eventHandler->addKeventToChangeList(_cgi.getInPipe(WRITE_FD), EVFILT_WRITE, EV_ADD, 0, 0, NULL);
-        _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, NULL);
-        // _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, NULL);
-    }
-    else
-    {
-        if (DEBUG_PRINT || true)
-            std::cout << "GET 이벤트 등록: " << _cgi.getOutPipe(READ_FD) << std::endl;
-        // GET
-        _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, NULL);
-    }
+    _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, NULL);
     _eventHandler->turnOffRead(_socket);
 }
 
 void Client::makeCgiResponse()
 {
+    int statusCode = 200;
+
     _cgi.closePipe(_cgi.getOutPipe(READ_FD));
 
     const std::string &readData = _cgi.getReadData();
 
-    int statusCode = 200;
 
     if (DEBUG_PRINT || true)
     {
         std::cout << "================ CGI의 응답 수신 완료 _readData ==============" << std::endl;
         std::cout << "_readData.size() :" << readData.size() << std::endl;
-        // std::cout << readData << std::endl;
-        std::cout << "================ * * * * * ==============" << std::endl;
+        std::cout << ">>> 헤더까지" << std::endl;
+        std::cout <<  YELLOW << _cgi.getReadData().substr(0, _cgi.getReadData().find("\r\n\r\n")) << RESET << std::endl;
+        std::cout << "<<<" << std::endl;
     }
+
+    // CGI 보통의 응답
     // Status: 200 OK
     // Content-Type: text/html; charset=utf-8
-    std::vector<std::pair<std::string, std::string> > keyValuePairs = Util::getKeyValuePairs(readData);
-    for (std::vector<std::pair<std::string, std::string> >::const_iterator it = keyValuePairs.begin();
-        it != keyValuePairs.end(); ++it)
+    size_t pos = readData.find("\r\n\r\n");
+    std::string header;
+    if (pos != std::string::npos)
     {
-        if (it->first.compare("status") == 0)
-        {
-            std::string value = it->second;
-            std::string code, msg;
-            std::size_t spPos = value.find(' ');
-            if (spPos != std::string::npos)
-            {
-                code = value.substr(0, spPos);
-                msg = Util::lrtrim(value.substr(spPos + 1));
-            }
-            else
-                code = value;
-            char *end;
-
-            long num = std::strtol(code.c_str(), &end, 10);
-
-            if (*end == 0 && 1 <= num && num <= 599)
-                statusCode = static_cast<int>(num);
-        }
+        _response.setBody(readData.substr(pos + 4));
+        header = readData.substr(0, pos);
+    }
+    else
+    {
+        _response.setBody("");
+        header = readData;
     }
 
-    size_t pos = readData.find("\r\n\r\n");
-    if (pos != std::string::npos)
-        _response.setBody(readData.substr(pos + 4));
-    else
-        _response.setBody("");
+    handleCgiHeaders(header, statusCode); // 꼭 사용해야할것은 Status 헤더
 
     makeResponseData(statusCode, 0);
 

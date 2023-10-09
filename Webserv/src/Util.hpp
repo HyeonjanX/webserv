@@ -73,6 +73,7 @@ public:
     static std::string  urlDecode(std::string s);
     static bool         isValidBoundary(const std::string& boundary);
     static bool         isAllLWSP(const std::string &str, std::size_t startPos, std::size_t endPos);
+    static std::vector<std::pair<std::string, std::string> > getKeyValuePairs(const std::string &str);
 };
 
 #endif

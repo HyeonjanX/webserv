@@ -1,7 +1,7 @@
 #include "Response.hpp"
 #include "Util.hpp"
 
-#define DEBUG_PRINT false
+#define DEBUG_PRINT true
 
 Response::Response(void)
     : _statusCode(0), _totalBytes(0), _sendedBytes(0) {}
@@ -10,10 +10,6 @@ Response::~Response(void) {}
 
 void Response::clean(void)
 {
-    if (DEBUG_PRINT)
-    {
-        std::cout << "Response::clean 호출: Response를 비워냅니다!" << std::endl;
-    }
 
     _httpVersion.clear();
     _statusCode = 0;
@@ -57,6 +53,12 @@ void Response::generateResponseData(void)
 
     oss << CRLF;
 
+    if (DEBUG_PRINT)
+    {
+        std::cout << RED << ">>> 출력" << RESET << std::endl;
+        std::cout << RED << oss.str() << RESET << std::endl;
+        std::cout << RED << "<<< " << RESET << std::endl;
+    }
     oss << _body;
 
     _data = oss.str();

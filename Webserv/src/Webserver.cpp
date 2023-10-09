@@ -185,9 +185,7 @@ void Webserver::runWebserver(void)
 
                         continue;
                     }
-                }
-
-                
+                }                
 
                 std::map<int, Client>::iterator cit2 = searchClientByPipeFd(curr.ident);
 
@@ -202,23 +200,18 @@ void Webserver::runWebserver(void)
                         {
                             if (DEBUG_PRINT) std::cout << YELLOW << "***************** CGI WRITE *****************" << RESET << std::endl;
                             cgi->writePipe(); // write() failt시 => 500 응답 생성 코스로
-                            if (cgi->allSend())
-                            {
-                                cgi->closePipe(cgi->getInPipe(WRITE_FD));
-                                _eventHandler.addKeventToChangeList(cgi->getOutPipe(READ_FD), EVFILT_READ, EV_ENABLE, 0, 0, NULL);
-                            }
                         }
                         else if (curr.filter == EVFILT_READ)
                         {
                             if (DEBUG_PRINT) std::cout << YELLOW << "***************** CGI READ *****************" << RESET << std::endl;
                             if (curr.flags & EV_EOF)
                             {
-                                if (DEBUG_PRINT) std::cout << MAGENTA << "EV_EOF" << RESET << std::endl;
+                                if (DEBUG_PRINT || true) std::cout << MAGENTA << "EV_EOF" << RESET << std::endl;
                                 c->makeCgiResponse();
                             }
                             else
                             {
-                                if (DEBUG_PRINT) std::cout << MAGENTA << "읽기" << RESET << std::endl;
+                                if (DEBUG_PRINT || true) std::cout << MAGENTA << "읽기" << RESET << std::endl;
                                 cgi->readPipe(); // read() fail시 => 500 응답 생성 코스로
                             }
                         }

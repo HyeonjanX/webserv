@@ -522,7 +522,7 @@ void	Request::handleHeaders(std::string &hostname, bool &expected100)
 
 	for (std::vector<Header>::const_iterator it = _headers.begin(); it < _headers.end(); ++it)
 	{
-		if (DEBUG_PRINT)
+		if (DEBUG_PRINT || true)
 		{
 			std::cout << "handleHeaders >> " << CYAN << it->key << ": " << it->value << RESET << std::endl;
 		}
