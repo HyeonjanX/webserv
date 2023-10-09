@@ -8,13 +8,11 @@
 #include <vector>
 #include <map>
 
-#define BACKLOG 128
-
 #include "Host.hpp"
 #include "Config.hpp"
 
 #define SOCKET_REUSE_MODE 1
-#define BACKLOG_VALUE 16
+#define BACKLOG_VALUE 1024
 
 class Host;
 class Location;
@@ -37,12 +35,10 @@ private:
     void socketInit(int port, struct sockaddr_in &addr, int sockreuse);
 
 public:
-    Server(int port, const std::vector<t_host> &serverConfig,
-            int sockreuse = SOCKET_REUSE_MODE, int backlog = BACKLOG_VALUE);
+    Server(int port, const std::vector<t_host> &serverConfig, int sockreuse, int backlog);
     virtual ~Server(void);
 
 public:
-    void initServer(void);
     void initListen(int backlog);
     // void initHost(const std::string &hostname);
 

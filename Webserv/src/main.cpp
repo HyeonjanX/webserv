@@ -23,7 +23,7 @@ void    signalHandler(int signal)
     std::exit(1);
 }
 
-int main(int ac, char **av)
+int main(int ac, const char **av)
 {
     signal(SIGINT, signalHandler);
 

@@ -18,7 +18,7 @@
  *
  * 4. kevent 호출을 통해
  */
-Webserver::Webserver(int ac, char **av)
+Webserver::Webserver(int ac, const char **av)
 {
 
     if (ac > 2 || ac < 1)
@@ -77,7 +77,7 @@ void Webserver::initWebserver(void)
 
 void Webserver::initServer(int port, const std::vector<t_host> &serverConfig)
 {
-    Server s(port, serverConfig);
+    Server s(port, serverConfig, SOCKET_REUSE_MODE, BACKLOG_VALUE);
 
     _servers.insert(std::make_pair(s.getSocket(), s));
     _eventHandler.registerReadEvent(s.getSocket());
@@ -190,9 +190,7 @@ void Webserver::runWebserver(void)
 
                         continue;
                     }
-                }
-
-                
+                }                
 
                 std::map<int, Client>::iterator cit2 = searchClientByPipeFd(curr.ident);
 
@@ -207,11 +205,6 @@ void Webserver::runWebserver(void)
                         {
                             if (DEBUG_PRINT) std::cout << YELLOW << "***************** CGI WRITE *****************" << RESET << std::endl;
                             cgi->writePipe(); // write() failt시 => 500 응답 생성 코스로
-                            if (cgi->allSend())
-                            {
-                                cgi->closePipe(cgi->getInPipe(WRITE_FD));
-                                _eventHandler.addKeventToChangeList(cgi->getOutPipe(READ_FD), EVFILT_READ, EV_ENABLE, 0, 0, NULL);
-                            }
                         }
                         else if (curr.filter == EVFILT_READ)
                         {
@@ -219,12 +212,12 @@ void Webserver::runWebserver(void)
                             // Q. EOF가 발생할 때는 언제인가?
                             if (curr.flags & EV_EOF)
                             {
-                                if (DEBUG_PRINT) std::cout << MAGENTA << "EV_EOF" << RESET << std::endl;
+                                if (DEBUG_PRINT || true) std::cout << MAGENTA << "EV_EOF" << RESET << std::endl;
                                 c->makeCgiResponse();
                             }
                             else
                             {
-                                if (DEBUG_PRINT) std::cout << MAGENTA << "읽기" << RESET << std::endl;
+                                if (DEBUG_PRINT || true) std::cout << MAGENTA << "읽기" << RESET << std::endl;
                                 cgi->readPipe(); // read() fail시 => 500 응답 생성 코스로
                             }
                         }

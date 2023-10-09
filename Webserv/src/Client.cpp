@@ -1,7 +1,7 @@
 #include "Client.hpp"
 
 #define DEBUG_PRINT false
-#define DEBUG_SESSION_PRINT true
+#define DEBUG_SESSION_PRINT false
 
 Client::Client(int serverSocket, Webserver *ws, Server *s, EventHandler *e)
     : _ws(ws), _server(s), _eventHandler(e), _contentLength(0), _status(0), _ischunk(0), _erron(0), _defaultBodyNeed(0)
@@ -17,12 +17,16 @@ Client::Client(int serverSocket, Webserver *ws, Server *s, EventHandler *e)
     {
         throw "fcntl() error" + std::string(strerror(errno));
     }
-    // TODO: 테스트위해서 설정
-    int sockreuse = 1;
-    if (setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR, &sockreuse, sizeof(int)) < 0)
+
+    // For 시지 테스트
+    struct linger so_linger;
+    so_linger.l_onoff = 1;
+    so_linger.l_linger = 0;
+    if (setsockopt(_socket, SOL_SOCKET, SO_LINGER, &so_linger, sizeof(so_linger)))
     {
-        throw("setsockopt(SO_REUSEADDR) for client failed");
+        throw("setsockopt(SO_LINGER) for client failed");
     }
+
     if (DEBUG_PRINT)
         std::cout << "Client 생성: " << _socket << std::endl;
 }
@@ -63,6 +67,35 @@ static std::string generateSessionId(const std::map<std::string, t_session> &ses
     } while (sessions.find(sessionId) != sessions.end());
 
     return sessionId;
+}
+
+static void handleCgiHeaders(const std::string &header, int &statusCode)
+{
+    std::vector<std::pair<std::string, std::string> > keyValuePairs = Util::getKeyValuePairs(header);
+    for (std::vector<std::pair<std::string, std::string> >::const_iterator it = keyValuePairs.begin();
+        it != keyValuePairs.end(); ++it)
+    {
+        if (it->first.compare("status") == 0)
+        {
+            std::string value = it->second;
+            std::string code, msg;
+            std::size_t spPos = value.find(' ');
+            if (spPos != std::string::npos)
+            {
+                code = value.substr(0, spPos);
+                msg = Util::lrtrim(value.substr(spPos + 1));
+            }
+            else
+                code = value;
+            char *end;
+
+            long num = std::strtol(code.c_str(), &end, 10);
+
+            if (*end == 0 && 1 <= num && num <= 599)
+                statusCode = static_cast<int>(num);
+            return ;
+        }
+    }
 }
 
 int Client::getSocket(void) const { return _socket; }
@@ -331,6 +364,32 @@ int Client::doNonCgiProcess(const std::string &method)
 
         return notCgiDeleteProcess(filepath);
     }
+    else if (method.compare("PUT") == 0)
+    {
+        std::string filepath = root + Util::extractBasename(path);
+        const std::string &body = _request.getPostData(); // throw 400
+        return notCgiPostProcess(filepath, body);
+    }
+    else if (method.compare("HEAD") == 0)
+    {
+        int statusCode;
+        try
+        {
+            bool autoindex = _matchedLocation->getAutoindex();
+            const std::vector<std::string> &index = _matchedLocation->getIndex();
+            File::getFile(root, path, autoindex, index);
+            statusCode = 200;
+            _erron = 0;
+            _defaultBodyNeed = 0; // 바디는 fileData
+        }
+        catch (int errorStatusCode)
+        {
+            statusCode = errorStatusCode;
+            _erron = 1;           // _erron 삭제 해도 될 수도
+            _defaultBodyNeed = 1; // 에러는 기본 바디 필요
+        }
+        return statusCode;
+    }
     else
     {
         throw 405; // 405 Method Not Allowed
@@ -535,7 +594,7 @@ std::string Client::createDefaultBody(int statusCode)
 // send 실패시 throw 가능
 void Client::sendProcess(void)
 {
-    if (DEBUG_PRINT)
+    if (DEBUG_PRINT || true)
         std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
 
     ssize_t bytes_sent = send(_socket, _response.getData().c_str(), _response.getDataLength(), 0);
@@ -559,11 +618,12 @@ void Client::sendProcess(void)
     _response.updateData(bytes_sent);
     _response.updateSendedBytes(bytes_sent);
 
-    if (DEBUG_PRINT)
+    if (DEBUG_PRINT || true)
         std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl;
 
     if (checkSendBytes() >= 0)
     {
+        std::cout << "전송완료" << std::endl;
         _eventHandler->switchToReadState(_socket);
         _eventHandler->registerTimerEvent(_socket, TIMER_KEEP_ALIVE_SEC);
         if (_status == READ_POST_EXPECT_100)
@@ -573,8 +633,10 @@ void Client::sendProcess(void)
             _status = READ_HEADER;
             _response.clean();
             _response.setHttpVersion(_request.getHttpVersion());
+            _eventHandler->registerTimerEvent(_socket, TIMER_TIME_OUT_SEC);
             return;
         }
+        _eventHandler->registerTimerEvent(_socket, TIMER_KEEP_ALIVE_SEC);
         cleanClientRequestReponse();
     }
 
@@ -712,10 +774,14 @@ void Client::cgiProcess(const std::string &method)
         throw 405; // 405 Method Not Allowed,
     }
 
-    const std::string &filepath = _matchedLocation->getRoot() + _request.getRequestPath();
+    // const std::string &filepath = _matchedLocation->getRoot() + _request.getRequestPath();
+    const std::string &filepath = _request.getRequestPath();
+    // const std::string &filepath = "./tester/cgi_tester";
+    std::cout << "cgi 파일: " << filepath << std::endl;
 
     // 2. 존재 && 권한체크(filepath)
-    int statusCode = File::canExecuteFile(filepath);
+    // int statusCode = File::canExecuteFile(filepath);
+    int statusCode = File::canExecuteFile("./tester/cgi_tester");
     if (statusCode)
     {
         throw statusCode;
@@ -724,11 +790,13 @@ void Client::cgiProcess(const std::string &method)
     if (method.compare("POST") == 0)
     {
         _cgi.setPostData(_request.getPostData());
+        std::cout << "cgi data: " << _cgi.getPostData().size() << std::endl;
     }
 
     try
     {
-        _cgi.exec(method, filepath);
+        _cgi.setEnvFromRequestHeaders(_request, method, filepath);
+        _cgi.exec(method);
     }
     catch (const char *msg)
     {
@@ -739,40 +807,48 @@ void Client::cgiProcess(const std::string &method)
 
     // 6. 이벤트 등록
     if (method.compare("POST") == 0 && !_cgi.getPostData().empty())
-    {
-        // POST
-        if (DEBUG_PRINT)
-            std::cout << "POST 이벤트 등록: " << _cgi.getInPipe(WRITE_FD) << ", " << _cgi.getOutPipe(READ_FD) << std::endl;
         _eventHandler->addKeventToChangeList(_cgi.getInPipe(WRITE_FD), EVFILT_WRITE, EV_ADD, 0, 0, NULL);
-        _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, NULL);
-    }
-    else
-    {
-        if (DEBUG_PRINT)
-            std::cout << "GET 이벤트 등록: " << _cgi.getOutPipe(READ_FD) << std::endl;
-        // GET
-        _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, NULL);
-    }
+    _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, NULL);
     _eventHandler->turnOffRead(_socket);
 }
 
 void Client::makeCgiResponse()
 {
+    int statusCode = 200;
+
     _cgi.closePipe(_cgi.getOutPipe(READ_FD));
 
     const std::string &readData = _cgi.getReadData();
 
-    if (DEBUG_PRINT)
+
+    if (DEBUG_PRINT || true)
     {
         std::cout << "================ CGI의 응답 수신 완료 _readData ==============" << std::endl;
         std::cout << "_readData.size() :" << readData.size() << std::endl;
-        std::cout << readData << std::endl;
-        std::cout << "================ * * * * * ==============" << std::endl;
+        std::cout << ">>> 헤더까지" << std::endl;
+        std::cout <<  YELLOW << _cgi.getReadData().substr(0, _cgi.getReadData().find("\r\n\r\n")) << RESET << std::endl;
+        std::cout << "<<<" << std::endl;
     }
 
-    _response.setBody(readData);
+    // CGI 보통의 응답
+    // Status: 200 OK
+    // Content-Type: text/html; charset=utf-8
+    size_t pos = readData.find("\r\n\r\n");
+    std::string header;
+    if (pos != std::string::npos)
+    {
+        _response.setBody(readData.substr(pos + 4));
+        header = readData.substr(0, pos);
+    }
+    else
+    {
+        _response.setBody("");
+        header = readData;
+    }
 
-    makeResponseData(200, 0);
+    handleCgiHeaders(header, statusCode); // 꼭 사용해야할것은 Status 헤더
+
+    makeResponseData(statusCode, 0);
 
     _eventHandler->turnOnWrite(_socket);
 
@@ -886,5 +962,5 @@ void Client::sessionProcess()
                         << "), count(" << sessionIt->second.count
                         << "), expirationTime(" << sessionIt->second.expirationTime  << ")" << std::endl;
     }
-    std::cout << "sessions.size(): " << sessions.size() << std::endl;
+    if (DEBUG_SESSION_PRINT) std::cout << "sessions.size(): " << sessions.size() << std::endl;
 }

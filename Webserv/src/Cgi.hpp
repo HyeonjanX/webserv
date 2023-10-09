@@ -14,6 +14,8 @@
 #define WRITE_FD 1
 #define READ_BUFFER_SIZE 1000000
 
+#include "Request.hpp"
+
 class Cgi
 {
 private:
@@ -22,7 +24,7 @@ private:
     int                                 _outPipe[2];
     int                                 _pid;
     int                                 _status;
-    std::map<std::string, std::string>  _env;
+    std::vector<std::string>            _env;
 
     std::string                         _readData;
     std::string                         _postData;
@@ -45,7 +47,7 @@ public:
 
 public:
 
-    void    exec(const std::string &method, const std::string &filepath);
+    void    exec(const std::string &method);
 
     void    clearCgi();
     void    clearChild();
@@ -57,6 +59,8 @@ public:
 
     bool    isPipe(int fd);
     void    pipePrint() const;
+
+    void    setEnvFromRequestHeaders(Request &request, std::string method, std::string filepath);
 
     class ExecveException : public std::exception
     {

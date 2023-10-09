@@ -326,10 +326,6 @@ bool Util::hexToDecimal(const std::string &hexStr, size_t &decimalValue)
     errno = 0; // errno를 0으로 설정하여 이전의 오류를 지웁니다.
     size_t tempValue = std::strtoul(hexStr.c_str(), &end, 16);
 
-	std::cout << "hexStr: |" << hexStr << "|" << std::endl;
-	std::cout << "tempValue: |" << tempValue << "|" << std::endl;
-	std::cout << "end: |" << *end << "|" << std::endl;
-
     // 변환에 실패하거나 값이 int의 범위를 벗어나면 false를 반환합니다.
     if (errno == ERANGE || *end != '\0')
     {
@@ -373,7 +369,6 @@ bool Util::isLastChunk(const std::string &data)
 		// 헤더무시한다면
 		if (data.substr(pos + 2, 2).compare(CRLF_STR) == 0)
 		{
-			std::cout << "ok" << std::endl;
 			return true;
 		}
     }
@@ -490,4 +485,32 @@ bool Util::isAllLWSP(const std::string &str, std::size_t startPos, std::size_t e
 		}
 	}
 	return true;
+}
+
+std::vector<std::pair<std::string, std::string> > Util::getKeyValuePairs(const std::string &rawData)
+{
+    std::vector<std::pair<std::string, std::string> > result;
+    const char * CRLF_CHAR = "\r\n";
+    const int CRLF_SIZE = 2;
+    std::size_t pos = 0, oldPos = 0, colPos;
+
+    while ((pos = rawData.find(CRLF_CHAR, oldPos)) != std::string::npos)
+    {
+        if (pos == oldPos)
+            break;
+        
+        std::string line = rawData.substr(oldPos, pos - oldPos);
+
+        if ((colPos = line.find(':')) == std::string::npos)
+            continue;
+
+        std::string key = Util::toLowerCase(line.substr(0, colPos));
+        std::string value = Util::lrtrim(line.substr(colPos + 1));
+
+        result.push_back(std::make_pair(key, value));
+
+        oldPos = pos + CRLF_SIZE;
+    }
+
+    return result;
 }
