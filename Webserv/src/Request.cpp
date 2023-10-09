@@ -546,7 +546,11 @@ void	Request::handleHeaders(std::string &hostname, bool &expected100)
 
 		if (it->key == "host")
 		{
-			hostname = it->value;
+			size_t colPos = it->value.find(':');
+			if (colPos == std::string::npos)
+				hostname = it->value.substr();
+			else
+				hostname = it->value.substr(0, colPos);
 		}
 	}
 }

@@ -29,6 +29,7 @@ public:
     static bool         isDirectory(const struct stat &fileInfo);
 
     static bool         checkFilePermission(const std::string &filepath, int mode);
+    static bool         checkFileExist(const std::string &filepath);
     static bool         checkFileReadPermission(const std::string &filepath);
     static bool         checkFileWritePermission(const std::string &filepath);
     static bool         checkFileExecutePermission(const std::string &filepath);

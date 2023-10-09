@@ -73,7 +73,7 @@ static void handleCgiHeaders(const std::string &header, int &statusCode)
 {
     std::vector<std::pair<std::string, std::string> > keyValuePairs = Util::getKeyValuePairs(header);
     for (std::vector<std::pair<std::string, std::string> >::const_iterator it = keyValuePairs.begin();
-        it != keyValuePairs.end(); ++it)
+         it != keyValuePairs.end(); ++it)
     {
         if (it->first.compare("status") == 0)
         {
@@ -93,9 +93,34 @@ static void handleCgiHeaders(const std::string &header, int &statusCode)
 
             if (*end == 0 && 1 <= num && num <= 599)
                 statusCode = static_cast<int>(num);
-            return ;
+            return;
         }
     }
+}
+
+static int canExcuteCgi(const std::string &method, const std::string &cgiExt, const std::string &filepath)
+{
+    std::string programPath;
+
+    if (method.compare("GET") && method.compare("POST"))
+        return 405;
+
+    if (!File::checkFileExist(filepath))
+        return 404;
+
+    if (cgiExt.compare(".bla") == 0)
+        programPath = "./cgi_tester";
+    else if (cgiExt.compare(".py") == 0)
+        programPath = "/usr/bin/python3";
+    else if (cgiExt.compare(".php") == 0)
+        programPath = "/usr/bin/php";
+    else
+        return 503;
+
+    if (File::canExecuteFile(programPath))
+        return 503;
+
+    return 0;
 }
 
 int Client::getSocket(void) const { return _socket; }
@@ -238,8 +263,8 @@ void Client::readRequestLine(void)
 
         _status = READ_REQUESTLINE;
 
-        if (DEBUG_PRINT)
-            std::cout << YELLOW << _request.getHttpMethod() << _request.getRequestUrl() << _request.getHttpVersion() << RESET << std::endl;
+        if (DEBUG_PRINT || true)
+            std::cout << YELLOW << _request.getHttpMethod() << " " << _request.getRequestUrl() << " " << _request.getHttpVersion() << RESET << std::endl;
     }
 }
 
@@ -423,7 +448,7 @@ int Client::doRequest(void)
         return doNonCgiProcess(method); // return statusCode, throw 405
     else
     {
-        cgiProcess(method); // throw 405, 500
+        cgiProcess(method, cgiExt); // throw 405, 500
         _status = EXEC_CGI;
         return 0;
     }
@@ -624,7 +649,6 @@ void Client::sendProcess(void)
     {
         std::cout << "전송완료" << std::endl;
         _eventHandler->switchToReadState(_socket);
-        _eventHandler->registerTimerEvent(_socket, TIMER_KEEP_ALIVE_SEC);
         if (_status == READ_POST_EXPECT_100)
         {
             if (DEBUG_PRINT)
@@ -668,6 +692,8 @@ void Client::handleHeaders(void)
         throw 400;
     }
 
+    std::cout << "hostname: " << hostname << std::endl;
+
     sessionProcess();
 
     if (DEBUG_PRINT)
@@ -675,8 +701,6 @@ void Client::handleHeaders(void)
 
     _matchedHost = _server->matchHost(hostname);
     _matchedLocation = _matchedHost->matchLocation(_request.getRequestPath());
-
-    const std::string &root = _matchedLocation->getRoot();
 
     if (!_matchedLocation->isAllowedMethod(_request.getHttpMethod()))
         throw 405; // Method Not Allowed
@@ -686,15 +710,40 @@ void Client::handleHeaders(void)
     if (_matchedLocation->isRedirect())
         throw _matchedLocation->getRedirect()._status;
 
+    const std::string &method = _request.getHttpMethod();
+
     // POST 100 응답
-    if (expected100 && _request.getHttpMethod().compare(POST_METHOD) == 0)
+    if (expected100 && method.compare(POST_METHOD) == 0)
     {
-        const std::string &filepath = root + Util::extractBasename(_request.getRequestPath());
-        int statusCode = File::canUploadFile(filepath);
-        if (statusCode)
+        const std::string &cgiExt = _matchedLocation->getCgiExt();
+
+        const std::string &root = _matchedLocation->getRoot();
+        const std::string &path = _request.getRequestPath();
+
+        // const std::string &uri = _matchedLocation->getUri();
+
+        if (cgiExt.empty() || !Util::endsWith(path, cgiExt))
         {
-            std::cerr << "100 체크 => 업로드 불가: " << statusCode << std::endl;
-            throw 417; // Expectation Failed
+            // Non-CGI
+            const std::string &filepath = root + Util::extractBasename(path);
+            // const std::string &filepath = root + "/" + _request.getRequestPath().substr(uri.length());
+            int statusCode = File::canUploadFile(filepath);
+            if (statusCode)
+            {
+                std::cerr << "100 체크 => 업로드 불가: " << statusCode << std::endl;
+                throw 417; // Expectation Failed
+            }
+        }
+        else
+        {
+            // CGI
+            const std::string &filepath = root + path;
+            int statusCode = !canExcuteCgi(method, cgiExt, filepath);
+            if (statusCode)
+            {
+                std::cerr << "100 체크 => CGI 실행 불가: " << statusCode << std::endl;
+                throw 417; // Expectation Failed
+            }
         }
         _status = READ_POST_EXPECT_100;
     }
@@ -765,27 +814,50 @@ void Client::chunkRead(void)
     }
 }
 
-void Client::cgiProcess(const std::string &method)
+void Client::cgiProcess(const std::string &method, const std::string &cgiExt)
 {
-    // CGI 는 일단 GET과 POST만 지원.
+    std::string programPath;
+    std::vector<std::string> argv;
+
+    // 1. 지원하는 Method인지 체크 => CGI는 GET과 POST만 지원
     if (method.compare("GET") && method.compare("POST"))
-    {
         throw 405; // 405 Method Not Allowed,
-    }
 
-    // const std::string &filepath = _matchedLocation->getRoot() + _request.getRequestPath();
-    const std::string &filepath = _request.getRequestPath();
-    // const std::string &filepath = "./tester/cgi_tester";
-    std::cout << "cgi 파일: " << filepath << std::endl;
+    const std::string &path = _request.getRequestPath();
+    const std::string &filepath = _matchedLocation->getRoot() +  _request.getRequestPath();
 
-    // 2. 존재 && 권한체크(filepath)
-    // int statusCode = File::canExecuteFile(filepath);
-    int statusCode = File::canExecuteFile("./tester/cgi_tester");
-    if (statusCode)
+    // 2. 지원하는 확장자인지 체크 && 각 실행에 필요한 2가지 요소 세팅
+
+    if (cgiExt.compare(".bla") == 0)
     {
-        throw statusCode;
+        programPath = "./cgi_tester";
+        // Nothing to do for argv;
     }
-    // 0. data 세팅
+    else if (cgiExt.compare(".py") == 0)
+    {
+        programPath = "/usr/bin/python3";
+        argv.push_back(std::string("/usr/bin/python3"));
+        argv.push_back(filepath);
+    }
+    else if (cgiExt.compare(".php") == 0)
+    {
+        programPath = "/usr/bin/php";
+        argv.push_back(std::string("/usr/bin/php"));
+        argv.push_back(filepath);
+    }
+    else
+    {
+        throw 501; // Not Implemented
+    }
+
+    // 3. 존재 && 권한체크(filepath)
+    if (File::canExecuteFile(programPath))
+    {
+        std::cerr << RED << "503: 존재 & 권한 체크 실패: " <<  programPath << RESET << std::endl;
+        throw 503; // Service Unavailable, canExecuteFile()의 statusCode이 아닌, 적절한 의미를 가진 500번대 상태코드 사용
+    }
+
+    // 4. data 세팅
     if (method.compare("POST") == 0)
     {
         _cgi.setPostData(_request.getPostData());
@@ -794,8 +866,8 @@ void Client::cgiProcess(const std::string &method)
 
     try
     {
-        _cgi.setEnvFromRequestHeaders(_request, method, filepath);
-        _cgi.exec(method);
+        _cgi.setEnvFromRequestHeaders(_request, method, path);
+        _cgi.exec(method, programPath, argv);
     }
     catch (const char *msg)
     {
@@ -804,7 +876,7 @@ void Client::cgiProcess(const std::string &method)
         throw 500;
     }
 
-    // 6. 이벤트 등록
+    // 7. 이벤트 등록
     if (method.compare("POST") == 0 && !_cgi.getPostData().empty())
         _eventHandler->addKeventToChangeList(_cgi.getInPipe(WRITE_FD), EVFILT_WRITE, EV_ADD, 0, 0, NULL);
     _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, NULL);
@@ -819,19 +891,20 @@ void Client::makeCgiResponse()
 
     const std::string &readData = _cgi.getReadData();
 
-
     if (DEBUG_PRINT || true)
     {
         std::cout << "================ CGI의 응답 수신 완료 _readData ==============" << std::endl;
         std::cout << "_readData.size() :" << readData.size() << std::endl;
-        std::cout << ">>> 헤더까지" << std::endl;
-        std::cout <<  YELLOW << _cgi.getReadData().substr(0, _cgi.getReadData().find("\r\n\r\n")) << RESET << std::endl;
+        std::cout << ">>> 헤더까지: " << _cgi.getReadData().find("\r\n\r\n") << std::endl;
+        std::cout << YELLOW << _cgi.getReadData().substr(0, _cgi.getReadData().find("\r\n\r\n")) << RESET << std::endl;
         std::cout << "<<<" << std::endl;
     }
 
     // CGI 보통의 응답
     // Status: 200 OK
-    // Content-Type: text/html; charset=utf-8
+    // Content-Type: text/html; charset=utf-8 CRLF
+    // CRLF
+    // body
     size_t pos = readData.find("\r\n\r\n");
     std::string header;
     if (pos != std::string::npos)
@@ -939,15 +1012,15 @@ void Client::sessionProcess()
         }
         if (sessionIt != sessions.end())
             sessions.erase(sessionIt->first);
-        
+
         const std::string &sessionId = generateSessionId(sessions);
-        
+
         sessions[sessionId] = t_session(sessionId, 1, currentTime + COOKIE_EXPIRE_SEC);
-        
+
         if (DEBUG_SESSION_PRINT)
             std::cout << "세션 시작: id(" << sessions[sessionId].id
-                        << "), count(" << sessions[sessionId].count
-                        << "), expirationTime(" << sessions[sessionId].expirationTime  << ")" << std::endl;
+                      << "), count(" << sessions[sessionId].count
+                      << "), expirationTime(" << sessions[sessionId].expirationTime << ")" << std::endl;
 
         _response.addCookie("sessionid", sessionId, COOKIE_EXPIRE_SEC);
     }
@@ -958,8 +1031,9 @@ void Client::sessionProcess()
 
         if (DEBUG_SESSION_PRINT)
             std::cout << "카운트 +1: id(" << sessionIt->second.id
-                        << "), count(" << sessionIt->second.count
-                        << "), expirationTime(" << sessionIt->second.expirationTime  << ")" << std::endl;
+                      << "), count(" << sessionIt->second.count
+                      << "), expirationTime(" << sessionIt->second.expirationTime << ")" << std::endl;
     }
-    if (DEBUG_SESSION_PRINT) std::cout << "sessions.size(): " << sessions.size() << std::endl;
+    if (DEBUG_SESSION_PRINT)
+        std::cout << "sessions.size(): " << sessions.size() << std::endl;
 }

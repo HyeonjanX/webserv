@@ -137,7 +137,7 @@ public:
 
 public:
     /* ============ CGI 함수들 ============ */
-    void        cgiProcess(const std::string &method);
+    void        cgiProcess(const std::string &method, const std::string &cgiExt);
     void        makeCgiResponse();
     void        makeCgiErrorResponse();
     bool        isPipe(int fd);

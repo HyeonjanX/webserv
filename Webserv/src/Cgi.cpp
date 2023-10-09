@@ -112,13 +112,10 @@ void Cgi::closePipe(int &fd)
  *
  * @throws const char *msg 어떤 상황에서 오류가 난 것인지 포함
  */
-void Cgi::exec(const std::string &method)
+void Cgi::exec(const std::string &method, const std::string &programPath, const std::vector<std::string> &argv)
 {
-    // 0. _postData
-    // 1. filepath
-    // 2. 권한체크(filepath)
-
-    // 3. pipe 생성 && 논블록 처리
+    std::cout << BLUE << "=================== exec ================" << RESET << std::endl;
+    // 5. pipe 생성 && 논블록 처리
     if ((pipe(_outPipe) == -1 || fcntl(_outPipe[READ_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1) ||
         (pipe(_inPipe) == -1 || fcntl(_inPipe[WRITE_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1))
     {
@@ -132,27 +129,30 @@ void Cgi::exec(const std::string &method)
     else if (_pid == 0)
     {
         // 자녀 프로세스
-        if (dup2(_outPipe[WRITE_FD], STDOUT_FILENO) == -1 ||
-            dup2(_inPipe[READ_FD], STDIN_FILENO) == -1)
-        {
+        if (dup2(_outPipe[WRITE_FD], STDOUT_FILENO) == -1 || dup2(_inPipe[READ_FD], STDIN_FILENO) == -1)
             throw "자녀프로세스에서 dup2() 실패";
-        }
 
         closePipe(_inPipe[READ_FD]);
         closePipe(_inPipe[WRITE_FD]);
         closePipe(_outPipe[READ_FD]);
         closePipe(_outPipe[WRITE_FD]);
 
-        char** envpArray = convertToCArray(_env);
+        char **argvArray = convertToCArray(argv);
+        char **envpArray = convertToCArray(_env);
+
+        std::cerr << RED << "exec 타겟: " << programPath.c_str() << RESET << std::endl;
+        std::cerr << BLUE << "exec 타겟: " << argv[0] << RESET << std::endl;
+        std::cerr << YELLOW << "exec 타겟: " << argv[1] << RESET << std::endl;
         
-        execve("./tester/cgi_tester", NULL, envpArray);
-        
+        execve(programPath.c_str(), argvArray, envpArray);
+
+        freeCArray(argvArray, argv.size());
         freeCArray(envpArray, _env.size());
 
         throw ExecveException();
     }
 
-    // 4. 부모 => 안 쓰는 파이프 닫기
+    // 6. 부모 => 안 쓰는 파이프 닫기
     closePipe(_inPipe[READ_FD]);
     closePipe(_outPipe[WRITE_FD]);
     if (method.compare("POST") != 0 || _postData.empty())
@@ -210,14 +210,12 @@ const char *Cgi::ExecveException::what() const throw()
     return "CGI 프로그램 execve() 실패";
 }
 
-void Cgi::setEnvFromRequestHeaders(Request &request, std::string method, std::string filepath)
+void Cgi::setEnvFromRequestHeaders(Request &request, std::string method, std::string path)
 {
-    std::vector<std::string> envp;
-    
     _env.clear();
     _env.push_back("REQUEST_METHOD=" + method);
     _env.push_back("SERVER_PROTOCOL=" + std::string("HTTP/1.1"));
-    _env.push_back("PATH_INFO=" + filepath);
+    _env.push_back("PATH_INFO=" + path);
     _env.push_back("CONTENT_TYPE=" + request.findHeaderValue("content-type"));
     _env.push_back("CONTENT_LENGTH=" + std::to_string(request.getPostData().size()));
     _env.push_back("HTTP_X_SECRET_HEADER_FOR_TEST=" + request.findHeaderValue("x-secret-header-for-test"));

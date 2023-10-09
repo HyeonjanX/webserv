@@ -14,6 +14,7 @@ bool File::isDirectory(const struct stat &fileInfo) { return S_ISDIR(fileInfo.st
 
 // bool File::checkFilePermission(const struct stat &fileInfo, mode_t mode) { return (fileInfo.st_mode & mode); }
 bool File::checkFilePermission(const std::string &filepath, int mode) { return (access(filepath.c_str(), mode) == 0); }
+bool File::checkFileExist(const std::string &filepath) { return checkFilePermission(filepath, F_OK); }
 bool File::checkFileReadPermission(const std::string &filepath) { return checkFilePermission(filepath, R_OK); }
 bool File::checkFileWritePermission(const std::string &filepath) { return checkFilePermission(filepath, W_OK); }
 bool File::checkFileExecutePermission(const std::string &filepath) { return checkFilePermission(filepath, X_OK); }
@@ -404,6 +405,8 @@ int File::canExecuteFile(const std::string &filepath)
     {
         return 403; // Forbidden
     }
+
+    std::cout << BLUE << "=================== 실행 체크: ok ================" << RESET << std::endl;
 
     return 0;
 }
