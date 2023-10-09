@@ -18,7 +18,7 @@
  *
  * 4. kevent 호출을 통해
  */
-Webserver::Webserver(int ac, char **av)
+Webserver::Webserver(int ac, const char **av)
 {
 
     if (ac > 2 || ac < 1)
@@ -74,7 +74,7 @@ void Webserver::initWebserver(void)
 
 void Webserver::initServer(int port, const std::vector<t_host> &serverConfig)
 {
-    Server s(port, serverConfig);
+    Server s(port, serverConfig, SOCKET_REUSE_MODE, BACKLOG_VALUE);
 
     _servers.insert(std::make_pair(s.getSocket(), s));
     _eventHandler.registerReadEvent(s.getSocket());

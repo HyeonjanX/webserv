@@ -1,4 +1,4 @@
-NAME = test	
+NAME = webserv	
 SRCS = \
 	Config.cpp\
 	JsonData.cpp\

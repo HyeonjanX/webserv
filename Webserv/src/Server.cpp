@@ -54,14 +54,14 @@ void Server::socketInit(int port, struct sockaddr_in &addr, int sockreuse)
 
 void Server::initListen(int backlog)
 {
-    if (listen(_socket, backlog) == -1)
-    {
-        throw("listen error");
-    }
-
     if (fcntl(_socket, F_SETFL, O_NONBLOCK, FD_CLOEXEC) == -1)
     {
         throw("fcntl() error");
+    }
+
+    if (listen(_socket, backlog) == -1)
+    {
+        throw("listen error");
     }
 }
 

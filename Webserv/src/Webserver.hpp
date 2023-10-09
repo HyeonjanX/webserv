@@ -41,7 +41,7 @@ private:
     std::map<std::string, t_session>        _sessions;
 
 public:
-    Webserver(int ac, char **av);
+    Webserver(int ac, const char **av);
     virtual ~Webserver(void);
 
 public:

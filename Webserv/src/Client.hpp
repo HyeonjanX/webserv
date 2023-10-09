@@ -23,7 +23,6 @@
 #include "Util.hpp"
 #include "File.hpp"
 
-#define BACKLOG 128
 #define READ_BUFFER_SIZE 1000000
 
 #define COOKIE_EXPIRE_SEC 30

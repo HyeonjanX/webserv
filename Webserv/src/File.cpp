@@ -2,6 +2,8 @@
 #include "Util.hpp"
 #include <iostream>
 
+#define DEBUG_PRINT false
+
 File::File(void)
 {
 }
@@ -59,10 +61,13 @@ std::string File::readFile(const std::string &filepath)
         throw std::runtime_error("Failed to get file size");
     }
 
+    if (DEBUG_PRINT) std::cout << "file " << filepath << " size: " << size << std::endl;
+
     file.seekg(0, std::ios::beg);
     if (file.fail())
     {
         file.close();
+        std::cerr << "Failed to seekg()" << std::endl;
         throw std::runtime_error("Failed to seek to the beginning of the file");
     }
 
@@ -71,8 +76,11 @@ std::string File::readFile(const std::string &filepath)
     if (!file.read(&content[0], size))
     {
         file.close();
+        std::cerr << "Fail to read()" << std::endl;
         throw std::runtime_error("Fail to read");
     }
+
+    if (DEBUG_PRINT) std::cout << "파일 읽기 성공: " << size << std::endl;
 
     file.close();
     return content;
@@ -163,36 +171,57 @@ std::string File::getFile(const std::string &root, const std::string &path, bool
     std::string content;
     std::string filepath = root + path;
 
+    if (DEBUG_PRINT) std::cout << "getFile: " << filepath << std::endl;
     if (!fileExists(filepath, fileInfo))
+    {
+        std::cerr << "존재하지 않음: " << filepath << std::endl;
         throw 404;
+    }
     
     try
     {
         if (!isDirectory(fileInfo))
         {
+            if (DEBUG_PRINT) std::cout << "파일임" << std::endl;
             if (!checkFileReadPermission(filepath))
+            {
+                std::cerr << "파일인데 권한 없음: " << filepath << std::endl;
                 throw 403;
+            }
             content = readFile(filepath);
         }
         else if (/*isDiectory: true && */autoindex) 
         {
+            if (DEBUG_PRINT) std::cout << "디렉토리 리스팅" << std::endl;
             if (!checkFileReadPermission(filepath))
             {
+                std::cerr << "해당 폴더에 대한 권한 없음: " << filepath << std::endl;
                 throw 403;
             }
             content = generateAutoIndexHTML(root, path);
         }
         else /* isDiectory: true && autoindex: false */
         {
+            if (DEBUG_PRINT) std::cout << "디렉토리 index.size(): " << index.size() << std::endl;
             for (size_t i = 0; i < index.size(); ++i)
             {
-                std::string newFilepath = filepath + index[i];
+                std::string newFilepath = filepath + std::string("/") + index[i];
                 struct stat newFileInfo;
+                if (DEBUG_PRINT) std::cout << "newFilepath: " << newFilepath << std::endl;
                 if (!fileExists(newFilepath, newFileInfo))
+                {
+                    if (DEBUG_PRINT) std::cout << "미존재: " << newFilepath << std::endl;
                     continue;
+                }
                 if (isDirectory(newFileInfo) || !checkFileReadPermission(newFilepath))
+                {
+                    std::cerr << "디렉토리 or 권한 오류: " << newFilepath << std::endl;
                     throw 403;
-                content = readFile(filepath);
+                }
+                if (DEBUG_PRINT) std::cout << "File: " << newFilepath << " 읽기 시도" << std::endl;
+                content = readFile(newFilepath);
+
+                return content;
             }
             throw 404;
         }
@@ -221,12 +250,13 @@ std::string File::getFile(const std::string &root, const std::string &path, bool
  */
 int File::canUploadFile(const std::string filepath)
 {
+    const bool IS_DUPLICATE_OK = true; // for 테스터기
     struct stat fileInfo, dirInfo;
 
     std::cout << YELLOW << "======= File::uploadFile =======" << RESET << std::endl;
     std::cout << YELLOW << "filepath: " << filepath << RESET << std::endl;
 
-    if (fileExists(filepath, fileInfo))
+    if (!IS_DUPLICATE_OK && fileExists(filepath, fileInfo))
     {
         return 409;
     }

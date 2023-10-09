@@ -4,6 +4,7 @@ endif
 
 CXX = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
+# CXXFLAGS = -Wall -Wextra -Werror -std=c++98 -fsanitize=address -g3
 # CXXFLAGS = -fsanitize=address -fsanitize=undefined -g
 OBJS_DIR = objs/
 OBJS = $(addprefix $(OBJS_DIR), $(SRCS:.cpp=.o))
