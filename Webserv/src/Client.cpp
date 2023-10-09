@@ -632,8 +632,10 @@ void Client::sendProcess(void)
             _status = READ_HEADER;
             _response.clean();
             _response.setHttpVersion(_request.getHttpVersion());
+            _eventHandler->registerTimerEvent(_socket, TIMER_TIME_OUT_SEC);
             return;
         }
+        _eventHandler->registerTimerEvent(_socket, TIMER_KEEP_ALIVE_SEC);
         cleanClientRequestReponse();
     }
 
@@ -793,7 +795,7 @@ void Client::cgiProcess(const std::string &method)
     try
     {
         _cgi.setEnvFromRequestHeaders(_request, method, filepath);
-        _cgi.exec(method, filepath);
+        _cgi.exec(method);
     }
     catch (const char *msg)
     {
