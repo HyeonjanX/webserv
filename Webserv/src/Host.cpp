@@ -57,6 +57,8 @@ Fragment: section1
 */
 const Location*   Host::matchLocation(const std::string &path) const
 {
+    std::string path2 = path.back() == '/' ? path : path + "/";
+    
     unsigned int maxUriSize = 0;
     const Location *matched = NULL;
 
@@ -64,7 +66,7 @@ const Location*   Host::matchLocation(const std::string &path) const
 
     for (it = _locations.begin(); it != _locations.end(); ++it)
     {
-        if (it->isMatched(path) && it->getUriSize() > maxUriSize)
+        if (it->isMatched(path2) && it->getUriSize() > maxUriSize)
         {
             matched = it.base();
             maxUriSize = it->getUriSize();

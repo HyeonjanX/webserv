@@ -141,9 +141,7 @@ void Cgi::exec(const std::string &method, const std::string &programPath, const 
         char **envpArray = convertToCArray(_env);
 
         std::cerr << RED << "exec 타겟: " << programPath.c_str() << RESET << std::endl;
-        std::cerr << BLUE << "exec 타겟: " << argv[0] << RESET << std::endl;
-        std::cerr << YELLOW << "exec 타겟: " << argv[1] << RESET << std::endl;
-        
+
         execve(programPath.c_str(), argvArray, envpArray);
 
         freeCArray(argvArray, argv.size());
@@ -173,13 +171,13 @@ void Cgi::writePipe()
         closePipe(_inPipe[WRITE_FD]);
 }
 
-void Cgi::readPipe()
+size_t Cgi::readPipe()
 {
     static std::vector<char> buffer(READ_BUFFER_SIZE);
 
     ssize_t readBytes = read(_outPipe[READ_FD], buffer.data(), READ_BUFFER_SIZE); // recv, send는 소켓에서만
 
-    if (readBytes <= 0)
+    if (readBytes == -1)
     {
         std::cerr << "Fail to read(). fd: " << _outPipe[READ_FD] << ", " << std::string(strerror(errno)) << std::endl;
         throw "readPipe 중 read() 호출 실패"; // 500 응답 생성으로
@@ -187,6 +185,7 @@ void Cgi::readPipe()
 
     _readData.append(buffer.data(), readBytes);
 
+    return readBytes;
     // std::cout << YELLOW << "readPipie(): " <<  _readData.size() << " bytes" << std::endl;
 }
 
@@ -220,3 +219,5 @@ void Cgi::setEnvFromRequestHeaders(Request &request, std::string method, std::st
     _env.push_back("CONTENT_LENGTH=" + std::to_string(request.getPostData().size()));
     _env.push_back("HTTP_X_SECRET_HEADER_FOR_TEST=" + request.findHeaderValue("x-secret-header-for-test"));
 }
+
+size_t Cgi::getSendBytes() const { return _sendBytes; };

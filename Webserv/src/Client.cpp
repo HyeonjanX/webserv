@@ -176,6 +176,8 @@ void Client::readProcess(void)
         _erron = 1;
     }
 
+    if (_request.getHttpMethod().compare("HEAD") == 0)
+        _defaultBodyNeed = 0;
     makeResponseData(statusCode, _defaultBodyNeed);
     _eventHandler->switchToWriteState(_socket);
 
@@ -263,8 +265,8 @@ void Client::readRequestLine(void)
 
         _status = READ_REQUESTLINE;
 
-        if (DEBUG_PRINT || true)
-            std::cout << YELLOW << _request.getHttpMethod() << " " << _request.getRequestUrl() << " " << _request.getHttpVersion() << RESET << std::endl;
+        if (DEBUG_PRINT)
+            std::cout << YELLOW << "readRequestLine에서 파싱한 결과 : " << _request.getHttpMethod() << " " << _request.getRequestUrl() << " " << _request.getHttpVersion() << RESET << std::endl;
     }
 }
 
@@ -360,7 +362,7 @@ int Client::doNonCgiProcess(const std::string &method)
     const std::string &path = _request.getRequestPath();
 
     if (DEBUG_PRINT)
-        std::cout << YELLOW << "doNonCgiProcess => root/path: " << root << "/" << path << std::endl;
+        std::cout << YELLOW << "doNonCgiProcess => root: " << root << " path: " << path << std::endl;
 
     if (DEBUG_PRINT)
         std::cout << BLUE << method << "_METHOD()" << RESET << std::endl;
@@ -402,16 +404,17 @@ int Client::doNonCgiProcess(const std::string &method)
         {
             bool autoindex = _matchedLocation->getAutoindex();
             const std::vector<std::string> &index = _matchedLocation->getIndex();
-            File::getFile(root, path, autoindex, index);
+            const std::string &filepath = Util::getRootedPath(path, _matchedLocation->getUri(), root);
+            File::getFile(path, filepath, autoindex, index);
             statusCode = 200;
             _erron = 0;
-            _defaultBodyNeed = 0; // 바디는 fileData
+            _defaultBodyNeed = 0; // HEAD 요청은 바디 X
         }
         catch (int errorStatusCode)
         {
             statusCode = errorStatusCode;
             _erron = 1;           // _erron 삭제 해도 될 수도
-            _defaultBodyNeed = 1; // 에러는 기본 바디 필요
+            _defaultBodyNeed = 0; // HEAD 요청은 바디 X
         }
         return statusCode;
     }
@@ -444,6 +447,12 @@ int Client::doRequest(void)
     const std::string &path = _request.getRequestPath();
     const std::string &cgiExt = _matchedLocation->getCgiExt();
 
+    if (!_matchedLocation->isAllowedMethod(_request.getHttpMethod()))
+        throw 405; // Method Not Allowed
+
+    if (_matchedLocation->isRedirect())
+        throw _matchedLocation->getRedirect()._status;
+
     if (cgiExt.empty() || !Util::endsWith(path, cgiExt))
         return doNonCgiProcess(method); // return statusCode, throw 405
     else
@@ -468,7 +477,8 @@ int Client::notCgiGetProcess(const std::string &root, const std::string &path, b
 
     try
     {
-        std::string fileData = File::getFile(root, path, autoindex, index);
+        const std::string &filepath = Util::getRootedPath(path, _matchedLocation->getUri(), root);
+        std::string fileData = File::getFile(path, filepath, autoindex, index);
         _response.setBody(fileData);
         statusCode = 200;
         _erron = 0;
@@ -577,8 +587,13 @@ std::string Client::createDefaultPage(int statusCode)
     {
         if (!defaultPage.empty())
         {
+            const std::string &path = _request.getRequestPath();
+            const std::string &root = _matchedLocation->getRoot();
+            const std::string &uri = _matchedLocation->getUri();
+            const std::string &filepath = Util::getRootedPath(path, uri, root);
+
             // const std::string &filepath = std::string(".") + defaultPage;
-            html = File::getFile(root, defaultPage, false);
+            html = File::getFile(path, filepath, false);
         }
         else
         {
@@ -619,8 +634,8 @@ std::string Client::createDefaultBody(int statusCode)
 // send 실패시 throw 가능
 void Client::sendProcess(void)
 {
-    if (DEBUG_PRINT || true)
-        std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
+    // if (DEBUG_PRINT)
+    //     std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
 
     ssize_t bytes_sent = send(_socket, _response.getData().c_str(), _response.getDataLength(), 0);
 
@@ -643,12 +658,21 @@ void Client::sendProcess(void)
     _response.updateData(bytes_sent);
     _response.updateSendedBytes(bytes_sent);
 
-    if (DEBUG_PRINT || true)
-        std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl;
+    // if (DEBUG_PRINT)
+    //     std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl;
 
     if (checkSendBytes() >= 0)
     {
+        std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
         std::cout << "전송완료" << std::endl;
+        std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl;
+
+        if (_response.getStatusCode() > 400 && _response.getStatusCode() < 500)
+        {
+            _ws->closeClient(*this);
+            return;
+        }
+
         _eventHandler->switchToReadState(_socket);
         if (_status == READ_POST_EXPECT_100)
         {
@@ -702,14 +726,6 @@ void Client::handleHeaders(void)
 
     _matchedHost = _server->matchHost(hostname);
     _matchedLocation = _matchedHost->matchLocation(_request.getRequestPath());
-
-    if (!_matchedLocation->isAllowedMethod(_request.getHttpMethod()))
-        throw 405; // Method Not Allowed
-
-    // 리다이렉트 확인
-    // TODO: Config 설정에서 리다이렉트 상태코드는 30x이도록 체크.
-    if (_matchedLocation->isRedirect())
-        throw _matchedLocation->getRedirect()._status;
 
     const std::string &method = _request.getHttpMethod();
 
@@ -892,14 +908,6 @@ void Client::makeCgiResponse()
 
     const std::string &readData = _cgi.getReadData();
 
-    if (DEBUG_PRINT || true)
-    {
-        std::cout << "================ CGI의 응답 수신 완료 _readData ==============" << std::endl;
-        std::cout << "_readData.size() :" << readData.size() << std::endl;
-        std::cout << ">>> 헤더까지: " << _cgi.getReadData().find("\r\n\r\n") << std::endl;
-        std::cout << YELLOW << _cgi.getReadData().substr(0, _cgi.getReadData().find("\r\n\r\n")) << RESET << std::endl;
-        std::cout << "<<<" << std::endl;
-    }
 
     // CGI 보통의 응답
     // Status: 200 OK
@@ -920,6 +928,25 @@ void Client::makeCgiResponse()
     }
 
     handleCgiHeaders(header, statusCode); // 꼭 사용해야할것은 Status 헤더
+
+    if (DEBUG_PRINT)
+    {
+        std::cout << YELLOW<< "================ CGI의 응답 생성 ==============" << std::endl;
+        
+        std::cout << GREEN << "_cgi.getPostData().size() :" << _cgi.getPostData().size() << std::endl; // 1억
+        std::cout << GREEN << "_cgi.getSendBytes() :" << _cgi.getSendBytes() << std::endl; // 1억 
+        std::cout << GREEN << "_readData.size() :" << readData.size() << std::endl; // 1억 + 58
+        
+        std::cout << YELLOW << "************** 헤더 *************************" << std::endl;
+        
+        if (pos) std::cout << readData.substr(0, pos) << std::endl;
+        else std::cout << "No 헤더" << std::endl;
+        
+        std::cout << BLUE << "_cgi.getPostData().size(): " << _cgi.getPostData().size() << std::endl;
+        std::cout << BLUE << "_response.getBody().size(): " << _response.getBody().size() << std::endl;
+
+        std::cout << YELLOW<< "================ ******** ==============" << RESET  << std::endl;
+    }
 
     makeResponseData(statusCode, 0);
 

@@ -127,11 +127,10 @@ bool File::writeFile(const std::string &filepath, const std::string &content)
  *
  * @throws int statusCode (404: 파일 존재, 403: 읽기 권한, 500: 읽기과정에서의 오류)
  */
-std::string File::getFile(const std::string &root, const std::string &path, bool autoindex)
+std::string File::getFile(const std::string &path, const std::string &filepath, bool autoindex)
 {
     struct stat fileInfo;
     std::string content;
-    std::string filepath = root + path;
 
     if (!fileExists(filepath, fileInfo))
     {
@@ -144,7 +143,7 @@ std::string File::getFile(const std::string &root, const std::string &path, bool
     }
     try
     {
-        content = isDirectory(fileInfo) ? generateAutoIndexHTML(root, path) : readFile(filepath);
+        content = isDirectory(fileInfo) ? generateAutoIndexHTML(path, filepath) : readFile(filepath);
     }
     catch (std::runtime_error &e)
     {
@@ -166,12 +165,11 @@ std::string File::getFile(const std::string &root, const std::string &path, bool
  *
  * @throws int statusCode (404: 파일 존재, 403: 읽기 권한, 500: 읽기과정에서의 오류)
  */
-std::string File::getFile(const std::string &root, const std::string &path, bool autoindex, const std::vector<std::string> &index)
+std::string File::getFile(const std::string &root, const std::string &filepath, bool autoindex, const std::vector<std::string> &index)
 {
     struct stat fileInfo;
     std::string content;
-    std::string filepath = root + path;
-
+    
     if (DEBUG_PRINT) std::cout << "getFile: " << filepath << std::endl;
     if (!fileExists(filepath, fileInfo))
     {
@@ -199,7 +197,7 @@ std::string File::getFile(const std::string &root, const std::string &path, bool
                 std::cerr << "해당 폴더에 대한 권한 없음: " << filepath << std::endl;
                 throw 403;
             }
-            content = generateAutoIndexHTML(root, path);
+            content = generateAutoIndexHTML(root, filepath);
         }
         else /* isDiectory: true && autoindex: false */
         {
@@ -346,9 +344,8 @@ bool File::deleteFile(const std::string &filepath)
  *
  * @throws int statusCode (500: 읽기 도중 알 수 없는 실패.)
  */
-std::string File::generateAutoIndexHTML(const std::string &root, const std::string &path)
+std::string File::generateAutoIndexHTML(const std::string &path, const std::string &dirPath)
 {
-    std::string dirPath = root + path;
     std::ostringstream htmlStream;
 
     DIR *dir = opendir(dirPath.c_str());
@@ -371,16 +368,10 @@ std::string File::generateAutoIndexHTML(const std::string &root, const std::stri
         std::string name = entry->d_name;
         // std::cout << "name: " << name << ", pass: " << Util::startsWith(name, ".") << std::endl;
         if (Util::startsWith(name, "."))
-        {
             continue;
-        }
         if (entry->d_type == DT_DIR) // 디렉터리일 경우 뒤에 /를 붙여줍니다.
-        {
             name += "/";
-        }
-        htmlStream << "<a href=\"" << name << "\">" << name << "</a>"
-                   << "\n";
-        // htmlStream << "<a href=\"" << name << "\">" << name << "</a>";
+        htmlStream << "<a href=\"" << name << "\">" << name << "</a>" << "\n";
     }
 
     closedir(dir);

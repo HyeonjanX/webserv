@@ -207,17 +207,9 @@ void Webserver::runWebserver(void)
                         else if (curr.filter == EVFILT_READ)
                         {
                             if (DEBUG_PRINT) std::cout << YELLOW << "***************** CGI READ *****************" << RESET << std::endl;
-                            // Q. EOF가 발생할 때는 언제인가?
+                            cgi->readPipe(); // read() fail시 => 500 응답 생성 코스로
                             if (curr.flags & EV_EOF)
-                            {
-                                if (DEBUG_PRINT || true) std::cout << MAGENTA << "EV_EOF" << RESET << std::endl;
                                 c->makeCgiResponse();
-                            }
-                            else
-                            {
-                                if (DEBUG_PRINT || true) std::cout << MAGENTA << "읽기" << RESET << std::endl;
-                                cgi->readPipe(); // read() fail시 => 500 응답 생성 코스로
-                            }
                         }
                     }
                     catch (const char *msg)

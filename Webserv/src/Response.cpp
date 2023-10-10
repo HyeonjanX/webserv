@@ -1,7 +1,7 @@
 #include "Response.hpp"
 #include "Util.hpp"
 
-#define DEBUG_PRINT true
+#define DEBUG_PRINT false
 
 Response::Response(void)
     : _statusCode(0), _totalBytes(0), _sendedBytes(0) {}

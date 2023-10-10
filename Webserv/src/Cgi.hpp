@@ -45,6 +45,8 @@ public:
     const std::string   &getPostData() const;
     void                setPostData(std::string postData);
 
+    size_t              getSendBytes() const;
+
 public:
 
     void    exec(const std::string &method, const std::string &programPath, const std::vector<std::string> &argv);
@@ -54,7 +56,7 @@ public:
     void    clearPipe();
     void    closePipe(int &fd);
 
-    void    readPipe();
+    size_t  readPipe();
     void    writePipe();
 
     bool    isPipe(int fd);

@@ -326,6 +326,8 @@ std::string Util::extractDirPath(const std::string &path)
 std::string	Util::getRootedPath
 (std::string path, std::string locPath, std::string root)
 {
+    if (path.size() < locPath.size())
+        return root;
 	return root + path.substr(locPath.size());
 }
 
@@ -463,7 +465,6 @@ std::string Util::urlDecode(std::string s)
 bool Util::isValidBoundary(const std::string& boundary)
 {
     const char * bchars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'()+_,-./:=? ";
-    // const char * bcharsnospace = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'()+_,-./:=?";
 
     if (boundary.empty() || boundary.length() > 70)
     {

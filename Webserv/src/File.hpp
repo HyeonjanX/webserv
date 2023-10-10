@@ -35,8 +35,8 @@ public:
     static bool         checkFileExecutePermission(const std::string &filepath);
 
     static bool         checkWritePermission(const std::string &filepath);
-    static std::string  getFile(const std::string &root, const std::string &path, bool autoindex = false); // GET
-    static std::string  getFile(const std::string &root, const std::string &path, bool autoindex, const std::vector<std::string> &index); // GET
+    static std::string  getFile(const std::string &path, const std::string &filepath, bool autoindex = false); // GET
+    static std::string  getFile(const std::string &path, const std::string &filepath, bool autoindex, const std::vector<std::string> &index); // GET
     static std::string  readFile(const std::string &filepath);
     static bool         uploadFile(const std::string _filepath, const std::string &_content); // POST
     static bool         writeFile(const std::string &_filepath, const std::string &_content);
@@ -45,7 +45,7 @@ public:
     static int          canUploadFile(const std::string filepath);
     static int          canExecuteFile(const std::string& filepath);
 
-    static std::string  generateAutoIndexHTML(const std::string &root, const std::string &path);
+    static std::string  generateAutoIndexHTML(const std::string &path, const std::string &dirPath);
 };
 
 #endif // FILE_HPP
