@@ -3,7 +3,8 @@
 
 Location::Location(Host &host, const t_location &c):
     _host(host), _uri(c.m_path), _limitExcept(c._limit_except), _autoindex(c._autoindex),
-    _index(c._index), _redirect(c._return), _cgiExt(c._cgi), _root(c._root), _clientMaxBodySize(c._client_max_body_size)
+    _index(c._index), _redirect(c._return), _cgiExt(c._cgi), _root(c._root), _clientMaxBodySize(c._client_max_body_size),
+    _error_page(c._error_page)
 {
     // Nothing to do.
     std::cout << "Location 생성시 root: " << _root << std::endl;
@@ -70,6 +71,8 @@ std::string Location::getRoot(void) const { return _root; }
 
 void        Location::setClientMaxBodySize(size_t value) { _clientMaxBodySize = value; }
 size_t      Location::getClientMaxBodySize(void) const { return _clientMaxBodySize; }
+
+const   std::vector<t_status_page>  &Location::getErrorPage() const { return _error_page; }
 
 std::ostream &operator<<(std::ostream &os, const Location &location)
 {

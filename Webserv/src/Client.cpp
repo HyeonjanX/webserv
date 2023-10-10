@@ -578,27 +578,37 @@ void Client::makeResponseData(int statusCode, int defaultBodyNeed)
 
 std::string Client::createDefaultPage(int statusCode)
 {
-    // TODO: 디폴트 페이지를 찾아야한다. filepath = root + defaultPage
+    const std::vector<t_status_page> &errorPages = _matchedLocation->getErrorPage();
     const std::string defaultPage("");
     std::string html;
     std::string root(".");
 
     try
     {
-        if (!defaultPage.empty())
+        for (std::vector<t_status_page>::const_iterator it = errorPages.begin();
+            it != errorPages.end(); ++it)
         {
-            const std::string &path = _request.getRequestPath();
-            const std::string &root = _matchedLocation->getRoot();
-            const std::string &uri = _matchedLocation->getUri();
-            const std::string &filepath = Util::getRootedPath(path, uri, root);
+            for (size_t i = 0; i < it->_status.size(); ++i)
+            {
+                if (it->_status[i] != statusCode)
+                    continue;                    
+                const std::string &path = _request.getRequestPath();
+                const std::string &root = _matchedLocation->getRoot();
+                // const std::string &uri = _matchedLocation->getUri();
+                
+                
+                const std::string &filepath = root + it->_page.substr(1);
 
-            // const std::string &filepath = std::string(".") + defaultPage;
-            html = File::getFile(path, filepath, false);
+                std::cout << RED << "디폴트에러페이지: " << filepath << RESET << std::endl;
+
+                html = File::getFile(path, filepath, false);
+                
+                return html;
+            }
         }
-        else
-        {
-            html = createDefaultBody(statusCode);
-        }
+
+        html = createDefaultBody(statusCode);
+
     }
     catch (int statusCode)
     {

@@ -5,14 +5,9 @@ Host::Host(const Server &server, const t_host &c) :
     _server(const_cast<Server &>(server)), _hostname(c._server_name), _root(c._root),
     _clientMaxBodySize(c._client_max_body_size), _errorPage(c._error_page)
 {
-    // _index(c._index) 아직 없음
-    // _locations
-    const std::vector<t_location> &locations = c._locations;
-    
-    for (size_t i = 0; i < locations.size(); ++i)
+    for (size_t i = 0; i < c._locations.size(); ++i)
     {
-        Location lo(*this, locations[i]);
-        _locations.push_back(lo);
+        _locations.push_back(Location(*this, c._locations[i]));
     }
 }
 

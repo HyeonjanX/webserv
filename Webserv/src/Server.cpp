@@ -7,11 +7,7 @@ Server::Server(int port, const std::vector<t_host> &serverConfig, int sockreuse,
     : _port(port), _sockreuse(sockreuse), _backlog(backlog)
 {
     for (size_t i = 0; i < serverConfig.size(); i++)
-    {
-        Host h(*this, serverConfig[i]);
-        _hosts.push_back(h);
-        
-    }
+        _hosts.push_back(Host(*this, serverConfig[i]));
     socketInit(_port, _addr, _sockreuse);
     initListen(_backlog);
 }

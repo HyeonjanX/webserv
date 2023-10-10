@@ -29,6 +29,7 @@ private:
     std::string                 _cgiExt; // .py .php .js .ts 등
     std::string                 _root;
     size_t                      _clientMaxBodySize;
+    std::vector<t_status_page>  _error_page;
 
 
 public:
@@ -72,6 +73,8 @@ public:
     
     void                                setClientMaxBodySize(size_t value);
     size_t                              getClientMaxBodySize(void) const;
+
+    const   std::vector<t_status_page>  &getErrorPage() const;
 
 };
 

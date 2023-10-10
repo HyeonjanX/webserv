@@ -11,6 +11,13 @@ typedef struct s_status_page
     std::vector<int>			_status;
     std::string                 _page;
 
+    s_status_page(const s_status_page &other) {
+        if (this != &other)
+        {
+            _status = other._status;
+            _page = other._page;
+        }
+    }
     s_status_page(void) {}
 }	t_status_page;
 
@@ -19,6 +26,13 @@ typedef struct s_redirect
     int			                _status;
     std::string                 _page;
 
+    s_redirect(const s_redirect &other) {
+        if (this != &other)
+        {
+            _status = other._status;
+            _page = other._page;
+        }
+    }
     s_redirect(void): _status(0) {}
 }	t_redirect;
 
@@ -34,6 +48,20 @@ typedef struct s_location
     std::vector<t_status_page>  _error_page;
     t_redirect                  _return;
 
+    s_location(const s_location &other) {
+        if (this != &other)
+        {
+            m_path = other.m_path;
+            _root = other._root;
+            _client_max_body_size = other._client_max_body_size;
+            _cgi = other._cgi;
+            _autoindex = other._autoindex;
+            _limit_except = other._limit_except;
+            _index = other._index;
+            _error_page = other._error_page;
+            _return = other._return;
+        }
+    }
     s_location(void):  _client_max_body_size(1 * 1024 * 1024), _autoindex(false) {}
 }	t_location;
 
