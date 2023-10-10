@@ -1,6 +1,6 @@
 #include "Config.hpp"
 
-#define DEBUG_PRINT true
+#define DEBUG_PRINT false
 
 /* *************************************************************************** *
  * Constructor & Destructor                                                    *
@@ -40,7 +40,7 @@ static long getMeasurementSize(const std::string &measure)
 {
 	long size;
 	char unit;
-	char *endptr;
+	char *endptr = NULL;
 	size_t len;
 	size_t scale;
 
@@ -68,7 +68,9 @@ static long getMeasurementSize(const std::string &measure)
 		return -1;
 	}
 
-	size = strtol((measure.substr(0, len)).c_str(), &endptr, 10);
+	std::string sub = measure.substr(0, len);
+
+	size = strtol(sub.c_str(), &endptr, 10);
 	if (*endptr != '\0')
 		return -1;
 
@@ -163,7 +165,7 @@ void Config::initializeDirectives()
 	_serverDirectives["listen"] = TYPE_INTEGER;
 	_serverDirectives["server_name"] = TYPE_STRING;
 	_serverDirectives["root"] = TYPE_STRING;
-	_serverDirectives["client_max_body_size"] = TYPE_INTEGER;
+	_serverDirectives["client_max_body_size"] = TYPE_STRING;
 	_serverDirectives["error_page"] = TYPE_ARRAY;
 	_serverDirectives["index"] = TYPE_ARRAY;
 	_serverDirectives["location"] = TYPE_OBJECT;
@@ -172,7 +174,7 @@ void Config::initializeDirectives()
 	_locationDirectives["path"] = TYPE_STRING;
 	_locationDirectives["root"] = TYPE_STRING;
 	_locationDirectives["alias"] = TYPE_STRING;
-	_locationDirectives["client_max_body_size"] = TYPE_INTEGER;
+	_locationDirectives["client_max_body_size"] = TYPE_STRING;
 	_locationDirectives["cgi"] = TYPE_STRING;
 	_locationDirectives["autoindex"] = TYPE_BOOLEAN;
 	_locationDirectives["limit_except"] = TYPE_ARRAY;
@@ -266,6 +268,8 @@ void Config::parseServer(std::map<int, std::vector<t_host> > &servers, const std
 		}
 	}
 
+	bool mustLocation = false;
+
 	for (std::vector<JsonData::kv>::const_iterator it = serverKeyValues.begin();
 		 it != serverKeyValues.end();
 		 ++it)
@@ -274,12 +278,18 @@ void Config::parseServer(std::map<int, std::vector<t_host> > &servers, const std
 
 		if (key.compare("location") == 0)
 			parseLocation(host, it->second.getObjData());
+		
+		if (!host._locations.empty() && host._locations.back().m_path == "/")
+			mustLocation = true;
+	}
+
+	if (!mustLocation)
+	{
+		std::cerr << "/ 로케이션은 필수로 설정해주어야 합니다." << std::endl;
+		throw "/ 로케이션은 필수로 설정해주어야 합니다.";
 	}
 
 	std::map<int, std::vector<t_host> >::iterator it = servers.find(host._listen);
-
-	// Host complete => location create
-	// for ...
 
 	std::cout << "현재 ID: " << host._listen << host._server_name << std::endl;
 	if (it == servers.end())
@@ -297,11 +307,6 @@ void Config::parseLocation(t_host &host, const std::vector<JsonData::kv> &locati
 	t_location			location;
 	enum				e_loc_status { LOC_ROOT, LOC_SIZE, LOC_INDEX, LOC_ERRPG, NUMLOCS };
 	std::vector<bool>	locFlags(NUMLOCS, false);
-
-
-	/* *************************************************************************** *
-	* 상속 포인트1				                                                     *
-	* ****************************************************************************/
 
 	for (std::vector<JsonData::kv>::const_iterator it = locationKeyValues.begin();
 		 it != locationKeyValues.end();
@@ -369,10 +374,6 @@ void Config::parseLocation(t_host &host, const std::vector<JsonData::kv> &locati
 
 	if (location.m_path.empty())
 		throw "location에서 path 지시어는 필수 입니다.";
-
-	/* *************************************************************************** *
-	* 상속 포인트2				                                                     *
-	* ****************************************************************************/
 
 	// root
 	if (locFlags[LOC_ROOT] == false)
