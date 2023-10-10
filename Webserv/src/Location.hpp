@@ -32,7 +32,7 @@ private:
 
 
 public:
-    Location(Host &host, const t_location locationConfig);
+    Location(Host &host, const t_location &locationConfig);
     
     virtual ~Location(void);
 

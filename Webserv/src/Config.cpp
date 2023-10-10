@@ -230,6 +230,7 @@ std::map<int, std::vector<t_host> > Config::makeServerConfigs()
 void Config::parseServer(std::map<int, std::vector<t_host> > &servers, const std::vector<JsonData::kv> &serverKeyValues)
 {
 	t_host host;
+	bool indexExist = false;
 
 	if (DEBUG_PRINT) std::cout << "parseServer size: " << serverKeyValues.size() << std::endl;
 
@@ -253,7 +254,10 @@ void Config::parseServer(std::map<int, std::vector<t_host> > &servers, const std
 		else if (key.compare("root") == 0)
 			serverParseRoot(host, it->second);
 		else if (key.compare("index") == 0)
+		{
 			serverParseIndex(host, it->second);
+			indexExist = true;
+		}
 		else if (key.compare("error_page") == 0)
 			serverParseErrorPage(host, it->second);
 		else if (key.compare("location") == 0)
@@ -266,6 +270,11 @@ void Config::parseServer(std::map<int, std::vector<t_host> > &servers, const std
 			std::cerr << "key: " << key << std::endl;
 			throw "parseServer(): 무언가 빼먹었다.";
 		}
+	}
+
+	if (!indexExist)
+	{	
+		host._index.push_back("index.html");
 	}
 
 	bool mustLocation = false;
@@ -329,10 +338,6 @@ void Config::parseLocation(t_host &host, const std::vector<JsonData::kv> &locati
 		{
 			locationParseRoot(location, it->second);
 			locFlags[LOC_ROOT] = true;
-		}
-		else if (key.compare("alias") == 0)
-		{
-			locationParseAlias(location, it->second);
 		}
 		else if (key.compare("client_max_body_size") == 0)
 		{
@@ -533,19 +538,6 @@ void Config::locationParseRoot(t_location &location, const JsonData &value)
 		throw "유효하지 않은 로케이션 루트입니다.";
 	}
 	location._root = rootPath;
-}
-
-// 아마 이 함수는 지워야 할 것 같습니다. 루트를 대신 사용하기에...
-void Config::locationParseAlias(t_location &location, const JsonData &value)
-{
-	std::string aliasPath = value.getStringData();
-
-	if (isValidUrlString(aliasPath) == false)
-	{
-		std::cerr << "Invalid Location root: " << aliasPath << std::endl;
-		throw "유효하지 않은 로케이션 앨리어스입니다.";
-	}
-	location._alias = aliasPath;
 }
 
 void Config::locationParseClientMaxBodySize(t_location &location, const JsonData &value)

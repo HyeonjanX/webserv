@@ -1,7 +1,7 @@
 #include "Location.hpp"
 #include "Util.hpp"
 
-Location::Location(Host &host, const t_location c):
+Location::Location(Host &host, const t_location &c):
     _host(host), _uri(c.m_path), _limitExcept(c._limit_except), _autoindex(c._autoindex),
     _index(c._index), _redirect(c._return), _cgiExt(c._cgi), _root(c._root), _clientMaxBodySize(c._client_max_body_size)
 {
