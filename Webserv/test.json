@@ -1,0 +1,82 @@
+{
+    "server": {
+        "client_max_body_size": "100m",
+        
+        "location": {
+            "path": "/",
+            "limit_except": ["GET"],
+            "autoindex": true,
+            "index": ["youpi.bad_extension"],
+            "root": "YoupiBanane/",
+            "cgi": ".bla"
+        },
+        "location": {
+            "path": "/put_test/",
+            "limit_except": ["PUT"],
+            "root": "YoupiBanane/puted/",
+            "cgi": ".bla"
+        },
+        "location": {
+            "path": "/post_body/",
+            "limit_except": ["POST"],
+            "root": "YoupiBanane/posted/",
+            "client_max_body_size": "100m",
+            "index": ["youpi.bla"],
+            "cgi": ".bla"
+        },
+        "location": {
+            "path": "/directory/",
+            "limit_except": ["GET", "POST"],
+            "root": "YoupiBanane/",
+            "index": ["youpi.bad_extension"],
+            "cgi": ".bla"
+        }
+    },
+    "server": {
+        "listen": 8081,
+        "server_name": "localhost",
+        "root": ".",
+        "location": {
+            "path": "/",
+            "root": "./",
+            "limit_except": ["GET", "POST"],
+            "index": ["youpi.bad_extension"],
+            "cgi": ".py"
+        }
+    },
+    "server": {
+        "listen": 8081,
+        "server_name": "127.0.0.1",
+        "root": ".",
+        "location": {
+            "path": "/",
+            "limit_except": ["GET", "POST"],
+            "root": "./",
+            "index": ["youpi.bad_extension"],
+            "error_page": [400, 404, "/404.html"]
+        }
+    },
+    "server": {
+        "listen": 8082,
+        "root": ".",
+        "location": {
+            "path": "/",
+            "limit_except": ["GET", "POST"],
+            "root": "./",
+            "index": ["youpi.bad_extension"],
+            "cgi": ".php"
+        }
+    },
+    "server": {
+        "listen": 8082,
+        "server_name": "1",
+        "root": ".",
+        "location": {
+            "path": "/",
+            "limit_except": ["GET", "POST"],
+            "root": "./",
+            "index": ["youpi.bad_extension"],
+            "cgi": ".php"
+        }
+    }
+}

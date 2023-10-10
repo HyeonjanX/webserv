@@ -1,6 +1,8 @@
 CXX = c++
-CXXFLAGS = -Wall -Wextra -Werror
-CXXFLAGS += -std=c++98 -MD
+CXXFLAGS = -Wall -Wextra -Werror -std=c++98
+# CXXFLAGS += -MD
+# CXXFLAGS += -fsanitize=address -g3
+
 LDFLAGS =
 INCLUDE = -I.
 RM = rm -rf
@@ -32,7 +34,7 @@ ifdef DEBUG
 	CXXFLAGS += -g -DDEBUG
 endif
 
-NAME = Webserv
+NAME = webserv
 
 $(OBJDIR)%.o: $(SRCDIR)%.cpp
 	@mkdir -p $(OBJDIR)
