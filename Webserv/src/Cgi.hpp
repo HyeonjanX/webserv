@@ -47,7 +47,7 @@ public:
 
 public:
 
-    void    exec(const std::string &method);
+    void    exec(const std::string &method, const std::string &programPath, const std::vector<std::string> &argv);
 
     void    clearCgi();
     void    clearChild();
@@ -60,7 +60,7 @@ public:
     bool    isPipe(int fd);
     void    pipePrint() const;
 
-    void    setEnvFromRequestHeaders(Request &request, std::string method, std::string filepath);
+    void    setEnvFromRequestHeaders(Request &request, std::string method, std::string path);
 
     class ExecveException : public std::exception
     {

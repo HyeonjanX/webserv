@@ -60,6 +60,8 @@ void Response::generateResponseData(void)
         std::cout << RED << "<<< " << RESET << std::endl;
     }
     oss << _body;
+    if (DEBUG_PRINT)
+        std::cout << YELLOW << "<<<_body\n" << _body << RESET << std::endl;
 
     _data = oss.str();
     _totalBytes = _data.size();
