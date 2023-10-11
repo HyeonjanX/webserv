@@ -376,8 +376,6 @@ int File::canExecuteFile(const std::string &filepath)
     struct stat fileInfo;
     std::string content;
 
-    std::cout << "실행 체크: " << filepath << std::endl;
-
     if (!fileExists(filepath, fileInfo))
     {
         return 404; // File not found
@@ -386,8 +384,6 @@ int File::canExecuteFile(const std::string &filepath)
     {
         return 403; // Forbidden
     }
-
-    std::cout << BLUE << "=================== 실행 체크: ok ================" << RESET << std::endl;
 
     return 0;
 }

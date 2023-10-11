@@ -100,16 +100,17 @@ static void handleCgiHeaders(const std::string &header, int &statusCode)
 
 static int canExcuteCgi(const std::string &method, const std::string &cgiExt, const std::string &filepath)
 {
+    const bool isNeedFileCheck = false;
     std::string programPath;
 
     if (method.compare("GET") && method.compare("POST"))
         return 405;
 
-    if (!File::checkFileExist(filepath))
+    if (isNeedFileCheck && !File::checkFileExist(filepath))
         return 404;
 
     if (cgiExt.compare(".bla") == 0)
-        programPath = "./cgi_tester";
+        programPath = "tester/cgi_tester";
     else if (cgiExt.compare(".py") == 0)
         programPath = "/usr/bin/python3";
     else if (cgiExt.compare(".php") == 0)
@@ -640,8 +641,8 @@ std::string Client::createDefaultBody(int statusCode)
 // send 실패시 throw 가능
 void Client::sendProcess(void)
 {
-    // if (DEBUG_PRINT)
-    //     std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
+    if (DEBUG_PRINT || true)
+        std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
 
     ssize_t bytes_sent = send(_socket, _response.getData().c_str(), _response.getDataLength(), 0);
 
@@ -664,14 +665,14 @@ void Client::sendProcess(void)
     _response.updateData(bytes_sent);
     _response.updateSendedBytes(bytes_sent);
 
-    // if (DEBUG_PRINT)
-    //     std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl;
+    if (DEBUG_PRINT || true)
+        std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl; // 마지막 테스트: 100000140
 
     if (checkSendBytes() >= 0)
     {
-        std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
-        std::cout << "전송완료" << std::endl;
-        std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl;
+        if (!(DEBUG_PRINT || true)) std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
+        std::cout << RED << "전송완료: " << _request.getHttpMethod() << " " << _request.getRequestPath() << " " << _response.getStatusCode() << RESET << std::endl;
+        if (!(DEBUG_PRINT || true)) std::cout << RED << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << RESET << ")" << std::endl;
 
         if (_response.getStatusCode() > 400 && _response.getStatusCode() < 500)
         {
@@ -838,6 +839,7 @@ void Client::chunkRead(void)
 
 void Client::cgiProcess(const std::string &method, const std::string &cgiExt)
 {
+    const bool isNeedFileCheck = false;
     std::string programPath;
     std::vector<std::string> argv;
 
@@ -850,14 +852,14 @@ void Client::cgiProcess(const std::string &method, const std::string &cgiExt)
     const std::string &root = _matchedLocation->getRoot();
     const std::string &filepath = Util::getRootedPath(path, uri, root);
 
-    if (!File::checkFileExist(filepath))
+    if (isNeedFileCheck && !File::checkFileExist(filepath))
         throw 404;
 
     // 2. 지원하는 확장자인지 체크 && 각 실행에 필요한 2가지 요소 세팅
 
     if (cgiExt.compare(".bla") == 0)
     {
-        programPath = "./cgi_tester";
+        programPath = "tester/cgi_tester";
         // Nothing to do for argv;
     }
     else if (cgiExt.compare(".py") == 0)
@@ -917,12 +919,6 @@ void Client::makeCgiResponse()
 
     const std::string &readData = _cgi.getReadData();
 
-
-    // CGI 보통의 응답
-    // Status: 200 OK
-    // Content-Type: text/html; charset=utf-8 CRLF
-    // CRLF
-    // body
     size_t pos = readData.find("\r\n\r\n");
     std::string header;
     
