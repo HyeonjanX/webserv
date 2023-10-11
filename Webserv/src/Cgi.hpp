@@ -62,6 +62,7 @@ public:
 
     void    setEnvFromRequestHeaders(Request &request, std::string method, std::string path);
 
+	// 신기한 문법?!
     class ExecveException : public std::exception
     {
     public:

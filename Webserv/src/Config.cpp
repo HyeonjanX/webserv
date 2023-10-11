@@ -86,7 +86,8 @@ static bool isValidUrlString(const std::string &url)
 {
 	for (size_t i = 0; i < url.length(); ++i)
 	{
-		if (!std::isalnum(url[i]) && url[i] != '-' && url[i] != '_' && url[i] != '.' && url[i] != '/' && url[i] != '%')
+		if (!std::isalnum(url[i]) && url[i] != '-' && url[i] != '_'
+			&& url[i] != '.' && url[i] != '/' && url[i] != '%')
 		{
 			return false;
 		}
@@ -96,13 +97,16 @@ static bool isValidUrlString(const std::string &url)
 
 static bool	isValidDirectoryPath(const std::string &url, char mark)
 {
-	if (mark == 'P'
-		&& (url.empty() || url[0] != '/' || url[url.length() - 1] != '/'))
+	if (url.empty())
 	{
 		return false;
 	}
-	else if (mark == 'R'
-		&& (url.empty() || url[url.length() - 1] != '/'))
+
+	if (mark == 'P' && (url[0] != '/' || url[url.length() - 1] != '/'))
+	{
+		return false;
+	}
+	else if (mark == 'R' && (url[url.length() - 1] != '/'))
 	{
 		return false;
 	}
