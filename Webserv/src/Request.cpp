@@ -548,9 +548,14 @@ void	Request::handleHeaders(std::string &hostname, bool &expected100)
 
 		if (it->key == "content-length")
 		{
-			_contentLength = static_cast<size_t>(Util::ft_atol(it->value.c_str(), 10));
-			// std::cout << "content-length => " << it->value;
-			// _contentLength = static_cast<size_t>(Util::ft_atol(it->value, 10));
+			try
+			{
+				_contentLength = static_cast<size_t>(Util::ft_atol(it->value.c_str(), 10));
+			}
+			catch(const std::exception& e)
+			{
+				std::cerr << "content-length atol 실패: " << it->value << std::endl;
+			}
 		}
 
 		if (it->key == "expect" && it->value == "100-continue")
