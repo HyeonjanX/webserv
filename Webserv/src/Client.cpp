@@ -919,6 +919,11 @@ void Client::makeCgiResponse()
 
     const std::string &readData = _cgi.getReadData();
 
+    // CGI 테스트시 주석 해제하면 유용함
+    // std::cout << BLUE << "======== readData ===========" << RESET << std::endl;
+    // std::cout << RED << readData << RESET << std::endl;
+    // std::cout << BLUE << "========= . .. ..  . . ==========" << RESET << std::endl;
+
     size_t pos = readData.find("\r\n\r\n");
     std::string header;
     
