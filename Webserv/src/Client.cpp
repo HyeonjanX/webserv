@@ -212,7 +212,7 @@ void Client::parseRequest(void)
 {
     if (DEBUG_PRINT)
         std::cout << "=========== parseRequest() ===========" << std::endl;
-
+    
     if (_status == BEFORE_READ)
     {
         _eventHandler->registerTimerEvent(_socket, TIMER_TIME_OUT_SEC);
@@ -691,7 +691,7 @@ void Client::sendProcess(void)
             _status = READ_HEADER;
             _response.clean();
             _response.setHttpVersion(_request.getHttpVersion());
-            _eventHandler->registerTimerEvent(_socket, TIMER_TIME_OUT_SEC);
+            // _eventHandler->registerTimerEvent(_socket, TIMER_TIME_OUT_SEC);
             return;
         }
         _eventHandler->registerTimerEvent(_socket, TIMER_KEEP_ALIVE_SEC);

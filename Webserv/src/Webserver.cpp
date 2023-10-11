@@ -90,7 +90,8 @@ void Webserver::initClient(int serverSocket, Server *s)
     _clients.erase(c.getSocket());
     _clients.insert(std::make_pair(c.getSocket(), c));
     _eventHandler.registerReadWriteEvents(c.getSocket());
-    _eventHandler.registerTimerEvent(c.getSocket(), TIMER_KEEP_ALIVE_SEC);
+    // _eventHandler.registerTimerEvent(c.getSocket(), TIMER_KEEP_ALIVE_SEC);
+    _eventHandler.registerTimerEvent(c.getSocket(), TIMER_TIME_OUT_SEC);
     if (DEBUG_PRINT) std::cout << "initClient: fd(" << c.getSocket() << ")" << std::endl;
 }
 
