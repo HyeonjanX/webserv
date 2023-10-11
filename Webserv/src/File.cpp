@@ -156,16 +156,17 @@ std::string File::getFile(const std::string &path, const std::string &filepath, 
 }
 
 /**
- * @brief
- *
- * @param root
- * @param path
- * @param autoindex
+ * @brief 
+ * 
+ * @param path 
+ * @param filepath 
+ * @param autoindex 
+ * @param index 
  * @return std::string 디렉토링 리스팅용 HTML || 읽은 파일 데이터
  *
  * @throws int statusCode (404: 파일 존재, 403: 읽기 권한, 500: 읽기과정에서의 오류)
  */
-std::string File::getFile(const std::string &root, const std::string &filepath, bool autoindex, const std::vector<std::string> &index)
+std::string File::getFile(const std::string &path, const std::string &filepath, bool autoindex, const std::vector<std::string> &index)
 {
     struct stat fileInfo;
     std::string content;
@@ -197,7 +198,7 @@ std::string File::getFile(const std::string &root, const std::string &filepath, 
                 std::cerr << "해당 폴더에 대한 권한 없음: " << filepath << std::endl;
                 throw 403;
             }
-            content = generateAutoIndexHTML(root, filepath);
+            content = generateAutoIndexHTML(path, filepath);
         }
         else /* isDiectory: true && autoindex: false */
         {
