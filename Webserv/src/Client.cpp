@@ -1038,7 +1038,7 @@ void Client::sessionProcess()
         // if (DEBUG_PRINT) std::cout << "it: " << std::endl;
     }
 
-    std::time_t currentTime = std::time(nullptr);
+    std::time_t currentTime = std::time(0);
     if (sessionIt == sessions.end() || currentTime >= sessionIt->second.expirationTime)
     {
         if (DEBUG_SESSION_PRINT)
