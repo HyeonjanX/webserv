@@ -1,6 +1,6 @@
 {
     "server": {
-        "client_max_body_size": "100m",
+        "client_max_body_size": "500m",
         
         "location": {
             "path": "/",
@@ -20,7 +20,7 @@
             "path": "/post_body/",
             "limit_except": ["POST"],
             "root": "YoupiBanane/posted/",
-            "client_max_body_size": "100m",
+            "client_max_body_size": "100",
             "index": ["youpi.bla"],
             "cgi": ".bla"
         },
@@ -45,31 +45,7 @@
         }
     },
     "server": {
-        "listen": 8081,
-        "server_name": "127.0.0.1",
-        "root": ".",
-        "location": {
-            "path": "/",
-            "limit_except": ["GET", "POST"],
-            "root": "./",
-            "index": ["youpi.bad_extension"],
-            "error_page": [400, 404, "/404.html"]
-        }
-    },
-    "server": {
         "listen": 8082,
-        "root": ".",
-        "location": {
-            "path": "/",
-            "limit_except": ["GET", "POST"],
-            "root": "./",
-            "index": ["youpi.bad_extension"],
-            "cgi": ".php"
-        }
-    },
-    "server": {
-        "listen": 8082,
-        "server_name": "1",
         "root": ".",
         "location": {
             "path": "/",
