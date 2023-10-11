@@ -115,10 +115,10 @@ static int canExcuteCgi(const std::string &method, const std::string &cgiExt, co
     else if (cgiExt.compare(".php") == 0)
         programPath = "/usr/bin/php";
     else
-        return 503;
+        return 501; // Not Implemented
 
     if (File::canExecuteFile(programPath))
-        return 503;
+        return 503; // Service Unavailable
 
     return 0;
 }
@@ -360,6 +360,7 @@ int Client::doNonCgiProcess(const std::string &method)
 
     const std::string &root = _matchedLocation->getRoot();
     const std::string &path = _request.getRequestPath();
+    const std::string &uri = _matchedLocation->getUri();
 
     if (DEBUG_PRINT)
         std::cout << YELLOW << "doNonCgiProcess => root: " << root << " path: " << path << std::endl;
@@ -387,7 +388,7 @@ int Client::doNonCgiProcess(const std::string &method)
     }
     else if (method.compare(DELETE_METHOD) == 0)
     {
-        std::string filepath = root + path;
+        std::string filepath = Util::getRootedPath(path, uri, root);
 
         return notCgiDeleteProcess(filepath);
     }
@@ -404,7 +405,7 @@ int Client::doNonCgiProcess(const std::string &method)
         {
             bool autoindex = _matchedLocation->getAutoindex();
             const std::vector<std::string> &index = _matchedLocation->getIndex();
-            const std::string &filepath = Util::getRootedPath(path, _matchedLocation->getUri(), root);
+            const std::string &filepath = Util::getRootedPath(path, uri, root);
             File::getFile(path, filepath, autoindex, index);
             statusCode = 200;
             _erron = 0;
@@ -579,9 +580,7 @@ void Client::makeResponseData(int statusCode, int defaultBodyNeed)
 std::string Client::createDefaultPage(int statusCode)
 {
     const std::vector<t_status_page> &errorPages = _matchedLocation->getErrorPage();
-    const std::string defaultPage("");
     std::string html;
-    std::string root(".");
 
     try
     {
@@ -592,16 +591,13 @@ std::string Client::createDefaultPage(int statusCode)
             {
                 if (it->_status[i] != statusCode)
                     continue;                    
-                const std::string &path = _request.getRequestPath();
+                
                 const std::string &root = _matchedLocation->getRoot();
-                // const std::string &uri = _matchedLocation->getUri();
-                
-                
                 const std::string &filepath = root + it->_page.substr(1);
-
+                
                 std::cout << RED << "디폴트에러페이지: " << filepath << RESET << std::endl;
 
-                html = File::getFile(path, filepath, false);
+                html = File::getOnlyFile(filepath); // throw statusCode
                 
                 return html;
             }
@@ -610,10 +606,10 @@ std::string Client::createDefaultPage(int statusCode)
         html = createDefaultBody(statusCode);
 
     }
-    catch (int statusCode)
+    catch (int errorStatusCode)
     {
-        _response.setStatusCode(statusCode);
-        html = createDefaultBody(statusCode);
+        _response.setStatusCode(errorStatusCode);
+        html = createDefaultBody(errorStatusCode);
     }
 
     return html;
@@ -850,7 +846,12 @@ void Client::cgiProcess(const std::string &method, const std::string &cgiExt)
         throw 405; // 405 Method Not Allowed,
 
     const std::string &path = _request.getRequestPath();
-    const std::string &filepath = _matchedLocation->getRoot() +  _request.getRequestPath();
+    const std::string &uri = _matchedLocation->getUri();
+    const std::string &root = _matchedLocation->getRoot();
+    const std::string &filepath = Util::getRootedPath(path, uri, root);
+
+    if (!File::checkFileExist(filepath))
+        throw 404;
 
     // 2. 지원하는 확장자인지 체크 && 각 실행에 필요한 2가지 요소 세팅
 
@@ -906,7 +907,6 @@ void Client::cgiProcess(const std::string &method, const std::string &cgiExt)
     if (method.compare("POST") == 0 && !_cgi.getPostData().empty())
         _eventHandler->addKeventToChangeList(_cgi.getInPipe(WRITE_FD), EVFILT_WRITE, EV_ADD, 0, 0, NULL);
     _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, NULL);
-    _eventHandler->turnOffRead(_socket);
 }
 
 void Client::makeCgiResponse()
@@ -925,16 +925,12 @@ void Client::makeCgiResponse()
     // body
     size_t pos = readData.find("\r\n\r\n");
     std::string header;
-    if (pos != std::string::npos)
-    {
-        _response.setBody(readData.substr(pos + 4));
-        header = readData.substr(0, pos);
-    }
-    else
-    {
-        _response.setBody("");
-        header = readData;
-    }
+    
+    if (pos == std::string::npos)
+        throw "CGI 응답에서 더블CRLF를 찾지 못했습니다.";
+
+    _response.setBody(readData.substr(pos + 4));
+    header = readData.substr(0, pos);
 
     handleCgiHeaders(header, statusCode); // 꼭 사용해야할것은 Status 헤더
 

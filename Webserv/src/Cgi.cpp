@@ -130,7 +130,7 @@ void Cgi::exec(const std::string &method, const std::string &programPath, const 
     {
         // 자녀 프로세스
         if (dup2(_outPipe[WRITE_FD], STDOUT_FILENO) == -1 || dup2(_inPipe[READ_FD], STDIN_FILENO) == -1)
-            throw "자녀프로세스에서 dup2() 실패";
+            throw ExecveException();
 
         closePipe(_inPipe[READ_FD]);
         closePipe(_inPipe[WRITE_FD]);

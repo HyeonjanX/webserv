@@ -35,7 +35,7 @@ public:
     static bool         checkFileExecutePermission(const std::string &filepath);
 
     static bool         checkWritePermission(const std::string &filepath);
-    static std::string  getFile(const std::string &path, const std::string &filepath, bool autoindex = false); // GET
+    static std::string  getOnlyFile(const std::string &filepath); // GET
     static std::string  getFile(const std::string &path, const std::string &filepath, bool autoindex, const std::vector<std::string> &index); // GET
     static std::string  readFile(const std::string &filepath);
     static bool         uploadFile(const std::string _filepath, const std::string &_content); // POST

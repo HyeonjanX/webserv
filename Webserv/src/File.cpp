@@ -117,17 +117,7 @@ bool File::writeFile(const std::string &filepath, const std::string &content)
     return true;
 }
 
-/**
- * @brief
- *
- * @param root
- * @param path
- * @param autoindex
- * @return std::string 디렉토링 리스팅용 HTML || 읽은 파일 데이터
- *
- * @throws int statusCode (404: 파일 존재, 403: 읽기 권한, 500: 읽기과정에서의 오류)
- */
-std::string File::getFile(const std::string &path, const std::string &filepath, bool autoindex)
+std::string File::getOnlyFile(const std::string &filepath)
 {
     struct stat fileInfo;
     std::string content;
@@ -136,14 +126,13 @@ std::string File::getFile(const std::string &path, const std::string &filepath, 
     {
         throw 404;
     }
-    if (!checkFileReadPermission(filepath) ||
-        (isDirectory(fileInfo) && !autoindex))
+    if (!checkFileReadPermission(filepath) || isDirectory(fileInfo))
     {
         throw 403;
     }
     try
     {
-        content = isDirectory(fileInfo) ? generateAutoIndexHTML(path, filepath) : readFile(filepath);
+        content = readFile(filepath);
     }
     catch (std::runtime_error &e)
     {
