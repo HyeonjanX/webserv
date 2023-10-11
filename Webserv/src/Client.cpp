@@ -1017,6 +1017,11 @@ void Client::cleanForClose()
     cleanCgi();
 }
 
+static bool isValidSession(std::map<std::string, t_session> &sessions, std::map<std::string, t_session>::iterator sessionIt, std::time_t currentTime)
+{
+    return (sessionIt != sessions.end() && currentTime < sessionIt->second.expirationTime);
+}
+
 void Client::sessionProcess()
 {
     if (DEBUG_PRINT)
@@ -1039,7 +1044,7 @@ void Client::sessionProcess()
     }
 
     std::time_t currentTime = std::time(0);
-    if (sessionIt == sessions.end() || currentTime >= sessionIt->second.expirationTime)
+    if (!isValidSession(sessions, sessionIt, currentTime))
     {
         if (DEBUG_SESSION_PRINT)
         {
@@ -1055,17 +1060,19 @@ void Client::sessionProcess()
 
         sessions[sessionId] = t_session(sessionId, 1, currentTime + COOKIE_EXPIRE_SEC);
 
+        _response.addCookie("sessionid", sessionId, COOKIE_EXPIRE_SEC);
+        
         if (DEBUG_SESSION_PRINT)
             std::cout << "세션 시작: id(" << sessions[sessionId].id
                       << "), count(" << sessions[sessionId].count
                       << "), expirationTime(" << sessions[sessionId].expirationTime << ")" << std::endl;
-
-        _response.addCookie("sessionid", sessionId, COOKIE_EXPIRE_SEC);
     }
     else
     {
         sessionIt->second.count++;
         sessionIt->second.expirationTime = currentTime + COOKIE_EXPIRE_SEC;
+
+        _response.addCookie("sessionid", sessionIt->second.id, COOKIE_EXPIRE_SEC);
 
         if (DEBUG_SESSION_PRINT)
             std::cout << "카운트 +1: id(" << sessionIt->second.id
