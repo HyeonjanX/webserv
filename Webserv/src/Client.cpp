@@ -746,8 +746,7 @@ void Client::handleHeaders(void)
 
         const std::string &root = _matchedLocation->getRoot();
         const std::string &path = _request.getRequestPath();
-
-        // const std::string &uri = _matchedLocation->getUri();
+        const std::string &uri = _matchedLocation->getUri();
 
         if (cgiExt.empty() || !Util::endsWith(path, cgiExt))
         {
@@ -764,7 +763,7 @@ void Client::handleHeaders(void)
         else
         {
             // CGI
-            const std::string &filepath = root + path;
+            const std::string &filepath = Util::getRootedPath(path, uri, root);
             int statusCode = !canExcuteCgi(method, cgiExt, filepath);
             if (statusCode)
             {
