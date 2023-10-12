@@ -52,7 +52,8 @@
             "limit_except": ["GET", "POST"],
             "root": "./",
             "index": ["youpi.bad_extension"],
-            "cgi": ".php"
+            "cgi": ".php",
+            "error_page": [404, "/tester/404.html"]
         }
     }
 }
