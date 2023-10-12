@@ -4,7 +4,8 @@
 #define DEBUG_SESSION_PRINT false
 
 Client::Client(int serverSocket, Webserver *ws, Server *s, EventHandler *e)
-    : _ws(ws), _server(s), _eventHandler(e), _contentLength(0), _status(0), _ischunk(0), _erron(0), _defaultBodyNeed(0)
+    : _ws(ws), _server(s), _eventHandler(e), _contentLength(0), _status(0), _ischunk(0), _erron(0), _defaultBodyNeed(0),
+    _matchedHost(0), _matchedLocation(0)
 {
     std::memset(&_addr, 0, sizeof(_addr));
     socklen_t addr_size = static_cast<socklen_t>(sizeof(_addr));
@@ -580,6 +581,10 @@ void Client::makeResponseData(int statusCode, int defaultBodyNeed)
 
 std::string Client::createDefaultPage(int statusCode)
 {
+
+    if (_matchedLocation == 0)
+        return createDefaultBody(statusCode);
+
     const std::vector<t_status_page> &errorPages = _matchedLocation->getErrorPage();
     std::string html;
 
