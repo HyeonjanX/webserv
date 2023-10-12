@@ -761,7 +761,7 @@ void Client::handleHeaders(void)
         {
             // CGI
             const std::string &filepath = Util::getRootedPath(path, uri, root);
-            int statusCode = !canExcuteCgi(method, cgiExt, filepath);
+            int statusCode = canExcuteCgi(method, cgiExt, filepath);
             if (statusCode)
             {
                 std::cerr << "100 체크 => CGI 실행 불가: " << statusCode << std::endl;
