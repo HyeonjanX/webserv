@@ -1,4 +1,0 @@
-Hello, this is a simple text file.
-It is being used to demonstrate file writing in C++.
-Multiple lines can be present.
-The end.
