@@ -679,7 +679,7 @@ void Client::sendProcess(void)
         std::cout << RED << "전송완료: " << _request.getHttpMethod() << " " << _request.getRequestPath() << " " << _response.getStatusCode() << RESET << std::endl;
         if (!(DEBUG_PRINT || true)) std::cout << RED << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << RESET << ")" << std::endl;
 
-        if (_response.getStatusCode() >= 400 && _response.getStatusCode() < 500)
+        if (_response.getStatusCode() >= 400)
         {
             _ws->closeClient(*this);
             return;
