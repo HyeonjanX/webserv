@@ -177,7 +177,6 @@ void Config::initializeDirectives()
 	// 로케이션 지시어 초기화
 	_locationDirectives["path"] = TYPE_STRING;
 	_locationDirectives["root"] = TYPE_STRING;
-	_locationDirectives["alias"] = TYPE_STRING;
 	_locationDirectives["client_max_body_size"] = TYPE_STRING;
 	_locationDirectives["cgi"] = TYPE_STRING;
 	_locationDirectives["autoindex"] = TYPE_BOOLEAN;
