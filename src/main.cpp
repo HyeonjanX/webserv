@@ -7,7 +7,7 @@
 #include <cstdlib>
 void	check_leaks(void)
 {
-	system("leaks --list -- Webserv");
+	system("leaks --list -- webserv");
 }
 #define ATEXIT_CHECK() atexit(check_leaks)
 #else
