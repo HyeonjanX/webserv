@@ -151,7 +151,7 @@ void Util::initHttpErrorMap(void)
 
 std::string Util::getStatusCodeMessage(int statusCode)
 {
-    static std::string defaultMessage = std::string("Unknown Error");
+    static std::string defaultMessage = std::string("No Message");
     if (Util::_httpErrorMap.empty())
     {
         Util::initHttpErrorMap();
@@ -298,15 +298,15 @@ std::string	Util::removeDuplicate(std::string const& input)
 
 
 // path는 /로 시작 보장 (HTTP/1.1 규칙)
+/**
+ * @brief 
+ * 
+ * @param path HTTP/1.1 규칙에 의해 /로 시작.
+ * @return std::string 
+ */
 std::string Util::extractBasename(const std::string &path)
 {
-    size_t lastSlash = path.find_last_of("/");
-
-    if (lastSlash != std::string::npos)
-    {
-        return path.substr(lastSlash);
-    }
-    return std::string("");
+    return path.substr(path.find_last_of("/") + 1);
 }
 
 std::string Util::extractDirPath(const std::string &path)

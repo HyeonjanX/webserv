@@ -4,7 +4,7 @@
 #define DEBUG_SESSION_PRINT false
 
 Client::Client(int serverSocket, Webserver *ws, Server *s, EventHandler *e)
-    : _ws(ws), _server(s), _eventHandler(e), _contentLength(0), _status(0), _ischunk(0), _erron(0), _defaultBodyNeed(0),
+    : _ws(ws), _server(s), _eventHandler(e), _contentLength(0), _status(0), _ischunk(0), _defaultBodyNeed(0),
     _matchedHost(0), _matchedLocation(0)
 {
     std::memset(&_addr, 0, sizeof(_addr));
@@ -175,7 +175,6 @@ void Client::readProcess(void)
         _status = READ_END;
         statusCode = errorStatusCode;
         _defaultBodyNeed = 1;
-        _erron = 1;
     }
 
     if (_request.getHttpMethod().compare("HEAD") == 0)
@@ -356,75 +355,45 @@ void Client::readBody(void)
  */
 int Client::doNonCgiProcess(const std::string &method)
 {
-    const std::string GET_METHOD("GET");
-    const std::string POST_METHOD("POST");
-    const std::string DELETE_METHOD("DELETE");
+    int statusCode;
 
     const std::string &root = _matchedLocation->getRoot();
     const std::string &path = _request.getRequestPath();
     const std::string &uri = _matchedLocation->getUri();
+    // filepath는 조금씩 규칙이 다를 수 있어서, 각각의 블럭에서 처리한다.
 
-    if (DEBUG_PRINT)
-        std::cout << YELLOW << "doNonCgiProcess => root: " << root << " path: " << path << std::endl;
-
-    if (DEBUG_PRINT)
-        std::cout << BLUE << method << "_METHOD()" << RESET << std::endl;
-
-    if (method.compare(GET_METHOD) == 0)
+    if (method.compare("GET") == 0)
     {
         bool autoindex = _matchedLocation->getAutoindex();
         const std::vector<std::string> &index = _matchedLocation->getIndex();
 
-        return notCgiGetProcess(root, path, autoindex, index);
+        statusCode = notCgiGetProcess(root, path, autoindex, index);
     }
-    else if (method.compare(POST_METHOD) == 0)
+    else if (method.compare("POST") == 0)
     {
-        // POST의 경우, 경로를 제외한 path만 받아들인다.
-        std::string filepath = root + Util::extractBasename(path);
-
+        const std::string &basename = Util::extractBasename(path); // POST의 경우, 경로를 제외한 path만 (basename) 받아들인다.
         const std::string &body = _request.getPostData(); // throw 400
 
-        // std::cout << "body.size(): " << body.size() << std::endl;
-
-        return notCgiPostProcess(filepath, body);
+        statusCode = notCgiPostProcess(root, basename, body);
     }
-    else if (method.compare(DELETE_METHOD) == 0)
+    else if (method.compare("DELETE") == 0)
     {
         std::string filepath = Util::getRootedPath(path, uri, root);
 
-        return notCgiDeleteProcess(filepath);
-    }
-    else if (method.compare("PUT") == 0)
-    {
-        std::string filepath = root + Util::extractBasename(path);
-        const std::string &body = _request.getPostData(); // throw 400
-        return notCgiPostProcess(filepath, body);
+        statusCode = notCgiDeleteProcess(filepath);
     }
     else if (method.compare("HEAD") == 0)
     {
-        int statusCode;
-        try
-        {
-            bool autoindex = _matchedLocation->getAutoindex();
-            const std::vector<std::string> &index = _matchedLocation->getIndex();
-            const std::string &filepath = Util::getRootedPath(path, uri, root);
-            File::getFile(path, filepath, autoindex, index);
-            statusCode = 200;
-            _erron = 0;
-            _defaultBodyNeed = 0; // HEAD 요청은 바디 X
-        }
-        catch (int errorStatusCode)
-        {
-            statusCode = errorStatusCode;
-            _erron = 1;           // _erron 삭제 해도 될 수도
-            _defaultBodyNeed = 0; // HEAD 요청은 바디 X
-        }
-        return statusCode;
+        bool autoindex = _matchedLocation->getAutoindex();
+        const std::vector<std::string> &index = _matchedLocation->getIndex();
+
+        statusCode = notCgiHeadProcess(root, path, autoindex, index);
     }
     else
     {
         throw 405; // 405 Method Not Allowed
     }
+    return statusCode;
 }
 
 /**
@@ -481,45 +450,65 @@ int Client::notCgiGetProcess(const std::string &root, const std::string &path, b
     try
     {
         const std::string &filepath = Util::getRootedPath(path, _matchedLocation->getUri(), root);
+
         std::string fileData = File::getFile(path, filepath, autoindex, index);
+        
         _response.setBody(fileData);
         statusCode = 200;
-        _erron = 0;
         _defaultBodyNeed = 0; // 바디는 fileData
     }
     catch (int errorStatusCode)
     {
         statusCode = errorStatusCode;
-        _erron = 1;           // _erron 삭제 해도 될 수도
         _defaultBodyNeed = 1; // 에러는 기본 바디 필요
     }
     return statusCode;
 }
 
+int Client::notCgiHeadProcess(const std::string &root, const std::string &path, bool autoindex, const std::vector<std::string> &index)
+{
+    int statusCode;
+    try
+    {
+        const std::string &filepath = Util::getRootedPath(path, _matchedLocation->getUri(), root);
+
+        File::getFile(path, filepath, autoindex, index, true);
+        
+        statusCode = 200;
+    }
+    catch (int errorStatusCode)
+    {
+        statusCode = errorStatusCode;
+    }
+    
+    _defaultBodyNeed = 0; // HEAD 요청은 바디 X
+
+    return statusCode;
+}
+
 /**
- * @brief
- *
- * @param filepath
- * @param body
+ * @brief 
+ * 
+ * @param root 
+ * @param basename 
+ * @param body 
  * @return int statusCode: Response 응답에 사용 될 값이다.
  */
-int Client::notCgiPostProcess(const std::string &filepath, const std::string &body)
+int Client::notCgiPostProcess(const std::string &root, const std::string &basename, const std::string &body)
 {
     int statusCode;
 
     try
     {
-        File::uploadFile(filepath, body);
-        statusCode = 201; // created
-        _erron = 0;
-        _defaultBodyNeed = 1; // Post는 바디 콘텐츠 X
+        statusCode = File::uploadFile(root, basename, body); // 201 Created, 204 No Content
     }
     catch (int errorStatusCode)
     {
         statusCode = errorStatusCode;
-        _erron = 1;
-        _defaultBodyNeed = 1;
     }
+
+    _defaultBodyNeed = 1; // Post는 바디 콘텐츠 X
+
     return statusCode;
 }
 
@@ -537,15 +526,14 @@ int Client::notCgiDeleteProcess(const std::string &filepath)
     {
         File::deleteFile(filepath);
         statusCode = 200;
-        _erron = 0;
-        _defaultBodyNeed = 1; // Delete는 바디 콘텐츠 X
     }
     catch (int errorStatusCode)
     {
         statusCode = errorStatusCode;
-        _erron = 1;
-        _defaultBodyNeed = 1;
     }
+
+    _defaultBodyNeed = 1; // Delete는 바디 콘텐츠 X
+
     return statusCode;
 }
 
@@ -646,8 +634,8 @@ std::string Client::createDefaultBody(int statusCode)
 // send 실패시 throw 가능
 void Client::sendProcess(void)
 {
-    if (DEBUG_PRINT || true)
-        std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
+    // if (DEBUG_PRINT || true)
+    //     std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
 
     ssize_t bytes_sent = send(_socket, _response.getData().c_str(), _response.getDataLength(), 0);
 
@@ -670,14 +658,14 @@ void Client::sendProcess(void)
     _response.updateData(bytes_sent);
     _response.updateSendedBytes(bytes_sent);
 
-    if (DEBUG_PRINT || true)
-        std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl; // 마지막 테스트: 100000140
+    // if (DEBUG_PRINT || true)
+    //     std::cout << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << std::endl; // 마지막 테스트: 100000140
 
     if (checkSendBytes() >= 0)
     {
-        if (!(DEBUG_PRINT || true)) std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
-        std::cout << RED << "전송완료: " << _request.getHttpMethod() << " " << _request.getRequestPath() << " " << _response.getStatusCode() << RESET << std::endl;
-        if (!(DEBUG_PRINT || true)) std::cout << RED << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << RESET << ")" << std::endl;
+        // if (!(DEBUG_PRINT || true)) std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
+        // std::cout << RED << "전송완료: " << _request.getHttpMethod() << " " << _request.getRequestPath() << " " << _response.getStatusCode() << RESET << std::endl;
+        // if (!(DEBUG_PRINT || true)) std::cout << RED << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << RESET << ")" << std::endl;
 
         if (_response.getStatusCode() >= 400)
         {
@@ -729,7 +717,7 @@ void Client::handleHeaders(void)
         throw 400;
     }
 
-    std::cout << "hostname: " << hostname << std::endl;
+    // std::cout << "hostname: " << hostname << std::endl;
 
     sessionProcess();
 
@@ -753,9 +741,10 @@ void Client::handleHeaders(void)
         if (cgiExt.empty() || !Util::endsWith(path, cgiExt))
         {
             // Non-CGI
-            const std::string &filepath = root + Util::extractBasename(path);
-            // const std::string &filepath = root + "/" + _request.getRequestPath().substr(uri.length());
-            int statusCode = File::canUploadFile(filepath);
+            const std::string &basename = Util::extractBasename(path);
+
+            int statusCode = File::canUploadFile(root, basename);
+            
             if (statusCode)
             {
                 std::cerr << "100 체크 => 업로드 불가: " << statusCode << std::endl;
@@ -765,8 +754,11 @@ void Client::handleHeaders(void)
         else
         {
             // CGI
+            
             const std::string &filepath = Util::getRootedPath(path, uri, root);
+            
             int statusCode = canExcuteCgi(method, cgiExt, filepath);
+            
             if (statusCode)
             {
                 std::cerr << "100 체크 => CGI 실행 불가: " << statusCode << std::endl;
@@ -983,7 +975,6 @@ void Client::clean()
 
     _status = BEFORE_READ;
     _ischunk = 0;
-    _erron = 0;
     _defaultBodyNeed = 0;
 
     _matchedHost = 0;

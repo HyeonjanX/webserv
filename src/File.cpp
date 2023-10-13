@@ -155,7 +155,7 @@ std::string File::getOnlyFile(const std::string &filepath)
  *
  * @throws int statusCode (404: 파일 존재, 403: 읽기 권한, 500: 읽기과정에서의 오류)
  */
-std::string File::getFile(const std::string &path, const std::string &filepath, bool autoindex, const std::vector<std::string> &index)
+std::string File::getFile(const std::string &path, const std::string &filepath, bool autoindex, const std::vector<std::string> &index, bool isHead)
 {
     struct stat fileInfo;
     std::string content;
@@ -177,7 +177,7 @@ std::string File::getFile(const std::string &path, const std::string &filepath, 
                 std::cerr << "파일인데 권한 없음: " << filepath << std::endl;
                 throw 403;
             }
-            content = readFile(filepath);
+            content = isHead ? std::string("") : readFile(filepath);
         }
         else if (/*isDiectory: true && */autoindex) 
         {
@@ -208,7 +208,8 @@ std::string File::getFile(const std::string &path, const std::string &filepath, 
                     throw 403;
                 }
                 if (DEBUG_PRINT) std::cout << "File: " << newFilepath << " 읽기 시도" << std::endl;
-                content = readFile(newFilepath);
+                
+                content = isHead ? std::string("") : readFile(newFilepath);
 
                 return content;
             }
@@ -237,9 +238,14 @@ std::string File::getFile(const std::string &path, const std::string &filepath, 
  * @return int statusCode (409: 중복파일, 403: 디렉토리 유효성 && 쓰기 권한)
  *
  */
-int File::canUploadFile(const std::string filepath)
+int File::canUploadFile(const std::string &root, const std::string &basename)
 {
-    const bool IS_DUPLICATE_OK = true; // for 테스터기
+    const bool IS_DUPLICATE_OK = true; // for 테스터기, 하나의 정책 사항
+
+    if (basename.empty()) // path == "/" 인 특수한 상황
+        return 403;
+
+    const std::string &filepath = root + basename;
     struct stat fileInfo, dirInfo;
 
     std::cout << YELLOW << "======= File::uploadFile =======" << RESET << std::endl;
@@ -252,14 +258,15 @@ int File::canUploadFile(const std::string filepath)
 
     const std::string &dirPath = Util::extractDirPath(filepath);
     std::cout << YELLOW << "dirPath: " << dirPath << RESET << std::endl;
-    std::cout << YELLOW << "fileExists(dirPath, dirInfo): " << fileExists(dirPath, dirInfo) << RESET << std::endl;
-    std::cout << YELLOW << "isDirectory: " << isDirectory(dirInfo) << RESET << std::endl;
-    std::cout << YELLOW << "checkFileWritePermission: " << !checkFileWritePermission(dirPath) << RESET << std::endl;
+    std::cout << YELLOW << "!fileExists(dirPath, dirInfo): " << !fileExists(dirPath, dirInfo) << RESET << std::endl;
+    std::cout << YELLOW << "!isDirectory: " << !isDirectory(dirInfo) << RESET << std::endl;
+    std::cout << YELLOW << "!checkFileWritePermission: " << !checkFileWritePermission(dirPath) << RESET << std::endl;
 
     if (!fileExists(dirPath, dirInfo) ||
         !isDirectory(dirInfo) ||
         !checkFileWritePermission(dirPath))
     {
+        std::cerr << RED << "File canUploadFile: " << filepath << " >>> 403 에러" << RESET << std::endl;
         return 403;
     }
 
@@ -271,28 +278,31 @@ int File::canUploadFile(const std::string filepath)
  *
  * @param filepath
  * @param content
- * @return true 업로드 성공
- * @return false 업로드 실패
+ * @return statusCode (200, 204: No content) 성공에도 여러 경우가 있어서 이렇게
  *
  * @throws int statusCode (409: 중복파일, 403: 디렉토리 유효성 && 쓰기 권한, 500: 쓰기 과정에서 실패)
  */
-bool File::uploadFile(const std::string filepath, const std::string &content)
+int File::uploadFile(const std::string &root, const std::string &basename, const std::string &content)
 {
-    int statusCode = canUploadFile(filepath);
+    const std::string &filepath = root + basename;
+
+    int statusCode = canUploadFile(root, basename);
 
     if (statusCode)
     {
         throw statusCode;
     }
 
-    if (!writeFile(filepath, content))
+    if (!content.empty() && !writeFile(filepath, content))
     {
         throw 500;
     }
 
-    std::cout << BLUE << "file upload ok: " << content.length() << RESET << std::endl;
+    statusCode = content.empty() ? 204 : 201; // 201 Created
 
-    return true;
+    std::cout << BLUE << "file upload " << statusCode << ", length: " << content.length() << RESET << std::endl;
+
+    return statusCode;
 }
 
 /**

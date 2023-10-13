@@ -154,6 +154,11 @@ void Request::parseRequestLine(std::string const &requestLine)
 	_requestUrl = Util::urlDecode(requestLine.substr(pos1 + 1, pos2 - (pos1 + 1)));
 	_httpVersion = requestLine.substr(pos2 + 1);
 
+	// "/" 요청 외, path 뒤에 붙는 / 없애는 정규화
+	size_t pos = _requestUrl.find_last_not_of("/");
+	if (pos != std::string::npos)
+		_requestUrl.substr(0, pos + 1);
+
 	if (DEBUG_PRINT)
 	{
 		std::cout << GREEN << "|" << _method << "| |" << _requestUrl << "| |" << _httpVersion << "|" << RESET << std::endl;

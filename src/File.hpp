@@ -35,14 +35,14 @@ public:
     static bool         checkFileExecutePermission(const std::string &filepath);
 
     static bool         checkWritePermission(const std::string &filepath);
-    static std::string  getOnlyFile(const std::string &filepath); // GET
-    static std::string  getFile(const std::string &path, const std::string &filepath, bool autoindex, const std::vector<std::string> &index); // GET
+    static std::string  getOnlyFile(const std::string &filepath);
+    static std::string  getFile(const std::string &path, const std::string &filepath, bool autoindex, const std::vector<std::string> &index, bool isHead = false); // GET
     static std::string  readFile(const std::string &filepath);
-    static bool         uploadFile(const std::string _filepath, const std::string &_content); // POST
+    static int          uploadFile(const std::string &root, const std::string &basename, const std::string &_content);
     static bool         writeFile(const std::string &_filepath, const std::string &_content);
-    static bool         deleteFile(const std::string &filepath); // DELETE
+    static bool         deleteFile(const std::string &filepath);
 
-    static int          canUploadFile(const std::string filepath);
+    static int          canUploadFile(const std::string& root, const std::string &basename);
     static int          canExecuteFile(const std::string& filepath);
 
     static std::string  generateAutoIndexHTML(const std::string &path, const std::string &dirPath);

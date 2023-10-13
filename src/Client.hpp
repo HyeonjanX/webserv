@@ -79,7 +79,6 @@ public:
 
     int                     _status;
     int                     _ischunk;
-    int                     _erron;
     int                     _defaultBodyNeed;
 
     const Host*             _matchedHost;
@@ -110,8 +109,9 @@ public:
     int         doRequest(void);
 
     int         doNonCgiProcess(const std::string &method);
+    int         notCgiHeadProcess(const std::string &root, const std::string &path, bool autoindex, const std::vector<std::string> &index);
     int         notCgiGetProcess(const std::string &root, const std::string &filepath, bool autoindex, const std::vector<std::string> &index);
-    int         notCgiPostProcess(const std::string &filepath, const std::string &body);
+    int         notCgiPostProcess(const std::string &root, const std::string &basename, const std::string &body);
     int         notCgiDeleteProcess(const std::string &filepath);
     
     void        makeResponseData(int statusCode, int defaultBodyNeed); // _response.generateResponseData() 호출
