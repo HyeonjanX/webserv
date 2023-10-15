@@ -1,0 +1,26 @@
+{
+    "server": {
+        "listen": 8080,
+        "server_name": "localhost",
+        "root": ".",
+        "location": {
+            "path": "/",
+            "root": "data/html/",
+            "limit_except": ["GET"],
+            "index": ["index.html"]
+        },
+        "location": {
+            "path": "/list/",
+            "root": "./",
+            "limit_except": ["GET"],
+            "autoindex": true,
+            "error_page": [404, "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
+        },
+        "location": {
+            "path": "/upload/",
+            "root": "./data/image/",
+            "limit_except": ["POST", "DELETE"],
+            "error_page": [500, 501, 502, 503, "/data/html/50x.html"]
+        }
+    }
+}

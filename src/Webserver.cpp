@@ -32,7 +32,7 @@ Webserver::Webserver(int ac, const char **av)
     }
     else
     {
-        _configPath = "./test.json";
+        _configPath = "./data/json/default.json";
         std::cout << "디폴트 위치" << _configPath << "에서 config 읽어옵니다." << std::endl;
     }
 

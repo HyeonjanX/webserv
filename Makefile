@@ -1,7 +1,6 @@
 CXX = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
-# CXXFLAGS += -MD
-# CXXFLAGS += -fsanitize=address -g3
+CXXFLAGS += -MD
 
 LDFLAGS =
 INCLUDE = -I.
@@ -31,7 +30,8 @@ OBJS = $(addprefix $(OBJDIR), $(OBJECT))
 DEPS = $(OBJS:.o=.d)
 
 ifdef DEBUG
-	CXXFLAGS += -g -DDEBUG
+	CXXFLAGS += -DDEBUG
+	CXXFLAGS += -fsanitize=address -g3
 endif
 
 NAME = webserv

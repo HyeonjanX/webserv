@@ -1,0 +1,31 @@
+{
+    "server": {
+        "listen": 8081,
+        "server_name": "localhost",
+        "root": ".",
+        "location": {
+            "path": "/",
+            "root": "./data/html/",
+            "limit_except": ["GET"],
+            "index": ["index.html"]
+        }
+    },
+    "server": {
+        "listen": 8082,
+        "root": ".",
+        "location": {
+            "path": "/",
+            "root": "./",
+            "autoindex": true,
+            "limit_except": ["GET"],
+            "error_page": [500, 501, 502, 503, "./data/html/50x.html"]
+        },
+        "location": {
+            "path": "/cgi",
+            "root": "./",
+            "limit_except": ["GET", "POST"],
+            "cgi": ".php",
+            "error_page": [500, 501, 502, 503, "./data/html/50x.html"]
+        }
+    }
+}

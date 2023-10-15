@@ -1,0 +1,35 @@
+{
+    "server": {
+        "client_max_body_size": "500m",
+
+        "location": {
+            "path": "/",
+            "limit_except": ["GET"],
+            "autoindex": true,
+            "index": ["youpi.bad_extension"],
+            "root": "tester/YoupiBanane/",
+            "cgi": ".bla"
+        },
+        "location": {
+            "path": "/put_test/",
+            "limit_except": ["PUT"],
+            "root": "tester/YoupiBanane/puted/",
+            "cgi": ".bla"
+        },
+        "location": {
+            "path": "/post_body/",
+            "limit_except": ["POST"],
+            "root": "tester/YoupiBanane/posted/",
+            "client_max_body_size": "100",
+            "index": ["youpi.bla"],
+            "cgi": ".bla"
+        },
+        "location": {
+            "path": "/directory/",
+            "limit_except": ["GET", "POST"],
+            "root": "tester/YoupiBanane/",
+            "index": ["youpi.bad_extension"],
+            "cgi": ".bla"
+        }
+    },
+}
