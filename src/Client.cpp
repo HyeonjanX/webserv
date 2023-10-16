@@ -887,7 +887,7 @@ void Client::cgiProcess(const std::string &method, const std::string &cgiExt)
     if (method.compare("POST") == 0)
     {
         _cgi.setPostData(_request.getPostData());
-        std::cout << "cgi data: " << _cgi.getPostData().size() << std::endl;
+        // std::cout << "cgi data: " << _cgi.getPostData().size() << std::endl;
     }
 
     try

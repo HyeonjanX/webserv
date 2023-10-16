@@ -122,7 +122,6 @@ void Cgi::closePipe(int &fd)
  */
 void Cgi::exec(const std::string &method, const std::string &programPath, const std::vector<std::string> &argv)
 {
-    std::cout << BLUE << "=================== exec ================" << RESET << std::endl;
     // 5. pipe 생성 && 논블록 처리
     if ((pipe(_outPipe) == -1 || fcntl(_outPipe[READ_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1) ||
         (pipe(_inPipe) == -1 || fcntl(_inPipe[WRITE_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1))
@@ -144,8 +143,6 @@ void Cgi::exec(const std::string &method, const std::string &programPath, const 
 
         char **argvArray = convertToCArray(argv);
         char **envpArray = convertToCArray(_env);
-
-        std::cerr << RED << "exec 타겟: " << programPath.c_str() << RESET << std::endl;
 
         execve(programPath.c_str(), argvArray, envpArray);
 

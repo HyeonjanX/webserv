@@ -158,6 +158,8 @@ void Request::parseRequestLine(std::string const &requestLine)
 	size_t pos = _requestUrl.find_last_not_of("/");
 	if (pos != std::string::npos)
 		_requestUrl = _requestUrl.substr(0, pos + 1);
+	else
+		_requestUrl = std::string("/");
 
 	if (DEBUG_PRINT)
 	{
