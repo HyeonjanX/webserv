@@ -92,8 +92,8 @@ void Cgi::clearPipe()
 {
     closePipe(_inPipe[READ_FD]);
     closePipe(_inPipe[WRITE_FD]);
-    closePipe(_inPipe[READ_FD]);
-    closePipe(_inPipe[WRITE_FD]);
+    closePipe(_outPipe[READ_FD]);
+    closePipe(_outPipe[WRITE_FD]);
 }
 
 void Cgi::closePipe(int &fd)
