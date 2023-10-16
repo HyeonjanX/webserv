@@ -2,7 +2,7 @@
     "server": {
         "listen": 8080,
         "server_name": "localhost",
-        "root": ".",
+
         "location": {
             "path": "/",
             "root": "data/html/",
@@ -14,13 +14,25 @@
             "root": "./",
             "limit_except": ["GET"],
             "autoindex": true,
-            "error_page": [404, "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
+            "error_page": [404, "/data/html/50x.html/"]
         },
         "location": {
             "path": "/upload/",
             "root": "./data/image/",
             "limit_except": ["POST", "DELETE"],
-            "error_page": [500, 501, 502, 503, "/data/html/50x.html"]
+            "error_page": [500, 501, 502, 503, "/data/html/50x.html/"]
+        },
+        "location": {
+            "path": "/invalid/return/",
+            "root": "./",
+            "limit_except": ["GET"],
+            "return": [301, "https://youtube.com"]
+        },
+        "location": {
+            "path": "/asdf/",
+            "root": "./",
+            "limit_except": ["GET"],
+            "return": [301, "./data/html/50x.html/"]
         }
     }
 }

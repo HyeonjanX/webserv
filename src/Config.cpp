@@ -84,12 +84,16 @@ static long getMeasurementSize(const std::string &measure)
 	return size;
 }
 
-static bool isValidUrlString(const std::string &url)
+static bool	isValidUriString(const std::string &url)
 {
 	for (size_t i = 0; i < url.length(); ++i)
 	{
-		if (!std::isalnum(url[i]) && url[i] != '-' && url[i] != '_'
-			&& url[i] != '.' && url[i] != '/' && url[i] != '%')
+		char c = url[i];
+
+		if (!((std::isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~' ||
+			c == ':' || c == '/' || c == '?' || c == '#' || c == '[' || c == ']' ||
+			c == '@' || c == '!' || c == '$' || c == '&' || c == '\'' || c == '(' ||
+			c == ')' || c == '*' || c == '+' || c == ',' || c == ';' || c == '%' || c == '=')))
 		{
 			return false;
 		}
@@ -303,7 +307,7 @@ void Config::parseServer(std::map<int, std::vector<t_host> > &servers, const std
 
 	std::map<int, std::vector<t_host> >::iterator it = servers.find(host._listen);
 
-	std::cout << "현재 ID: " << host._listen << host._server_name << std::endl;
+	if (DEBUG_PRINT) std::cout << "현재 ID: " << host._listen << host._server_name << std::endl;
 	if (it == servers.end())
 		servers[host._listen] = std::vector<t_host>(1, host);
 	else
@@ -410,7 +414,6 @@ void Config::serverIdentyIsDuplicated(const std::vector<t_host> &hosts, const t_
 	{
 		if (hosts[i]._server_name.compare(host._server_name) == 0)
 		{
-			// std:cerr << ""
 			throw "host간 identity (port + server name)은 중복이 불가합니다.";
 		}
 	}
@@ -516,12 +519,12 @@ void Config::serverParseErrorPage(t_host &host, const JsonData &value)
 	host._error_page.push_back(ret);
 }
 
-// path와 root 모두 /[string]/ 형식을 따라야만 가능하게 설정
+// path는 /[string]/ 형식을 따라야만 가능하게 설정
 void Config::locationParsePath(t_location &location, const JsonData &value)
 {
 	std::string urlPath = value.getStringData();
 
-	if ((isValidUrlString(urlPath) == false)
+	if ((isValidUriString(urlPath) == false)
 		|| (isValidDirectoryPath(urlPath, 'P') == false))
 	{
 		std::cerr << "Invalid Location path: " << urlPath << std::endl;
@@ -530,11 +533,12 @@ void Config::locationParsePath(t_location &location, const JsonData &value)
 	location.m_path = urlPath;
 }
 
+// root는 [string]/ 형식을 따라야만 가능하게 설정
 void Config::locationParseRoot(t_location &location, const JsonData &value)
 {
 	std::string rootPath = value.getStringData();
 
-	if ((isValidUrlString(rootPath) == false)
+	if ((isValidUriString(rootPath) == false)
 		|| (isValidDirectoryPath(rootPath, 'R') == false))
 	{
 		std::cerr << "Invalid Location root: " << rootPath << std::endl;
@@ -654,6 +658,7 @@ void Config::locationParseErrorPage(t_location &location, const JsonData &value)
 	location._error_page.push_back(ret);
 }
 
+// 리디렉션되는 부분
 void Config::locationParseReturn(t_location &location, const JsonData &value)
 {
 	t_redirect ret;
@@ -674,8 +679,8 @@ void Config::locationParseReturn(t_location &location, const JsonData &value)
 
 	if (arr[1].getJsonDataType() != TYPE_STRING ||
 		arr[1].getStringData().empty() ||
-		arr[1].getStringData()[0] != '/')
-		throw "return의 path는 /로 시작하는 문자열이여야 합니다.";
+		isValidUriString(arr[1].getStringData()) == false)
+		throw "올바르지 않은 return path 형태입니다.";
 
 	ret._page = arr[1].getStringData();
 

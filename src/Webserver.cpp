@@ -189,7 +189,7 @@ void Webserver::runWebserver(void)
 
                         continue;
                     }
-                }                
+                }
 
                 std::map<int, Client>::iterator cit2 = searchClientByPipeFd(curr.ident);
 

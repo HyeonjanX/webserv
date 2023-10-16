@@ -545,6 +545,7 @@ int Client::notCgiDeleteProcess(const std::string &filepath)
  */
 void Client::makeResponseData(int statusCode, int defaultBodyNeed)
 {
+	std::cout << "makeResponseData" << std::endl;
     // 두 인자를 새롭게 받아 와서 활용.
     _response.setStatusCode(statusCode);
 
@@ -559,8 +560,12 @@ void Client::makeResponseData(int statusCode, int defaultBodyNeed)
     // 1.2 300번대 리다이렉트
     if (statusCode / 100 == 3) // _matchedLocation && _matchedLocation->isRedirect()
     {
+		std::cout << "redirect" << std::endl;
         _response.setHeader(std::string("Location"),
-                            std::string("http://") + _request.findHeaderValue(std::string("host")) + _matchedLocation->getRedirectUrl(_request.getRequestUrl()));
+							_matchedLocation->getRedirectUrl(
+								_request.findHeaderValue(std::string("host")),
+								_request.getRequestUrl())
+							);
     }
 
     // 2. _response.generateResponseData() 호출: Response가 가진것들을 활용해 _data로 만듬.
@@ -588,8 +593,8 @@ std::string Client::createDefaultPage(int statusCode)
                 
                 const std::string &root = _matchedLocation->getRoot();
                 const std::string &filepath = root + it->_page.substr(1);
-                
-                std::cout << RED << "디폴트에러페이지: " << filepath << RESET << std::endl;
+                if (DEBUG_PRINT)
+                    std::cout << RED << "디폴트에러페이지: " << filepath << RESET << std::endl;
 
                 html = File::getOnlyFile(filepath); // throw statusCode
                 
