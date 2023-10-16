@@ -360,7 +360,7 @@ int Client::doNonCgiProcess(const std::string &method)
     const std::string &root = _matchedLocation->getRoot();
     const std::string &path = _request.getRequestPath();
     const std::string &uri = _matchedLocation->getUri();
-    // filepath는 조금씩 규칙이 다를 수 있어서, 각각의 블럭에서 처리한다.
+    /* filepath는 조금씩 규칙이 다를 수 있어서, 각각의 블럭에서 처리한다. */
 
     if (method.compare("GET") == 0)
     {
@@ -663,9 +663,9 @@ void Client::sendProcess(void)
 
     if (checkSendBytes() >= 0)
     {
-        // if (!(DEBUG_PRINT || true)) std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
+        // std::cout << GREEN << "------- sendProcess -------" << RESET << std::endl;
         // std::cout << RED << "전송완료: " << _request.getHttpMethod() << " " << _request.getRequestPath() << " " << _response.getStatusCode() << RESET << std::endl;
-        // if (!(DEBUG_PRINT || true)) std::cout << RED << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << RESET << ")" << std::endl;
+        // std::cout << RED << "send: " << bytes_sent << " bytes, (" << _response.getSendBytes() << "/" << _response.getTotalBytes() << ")" << RESET << std::endl;
 
         if (_response.getStatusCode() >= 400)
         {
@@ -906,50 +906,48 @@ void Client::cgiProcess(const std::string &method, const std::string &cgiExt)
     if (method.compare("POST") == 0 && !_cgi.getPostData().empty())
         _eventHandler->addKeventToChangeList(_cgi.getInPipe(WRITE_FD), EVFILT_WRITE, EV_ADD, 0, 0, NULL);
     _eventHandler->addKeventToChangeList(_cgi.getOutPipe(READ_FD), EVFILT_READ, EV_ADD, 0, 0, NULL);
+    _eventHandler->registerTimerEvent(_cgi.getOutPipe(READ_FD), TIMER_PIPE_SEC);
 }
 
+/**
+ * @brief 
+ * 
+ * @throws int statusCode 500, 502(Bad Gateway)
+ */
 void Client::makeCgiResponse()
 {
+    int fd = _cgi.getInPipe(WRITE_FD);
+
+    if (fd != -1)
+        _ws->insertToCloseFds(fd);
+
+    _cgi.clearPipe();
+
+    int exitCode = _cgi.clearChild();
+
     int statusCode = 200;
-
-    _cgi.closePipe(_cgi.getOutPipe(READ_FD));
-
     const std::string &readData = _cgi.getReadData();
-
-    // CGI 테스트시 주석 해제하면 유용함
-    // std::cout << BLUE << "======== readData ===========" << RESET << std::endl;
-    // std::cout << RED << readData << RESET << std::endl;
-    // std::cout << BLUE << "========= . .. ..  . . ==========" << RESET << std::endl;
 
     size_t pos = readData.find("\r\n\r\n");
     std::string header;
     
     if (pos == std::string::npos)
-        throw "CGI 응답에서 더블CRLF를 찾지 못했습니다.";
+    {
+        std::cerr << RED << "CGI 응답에서 더블CRLF를 찾지 못했습니다." << RESET << std::endl;
+        throw 502;
+    }
 
-    _response.setBody(readData.substr(pos + 4));
     header = readData.substr(0, pos);
 
     handleCgiHeaders(header, statusCode); // 꼭 사용해야할것은 Status 헤더
 
-    if (DEBUG_PRINT)
+    if (200 <= statusCode && statusCode <= 299 && exitCode)
     {
-        std::cout << YELLOW<< "================ CGI의 응답 생성 ==============" << std::endl;
-        
-        std::cout << GREEN << "_cgi.getPostData().size() :" << _cgi.getPostData().size() << std::endl; // 1억
-        std::cout << GREEN << "_cgi.getSendBytes() :" << _cgi.getSendBytes() << std::endl; // 1억 
-        std::cout << GREEN << "_readData.size() :" << readData.size() << std::endl; // 1억 + 58
-        
-        std::cout << YELLOW << "************** 헤더 *************************" << std::endl;
-        
-        if (pos) std::cout << readData.substr(0, pos) << std::endl;
-        else std::cout << "No 헤더" << std::endl;
-        
-        std::cout << BLUE << "_cgi.getPostData().size(): " << _cgi.getPostData().size() << std::endl;
-        std::cout << BLUE << "_response.getBody().size(): " << _response.getBody().size() << std::endl;
-
-        std::cout << YELLOW<< "================ ******** ==============" << RESET  << std::endl;
+        std::cerr << RED << "200 CGI 헤더 응답과 달리 0이 아닌 exitCode: " << exitCode << RESET << std::endl;
+        throw 500;
     }
+    
+    _response.setBody(readData.substr(pos + 4));
 
     makeResponseData(statusCode, 0);
 
@@ -958,13 +956,22 @@ void Client::makeCgiResponse()
     _cgi.clearCgi();
 }
 
-void Client::makeCgiErrorResponse()
+/**
+ * @brief 
+ * 
+ * @param errStatusCode 50x 에러코드
+ */
+void Client::makeCgiErrorResponse(int errStatusCode)
 {
-    makeResponseData(500, 1);
+    int fd;
 
-    _eventHandler->turnOnWrite(_socket);
-
+    if ((fd = _cgi.getInPipe(WRITE_FD)) != -1)
+        _ws->insertToCloseFds(fd);
+    if ((fd = _cgi.getOutPipe(READ_FD)) != -1)
+        _ws->insertToCloseFds(fd);
     _cgi.clearCgi();
+    makeResponseData(errStatusCode, 1);
+    _eventHandler->turnOnWrite(_socket);
 }
 
 bool Client::isPipe(int fd) { return _cgi.isPipe(fd); }

@@ -108,16 +108,19 @@ void EventHandler::turnOffWrite(int clientSocket)
 }
 
 /**
- * NOTE_SECONDS: 1초
-*/
-void EventHandler::registerTimerEvent(int clientSocket, intptr_t sec)
+ * @brief 
+ * 
+ * @param socketFd : 클라이언트소켓 || CGI OUT_PIPE[READ_FD]
+ * @param sec : 타임 아웃 초단위 시간 (1초 단위인 NOTE_SECONDS 옵션 사용)
+ */
+void EventHandler::registerTimerEvent(int socketFd, intptr_t sec)
 {
-  addKeventToChangeList(clientSocket, EVFILT_TIMER, EV_ADD | EV_ONESHOT, NOTE_SECONDS, sec, NULL);
+  addKeventToChangeList(socketFd, EVFILT_TIMER, EV_ADD | EV_ONESHOT, NOTE_SECONDS, sec, NULL);
 }
 
-void EventHandler::unregisterTimerEvent(int clientSocket)
+void EventHandler::unregisterTimerEvent(int socketFd)
 {
-  addKeventToChangeList(clientSocket, EVFILT_TIMER, EV_DELETE, 0, 0, NULL);
+  addKeventToChangeList(socketFd, EVFILT_TIMER, EV_DELETE, 0, 0, NULL);
 }
 
 const struct kevent &EventHandler::getEvent(int index) const
