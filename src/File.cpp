@@ -371,7 +371,7 @@ std::string File::generateAutoIndexHTML(const std::string &path, const std::stri
             continue;
         if (entry->d_type == DT_DIR) // 디렉터리일 경우 뒤에 /를 붙여줍니다.
             name += "/";
-        htmlStream << "<a href=\"" << name << "\">" << name << "</a>" << "\n";
+        htmlStream << "<a href=\"" << path << "/" << name << "\">" << name << "</a>" << "\n";
     }
 
     closedir(dir);
