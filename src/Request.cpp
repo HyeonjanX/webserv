@@ -693,34 +693,22 @@ std::string Request::getPostData()
 {
 	static const std::string &emptyString("");
 	const std::string &boundary = extractBoundary(findHeaderValue("content-type"));
+	const std::string &body = getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData();
+
+	// 1. chunked || 2. normal
 
 	if (boundary.empty())
-	{
-		// 1. chunked || 2. normal
-		// std::cout << CYAN << "Encoding: " << getTransferEncoding() << RESET << std::endl;
-		return getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData();
-	}
-	// std::cout << CYAN << "boundary: " << boundary << RESET << std::endl;
+		return body;
 	
 	// 3. mutipart/form-data, throw 400
-	const std::vector<Content> &contents = extractMultipartBody(getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData(), boundary);
+	const std::vector<Content> &contents = extractMultipartBody(body, boundary);
 	
 	for (std::vector<Content>::const_iterator it = contents.begin(); it < contents.end(); ++it)
 	{
-		std::cout << "============================================" << std::endl;
-		std::cout << RED << "name: |" << it->name << "|" << RESET << std::endl;
-		std::cout << BLUE << "filename: |" << it->filename << "|" << RESET << std::endl;
-		std::cout << RED << "type: |" << it->type << "|" << RESET << std::endl;
-		// std::cout << BLUE << "data: |" << it->data << "|" << RESET << std::endl;
-		std::cout << "============================================" << std::endl;
-
 		if (it->name.compare("file") == 0)
-		{
-			// std::cout << "return it->data: " << it->data.size() << ", " << it->data << std::endl;
 			return it->data;
-		}
 	}
-	// std::cout << "return emptyString" << std::endl;
+
 	return emptyString;
 }
 
@@ -749,7 +737,6 @@ void Request::getPostData2(std::string &body, std::string &basename)
 
 		if (it->name.compare("file") == 0)
 		{
-			// std::cout << "return it->data: " << it->data.size() << ", " << it->data << std::endl;
 			body = it->data;
 			basename = Util::extractBasename(it->filename);
 			if (basename.empty())
