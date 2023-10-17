@@ -34,26 +34,31 @@ int main(int ac, const char **av)
         ws.initWebserver();
         ws.runWebserver();
     }
-    catch (const std::runtime_error &e)
+    catch (Webserver::WebserverException &e)
     {
-        std::cerr << "ws runtime_error 발생: " << e.what() << std::endl;
+        std::cerr << "Webserver가 종료되게 만드는 오류 발생: " << e.what() << std::endl;
+        return EXIT_FAILURE;
+    }
+    catch (Cgi::ExecveException &e)
+    {
+        std::cerr << "자녀프로세스 에러: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
     catch (const std::exception &e)
     {
-        std::cerr << "ws Exception 발생: " << e.what() << std::endl;
+        std::cerr << "Exception 발생: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
     catch (const char *str)
     {
-        std::cerr << "ws 에러 발생: " << str << std::endl;
+        std::cerr << "const char *str 에러 발생: " << str << std::endl;
         return EXIT_FAILURE;
     }
     catch (...)
     {
-        std::cerr << "ws 알수 없는 에러 발생" << std::endl;
+        std::cerr << "알 수 없는 에러 발생" << std::endl;
+        std::cerr << "errno(" << errno << "): " << strerror(errno) << std::endl;
         return EXIT_FAILURE;
     }
-
     return EXIT_SUCCESS;
 }

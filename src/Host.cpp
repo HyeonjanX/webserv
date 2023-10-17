@@ -68,10 +68,11 @@ const Location*   Host::matchLocation(const std::string &path) const
         }
     }
 
-    // Location / 가 필수라면 아래 상황은 발생하지 않는다.
+    // Location / 가 필수라면 아래 상황은 발생하지 않는다. => 
     if (matched == NULL)
     {
-        throw std::runtime_error("No matching location found"); // 예외 처리 추가
+        std::cerr << "matchLocation 실패: " << path << std::endl;
+        throw 500;
     }
 
     return matched;

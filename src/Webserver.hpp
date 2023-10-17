@@ -62,6 +62,17 @@ public:
 public:
     std::map<std::string, t_session>    &getSessions(void);
     void                                insertToCloseFds(int fd);
+
+public:
+    class WebserverException : public std::exception
+    {
+    private:
+        std::string _message;
+    public:
+        WebserverException(const char* msg) : _message(msg) {}
+        virtual ~WebserverException() throw() {}
+        virtual const char *what() const throw() { return _message.c_str(); }
+    };
 };
 
 #endif

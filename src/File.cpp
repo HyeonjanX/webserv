@@ -134,7 +134,7 @@ std::string File::getOnlyFile(const std::string &filepath)
     {
         content = readFile(filepath);
     }
-    catch (std::runtime_error &e)
+    catch (const std::runtime_error &e)
     {
         // readFile과정에서 실패시, 어떤 사유로 에러가 발생했는지 확인할 수 있다.
         std::cerr << e.what() << std::endl;

@@ -67,8 +67,21 @@ public:
 	// 신기한 문법?!
     class ExecveException : public std::exception
     {
+    private:
+        std::string _message;
     public:
-        virtual const char *what() const throw();
+        ExecveException(const char* msg) : _message(msg) {}
+        virtual ~ExecveException() throw() {}
+        virtual const char *what() const throw() { return _message.c_str(); }
+    };
+    class CgiExecException : public std::exception
+    {
+    private:
+        std::string _message;
+    public:
+        CgiExecException(const char* msg) : _message(msg) {}
+        virtual ~CgiExecException() throw() {}
+        virtual const char *what() const throw() { return _message.c_str(); }
     };
 };
 

@@ -114,11 +114,13 @@ void Cgi::closePipe(int &fd)
 }
 
 /**
- * @brief
- *
- * @param method
- *
- * @throws const char *msg 어떤 상황에서 오류가 난 것인지 포함
+ * @brief 입출력 파이프를 생성 및 연결하고, execve()까지 호출
+ * 
+ * @param method GET | POST
+ * @param programPath execve의 첫번째 인자값이 될 바이너리파일 경로 
+ * @param argv execve의 세번째 인자값인 char **envp 생성에 사용될 벡터
+ * 
+ * @throws const char *msg : 오류 메시지 전달후, 500응답 생성과정으로 이동
  */
 void Cgi::exec(const std::string &method, const std::string &programPath, const std::vector<std::string> &argv)
 {
@@ -126,18 +128,18 @@ void Cgi::exec(const std::string &method, const std::string &programPath, const 
     if ((pipe(_outPipe) == -1 || fcntl(_outPipe[READ_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1) ||
         (pipe(_inPipe) == -1 || fcntl(_inPipe[WRITE_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1))
     {
-        throw "exec과정에서 pipe() or fcntl() 실패";
+        throw CgiExecException("exec과정에서 pipe() or fcntl() 실패");
     }
 
     if ((_pid = fork()) == -1)
     {
-        throw "exec과정에서 fork() 실패";
+        throw CgiExecException("exec과정에서 fork() 실패");
     }
     else if (_pid == 0)
     {
         // 자녀 프로세스
         if (dup2(_outPipe[WRITE_FD], STDOUT_FILENO) == -1 || dup2(_inPipe[READ_FD], STDIN_FILENO) == -1)
-            throw ExecveException();
+            throw ExecveException("CGI 실행과정에서 dup2과정에서 실패");
 
         clearPipe();
 
@@ -149,7 +151,7 @@ void Cgi::exec(const std::string &method, const std::string &programPath, const 
         freeCArray(argvArray, argv.size());
         freeCArray(envpArray, _env.size());
 
-        throw ExecveException();
+        throw ExecveException("CGI 실행과정에서 execve과정에서 실패");
     }
 
     // 6. 부모 => 안 쓰는 파이프 닫기
@@ -213,11 +215,6 @@ void Cgi::pipePrint() const
               << _inPipe[WRITE_FD] << ", "
               << _outPipe[READ_FD] << ", "
               << _outPipe[WRITE_FD] << RESET << std::endl;
-}
-
-const char *Cgi::ExecveException::what() const throw()
-{
-    return "CGI 프로그램 execve() 실패";
 }
 
 void Cgi::setEnvFromRequestHeaders(Request &request, std::string method, std::string path)

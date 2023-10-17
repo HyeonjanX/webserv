@@ -500,7 +500,7 @@ int Client::notCgiPostProcess(const std::string &root, const std::string &basena
 
     try
     {
-        statusCode = File::uploadFile(root, basename, body); // 201 Created, 204 No Content
+        statusCode = File::uploadFile(root, basename, body); // 201 Created
     }
     catch (int errorStatusCode)
     {
@@ -560,7 +560,7 @@ void Client::makeResponseData(int statusCode, int defaultBodyNeed)
     if (statusCode / 100 == 3) // _matchedLocation && _matchedLocation->isRedirect()
     {
         _response.setHeader(std::string("Location"),
-							_matchedLocation->getRedirectUrl(
+                            _matchedLocation->getRedirectUrl(
 								_request.findHeaderValue(std::string("host")),
 								_request.getRequestUrl())
 							);
@@ -684,7 +684,7 @@ void Client::sendProcess(void)
             _status = READ_HEADER;
             _response.clean();
             _response.setHttpVersion(_request.getHttpVersion());
-            // _eventHandler->registerTimerEvent(_socket, TIMER_TIME_OUT_SEC);
+            // _eventHandler->registerTimerEvent(_socket, TIMER_TIME_OUT_SEC); // 요청의 연장선상으로써 TIME_OUT시간을 갱신하지 않기로 한다.
             return;
         }
         _eventHandler->registerTimerEvent(_socket, TIMER_KEEP_ALIVE_SEC);
@@ -772,7 +772,7 @@ void Client::handleHeaders(void)
     }
 }
 /**
- * @brief
+ * @brief 청크 데이터를 읽어 Request의 _chuckOctecData에 저장합니다.
  *
  * @throws int statusCode (413: 클라이언트 바디 제한 초과, 400: 청크읽기 과정에서 에러 발생)
  *
@@ -898,9 +898,9 @@ void Client::cgiProcess(const std::string &method, const std::string &cgiExt)
         _cgi.setEnvFromRequestHeaders(_request, method, path);
         _cgi.exec(method, programPath, argv);
     }
-    catch (const char *msg)
+    catch (Cgi::CgiExecException &e)
     {
-        std::cerr << "cgiProcess 실패: " << msg << std::endl;
+        std::cerr << "cgiProcess() 과정에서 오류 발생: " << e.what() << std::endl;
         _cgi.clearCgi();
         throw 500;
     }
