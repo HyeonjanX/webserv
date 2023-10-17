@@ -298,7 +298,7 @@ int File::uploadFile(const std::string &root, const std::string &basename, const
         throw 500;
     }
 
-    statusCode = content.empty() ? 204 : 201; // 201 Created
+    statusCode = 201; // 201 Created
 
     std::cout << BLUE << "file upload " << statusCode << ", length: " << content.length() << RESET << std::endl;
 
