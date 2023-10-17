@@ -90,139 +90,123 @@ void Webserver::initClient(int serverSocket, Server *s)
     _clients.erase(c.getSocket());
     _clients.insert(std::make_pair(c.getSocket(), c));
     _eventHandler.registerReadWriteEvents(c.getSocket());
-    // _eventHandler.registerTimerEvent(c.getSocket(), TIMER_KEEP_ALIVE_SEC);
     _eventHandler.registerTimerEvent(c.getSocket(), TIMER_TIME_OUT_SEC);
-    if (DEBUG_PRINT) std::cout << "initClient: fd(" << c.getSocket() << ")" << std::endl;
 }
 
 void Webserver::runWebserver(void)
 {
+    std::map<int, Server>::iterator sit;
+    std::map<int, Client>::iterator cit;
+    
     // Q. 이미 바깥에 try 구문이 있는데, 여기서 한 번 더 사용해야 할 필요가 있을까?
     try
     {
         while (1)
         {
+            _closeFds.clear();
+
             int nevents = _eventHandler.newEvents();
-            if (DEBUG_PRINT)
+
+            if (nevents == -1)
             {
-                std::cout << "nevents: " << nevents << std::endl;
-                std::cout << "_clients: " << _clients.size() << std::endl;
-                std::cout << "_servers: " << _servers.size() << std::endl;
+                std::cerr << "kevent 호출과정에서 -1 리턴" << std::endl;
+                throw std::runtime_error("kevent 호출 실패");
             }
 
             for (int i = 0; i < nevents; ++i)
             {
-                struct kevent curr = _eventHandler.getEvent(i);
+                const struct kevent &curr = _eventHandler.getEvent(i);
 
-                std::map<int, Client>::iterator cit = _clients.find(static_cast<int>(curr.ident));
-                if (cit != _clients.end() && curr.filter == EVFILT_TIMER)
+                if (curr.filter == EVFILT_TIMER && (cit = _clients.find(static_cast<int>(curr.ident))) != _clients.end())
                 {
-                    // Q. 잘못된 주석이죠...??
-                    // 4. 클라이언트 소켓의 WRITE 이벤트
-                    if (DEBUG_PRINT) std::cout << YELLOW << "***************** Client TIMER *****************" << RESET << std::endl;
-
-                    Client *c = &(cit->second);
-
-                    closeClient(*c);
-
-                    continue;
+                    if (DEBUG_PRINT) std::cout << YELLOW << "***************** ### Client TIMER 이벤트 ### *****************" << RESET << std::endl;
+                    closeClient(cit->second);
                 }
             }
 
             for (int i = 0; i < nevents; ++i)
             {
-                struct kevent curr = _eventHandler.getEvent(i);
+                const struct kevent &curr = _eventHandler.getEvent(i);
 
-                // 디버깅용 정보 출력
-                // Util::print_kevent_info(curr);
-
-                std::map<int, Server>::iterator sit = _servers.find(static_cast<int>(curr.ident));
-                if (sit != _servers.end())
+                if (curr.filter == EVFILT_TIMER && _closeFds.find(curr.ident) != _closeFds.end() && (cit = searchClientByPipeFd(curr.ident)) != _clients.end())
                 {
-                    // 1. 서버소켓의 READ 이벤트
-                    if (DEBUG_PRINT) std::cout << GREEN << "-------------- 소켓생성 -----------------" << RESET << std::endl;
-
-                    Server *s = &sit->second;
-
-                    initClient(s->getSocket(), s);
-
-                    continue;
+                    if (DEBUG_PRINT) std::cout << YELLOW << "***************** ### CGI TIMER 이벤트 ### *****************" << RESET << std::endl;
+                    cit->second.makeCgiErrorResponse(504); // Gateway Timeout
                 }
+            }
 
-                std::map<int, Client>::iterator cit = _clients.find(static_cast<int>(curr.ident));
+            for (int i = 0; i < nevents; ++i)
+            {
+                const struct kevent &curr = _eventHandler.getEvent(i);
 
-                if (cit != _clients.end())
+                if (_closeFds.find(curr.ident) != _closeFds.end())
                 {
-                    // 클라이언트가 FIN요청을 보내서, 연결이 종료됨 => 재사용 불가 => 이미 닫힌 연결 => 안 닫으면 계속해서 READ 이벤트가 발생.
-                    if (curr.filter == EVFILT_READ && (curr.flags & EV_EOF))
-                    {
-                        // 2. 클라이언트의 소켓 연결 종료 이벤트
-                        if (DEBUG_PRINT) std::cout << MAGENTA << "***************** 클라이언트부터 소켓 연결 종료 *****************" << RESET << std::endl;
-
-                        Client *c = &(cit->second);
-
-                        closeClient(*c);
-
-                        continue;
-                    }
-
+                    if (DEBUG_PRINT) std::cout << "skip: " << curr.ident << std::endl;
+                    // 먼저 처리된 이벤트에 의해 삭제된 fd에 대한 이벤트는 건너띄기
+                }
+                else if ((sit = _servers.find(static_cast<int>(curr.ident))) != _servers.end())
+                {
+                    if (DEBUG_PRINT) std::cout << GREEN << "-------------- 1. 서버 소켓의 READ 이벤트 -----------------" << RESET << std::endl;
+                    initClient(sit->second.getSocket(), &(sit->second));
+                }
+                else if ((cit = _clients.find(static_cast<int>(curr.ident))) != _clients.end())
+                {
                     if (curr.filter == EVFILT_READ)
                     {
-                        // 3. 클라이언트 소켓의 READ 이벤트
-                        if (DEBUG_PRINT) std::cout << CYAN << "***************** Client READ *****************" << RESET << std::endl;
-
-                        Client *c = &(cit->second);
-
-                        c->readProcess();
-
-                        continue;
+                        if (curr.flags & EV_EOF)
+                        {
+                            if (DEBUG_PRINT) std::cout << MAGENTA << "***************** 2. 클라이언트의 소켓 연결 종료 이벤트 *****************" << RESET << std::endl;
+                            closeClient(cit->second);
+                        }
+                        else
+                        {
+                            if (DEBUG_PRINT) std::cout << CYAN << "***************** 3. 클라이언트 소켓의 READ 이벤트 *****************" << RESET << std::endl;
+                            cit->second.readProcess();
+                        }
                     }
-
-                    if (curr.filter == EVFILT_WRITE)
+                    else if (curr.filter == EVFILT_WRITE)
                     {
-                        // 4. 클라이언트 소켓의 WRITE 이벤트
-                        if (DEBUG_PRINT) std::cout << BLUE << "***************** Client WRITE *****************" << RESET << std::endl;
-
-                        Client *c = &(cit->second);
-
-                        c->sendProcess();
-
-                        continue;
+                        if (DEBUG_PRINT) std::cout << BLUE << "***************** 4. 클라이언트 소켓의 WRITE 이벤트 *****************" << RESET << std::endl;
+                        cit->second.sendProcess();
+                    }
+                    else
+                    {
+                        // 도달하지 않을 곳
                     }
                 }
-
-                std::map<int, Client>::iterator cit2 = searchClientByPipeFd(curr.ident);
-
-                if (cit2 != _clients.end())
+                else if ((cit = searchClientByPipeFd(curr.ident)) != _clients.end())
                 {
-                    Client *c = &(cit2->second);
+                    Client *c = &(cit->second);
                     Cgi *cgi = &(c->getCgi());
 
                     try
                     {
                         if (curr.filter == EVFILT_WRITE)
                         {
-                            if (DEBUG_PRINT) std::cout << YELLOW << "***************** CGI WRITE *****************" << RESET << std::endl;
-                            cgi->writePipe(); // write() failt시 => 500 응답 생성 코스로
+                            if (DEBUG_PRINT) std::cout << YELLOW << "***************** 5. CGI WRITE *****************" << RESET << std::endl;
+                            cgi->writePipe();
                         }
                         else if (curr.filter == EVFILT_READ)
                         {
-                            if (DEBUG_PRINT) std::cout << YELLOW << "***************** CGI READ *****************" << RESET << std::endl;
-                            cgi->readPipe(); // read() fail시 => 500 응답 생성 코스로
+                            if (DEBUG_PRINT) std::cout << YELLOW << "***************** 6. CGI READ *****************" << RESET << std::endl;
+                            cgi->readPipe();
                             if (curr.flags & EV_EOF)
                                 c->makeCgiResponse();
                         }
+                        else
+                        {
+                            // 도달하지 않을 곳
+                        }
                     }
-                    catch (const char *msg)
+                    catch (int errStatusCode)
                     {
-                        std::cerr << "CGI 동작 중 문제 발생: " << msg << std::endl;
-                        c->makeCgiErrorResponse();
+                        c->makeCgiErrorResponse(errStatusCode);
                     }
-
-                    continue;
                 }
-
-                // 도달 하지 않을 곳.
+                else
+                {
+                    // 도달하지 않을 곳
+                }
             }
         }
     }
@@ -243,6 +227,13 @@ void Webserver::runWebserver(void)
 
 void Webserver::closeClient(Client &c)
 {
+    int fd;
+
+    if ((fd = c.getCgi().getInPipe(WRITE_FD)) != -1)
+        insertToCloseFds(fd);
+    if ((fd = c.getCgi().getOutPipe(READ_FD)) != -1)
+        insertToCloseFds(fd);
+    insertToCloseFds(c.getSocket());
     c.cleanForClose();
     close(c.getSocket());
     _clients.erase(c.getSocket());
@@ -261,3 +252,9 @@ std::map<int, Client>::iterator Webserver::searchClientByPipeFd(int fd)
 }
 
 std::map<std::string, t_session> &Webserver::getSessions(void) { return _sessions; };
+
+void Webserver::insertToCloseFds(int fd)
+{
+    if(fd != -1)
+        _closeFds.insert(fd);
+}

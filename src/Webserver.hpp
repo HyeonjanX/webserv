@@ -15,6 +15,7 @@
 #include "Config.hpp"
 
 #include <map>
+#include <set>
 
 // #include <vector> at EventHandler.hpp
 class Client;
@@ -38,6 +39,7 @@ private:
     std::map<int, std::vector<t_host> >     _serverConfigs;
     std::map<int, Server>                   _servers;
     std::map<int, Client>                   _clients;
+    std::set<int>                           _closeFds;
     std::map<std::string, t_session>        _sessions;
 
 public:
@@ -55,10 +57,11 @@ private:
 public:
     void closeClient(Client &c);
 
-    std::map<int, Client>::iterator searchClientByPipeFd(int fd);
+    std::map<int, Client>::iterator     searchClientByPipeFd(int fd);
 
 public:
-    std::map<std::string, t_session> &getSessions(void);
+    std::map<std::string, t_session>    &getSessions(void);
+    void                                insertToCloseFds(int fd);
 };
 
 #endif

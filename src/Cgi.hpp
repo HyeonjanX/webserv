@@ -51,8 +51,8 @@ public:
 
     void    exec(const std::string &method, const std::string &programPath, const std::vector<std::string> &argv);
 
-    void    clearCgi();
-    void    clearChild();
+    int     clearCgi();
+    int     clearChild();
     void    clearPipe();
     void    closePipe(int &fd);
 

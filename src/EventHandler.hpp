@@ -9,6 +9,7 @@
 
 #define MAX_EVENTS 64
 #define TIMER_TIME_OUT_SEC 600
+#define TIMER_PIPE_SEC 600
 #define TIMER_KEEP_ALIVE_SEC 5
 
 class EventHandler

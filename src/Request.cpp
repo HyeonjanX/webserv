@@ -157,7 +157,9 @@ void Request::parseRequestLine(std::string const &requestLine)
 	// "/" 요청 외, path 뒤에 붙는 / 없애는 정규화
 	size_t pos = _requestUrl.find_last_not_of("/");
 	if (pos != std::string::npos)
-		_requestUrl.substr(0, pos + 1);
+		_requestUrl = _requestUrl.substr(0, pos + 1);
+	else
+		_requestUrl = std::string("/");
 
 	if (DEBUG_PRINT)
 	{

@@ -65,10 +65,12 @@ bool Cgi::allSend() { return _sendBytes >= _postData.size(); }
 const std::string &Cgi::getPostData() const { return _postData; }
 void Cgi::setPostData(std::string postData) { _postData = postData; }
 
-void Cgi::clearCgi()
+int Cgi::clearCgi()
 {
+    int exitCode = 0;
+
     clearPipe();
-    clearChild();
+    exitCode = clearChild();
     _pid = 0;
     _status = 0;
     _env.clear();
@@ -76,24 +78,30 @@ void Cgi::clearCgi()
     _readData.clear();
     _postData.clear();
     _sendBytes = 0;
+
+    return exitCode;
 }
 
-void Cgi::clearChild()
+int Cgi::clearChild()
 {
+    int exitCode = 0;
+
     if (_pid)
     {
         kill(_pid, SIGKILL);
-        waitpid(_pid, NULL, WNOHANG);
+        waitpid(_pid, &exitCode, WNOHANG);
         _pid = 0;
     }
+
+    return exitCode;
 }
 
 void Cgi::clearPipe()
 {
     closePipe(_inPipe[READ_FD]);
     closePipe(_inPipe[WRITE_FD]);
-    closePipe(_inPipe[READ_FD]);
-    closePipe(_inPipe[WRITE_FD]);
+    closePipe(_outPipe[READ_FD]);
+    closePipe(_outPipe[WRITE_FD]);
 }
 
 void Cgi::closePipe(int &fd)
@@ -114,7 +122,6 @@ void Cgi::closePipe(int &fd)
  */
 void Cgi::exec(const std::string &method, const std::string &programPath, const std::vector<std::string> &argv)
 {
-    std::cout << BLUE << "=================== exec ================" << RESET << std::endl;
     // 5. pipe 생성 && 논블록 처리
     if ((pipe(_outPipe) == -1 || fcntl(_outPipe[READ_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1) ||
         (pipe(_inPipe) == -1 || fcntl(_inPipe[WRITE_FD], F_SETFL, O_NONBLOCK, O_CLOEXEC) == -1))
@@ -132,15 +139,10 @@ void Cgi::exec(const std::string &method, const std::string &programPath, const 
         if (dup2(_outPipe[WRITE_FD], STDOUT_FILENO) == -1 || dup2(_inPipe[READ_FD], STDIN_FILENO) == -1)
             throw ExecveException();
 
-        closePipe(_inPipe[READ_FD]);
-        closePipe(_inPipe[WRITE_FD]);
-        closePipe(_outPipe[READ_FD]);
-        closePipe(_outPipe[WRITE_FD]);
+        clearPipe();
 
         char **argvArray = convertToCArray(argv);
         char **envpArray = convertToCArray(_env);
-
-        std::cerr << RED << "exec 타겟: " << programPath.c_str() << RESET << std::endl;
 
         execve(programPath.c_str(), argvArray, envpArray);
 
@@ -157,13 +159,18 @@ void Cgi::exec(const std::string &method, const std::string &programPath, const 
         closePipe(_inPipe[WRITE_FD]);
 }
 
+/**
+ * @brief 
+ * 
+ * @throws int statusCode 500
+ */
 void Cgi::writePipe()
 {
     ssize_t bytes = write(_inPipe[WRITE_FD], _postData.data() + _sendBytes, _postData.size() - _sendBytes);
     if (bytes == -1)
     {
         std::cerr << "Fail to write(): " << strerror(errno) << std::endl;
-        throw "writePipe()에서 write() 호출 실패"; // 500 응답 생성으로
+        throw 500;
     }
     _sendBytes += bytes;
 
@@ -171,22 +178,26 @@ void Cgi::writePipe()
         closePipe(_inPipe[WRITE_FD]);
 }
 
+/**
+ * @brief 
+ * 
+ * @throws int statusCode 500
+ */
 size_t Cgi::readPipe()
 {
     static std::vector<char> buffer(READ_BUFFER_SIZE);
 
-    ssize_t readBytes = read(_outPipe[READ_FD], buffer.data(), READ_BUFFER_SIZE); // recv, send는 소켓에서만
+    ssize_t readBytes = read(_outPipe[READ_FD], buffer.data(), READ_BUFFER_SIZE);
 
     if (readBytes == -1)
     {
         std::cerr << "Fail to read(). fd: " << _outPipe[READ_FD] << ", " << std::string(strerror(errno)) << std::endl;
-        throw "readPipe 중 read() 호출 실패"; // 500 응답 생성으로
+        throw 500;
     }
 
     _readData.append(buffer.data(), readBytes);
 
     return readBytes;
-    // std::cout << YELLOW << "readPipie(): " <<  _readData.size() << " bytes" << std::endl;
 }
 
 // 탐색시 getInPipe[WRITE_FD], getOutPipe[READ_FD]만 필요하다.

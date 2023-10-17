@@ -298,7 +298,7 @@ int File::uploadFile(const std::string &root, const std::string &basename, const
         throw 500;
     }
 
-    statusCode = content.empty() ? 204 : 201; // 201 Created
+    statusCode = 201; // 201 Created
 
     std::cout << BLUE << "file upload " << statusCode << ", length: " << content.length() << RESET << std::endl;
 
@@ -371,7 +371,8 @@ std::string File::generateAutoIndexHTML(const std::string &path, const std::stri
             continue;
         if (entry->d_type == DT_DIR) // 디렉터리일 경우 뒤에 /를 붙여줍니다.
             name += "/";
-        htmlStream << "<a href=\"" << name << "\">" << name << "</a>" << "\n";
+        const std::string &href = path.back() == '/' ?  path + name : path + std::string("/") + name; 
+        htmlStream << "<a href=\"" << href << "\">" << name << "</a>" << "\n";
     }
 
     closedir(dir);
