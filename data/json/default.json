@@ -4,9 +4,10 @@
 
         "location": {
             "path": "/",
-            "root": "data/html/",
+            "root": "./",
             "limit_except": ["GET"],
-            "index": ["index.html"]
+            "index": ["data/html/index.html"],
+            "error_page": [404, "/data/html/40x.html"]
         },
 
         "location": {
@@ -14,7 +15,7 @@
             "root": "./data/",
             "limit_except": ["GET"],
             "autoindex": true,
-            "error_page": [404, "/data/html/50x.html/"]
+            "error_page": [404, "/data/html/40x.html"]
         },
 
         "location": {
@@ -22,7 +23,7 @@
             "root": "data/html/",
             "index": ["post.html"],
             "limit_except": ["GET"],
-            "error_page": [500, 501, 502, 503, 504, "/data/html/50x.html/"]
+            "error_page": [500, 501, 502, 503, 504, "/data/html/50x.html"]
         },
 
         "location": {
