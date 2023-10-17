@@ -49,7 +49,7 @@ void Response::generateResponseData(void)
 
     // 3. 쿠키 굽기
     for (std::map<std::string, t_set_cookie>::const_iterator it = _cookie.begin(); it != _cookie.end(); ++it)
-        oss << "Set-Cookie: " << it->second.key << "=" << it->second.value << "; httponly; Max-Age=" << it->second.expire  << ";" << CRLF;
+        oss << "Set-Cookie: " << it->second.key << "=" << it->second.value << "; Max-Age=" << it->second.expire  << ";" << CRLF;
 
     oss << CRLF;
 

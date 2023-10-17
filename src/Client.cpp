@@ -1063,6 +1063,7 @@ void Client::sessionProcess()
         sessions[sessionId] = t_session(sessionId, 1, currentTime + COOKIE_EXPIRE_SEC);
 
         _response.addCookie("sessionid", sessionId, COOKIE_EXPIRE_SEC);
+        _response.addCookie("count", Util::ft_itoa(sessions[sessionId].count), COOKIE_EXPIRE_SEC);
         
         if (DEBUG_SESSION_PRINT)
             std::cout << "세션 시작: id(" << sessions[sessionId].id
@@ -1075,6 +1076,7 @@ void Client::sessionProcess()
         sessionIt->second.expirationTime = currentTime + COOKIE_EXPIRE_SEC;
 
         _response.addCookie("sessionid", sessionIt->second.id, COOKIE_EXPIRE_SEC);
+        _response.addCookie("count", Util::ft_itoa(sessionIt->second.count), COOKIE_EXPIRE_SEC);
 
         if (DEBUG_SESSION_PRINT)
             std::cout << "카운트 +1: id(" << sessionIt->second.id
