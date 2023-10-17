@@ -29,6 +29,7 @@
             "path": "/upload/create/",
             "root": "data/image/",
             "limit_except": ["POST"],
+            "client_max_body_size": "500m",
             "error_page": [500, 501, 502, 503, 504, "/data/html/50x.html/"]
         },
 

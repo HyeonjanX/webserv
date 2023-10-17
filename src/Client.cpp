@@ -371,9 +371,11 @@ int Client::doNonCgiProcess(const std::string &method)
     }
     else if (method.compare("POST") == 0)
     {
-        const std::string &basename = Util::extractBasename(path); // POST의 경우, 경로를 제외한 path만 (basename) 받아들인다.
-        const std::string &body = _request.getPostData(); // throw 400
-
+        std::string body;
+        std::string basename = Util::extractBasename(path);
+        
+        _request.getPostData2(body, basename);
+        
         statusCode = notCgiPostProcess(root, basename, body);
     }
     else if (method.compare("DELETE") == 0)
@@ -1063,6 +1065,7 @@ void Client::sessionProcess()
         sessions[sessionId] = t_session(sessionId, 1, currentTime + COOKIE_EXPIRE_SEC);
 
         _response.addCookie("sessionid", sessionId, COOKIE_EXPIRE_SEC);
+        _response.addCookie("count", Util::ft_itoa(sessions[sessionId].count), COOKIE_EXPIRE_SEC);
         
         if (DEBUG_SESSION_PRINT)
             std::cout << "세션 시작: id(" << sessions[sessionId].id
@@ -1075,6 +1078,7 @@ void Client::sessionProcess()
         sessionIt->second.expirationTime = currentTime + COOKIE_EXPIRE_SEC;
 
         _response.addCookie("sessionid", sessionIt->second.id, COOKIE_EXPIRE_SEC);
+        _response.addCookie("count", Util::ft_itoa(sessionIt->second.count), COOKIE_EXPIRE_SEC);
 
         if (DEBUG_SESSION_PRINT)
             std::cout << "카운트 +1: id(" << sessionIt->second.id
