@@ -248,8 +248,11 @@ int File::canUploadFile(const std::string &root, const std::string &basename)
     const std::string &filepath = root + basename;
     struct stat fileInfo, dirInfo;
 
-    std::cout << YELLOW << "======= File::uploadFile =======" << RESET << std::endl;
-    std::cout << YELLOW << "filepath: " << filepath << RESET << std::endl;
+	if (DEBUG_PRINT)
+	{
+	    std::cout << YELLOW << "======= File::uploadFile =======" << RESET << std::endl;
+    	std::cout << YELLOW << "filepath: " << filepath << RESET << std::endl;
+	}
 
     if (!IS_DUPLICATE_OK && fileExists(filepath, fileInfo))
     {
@@ -257,10 +260,13 @@ int File::canUploadFile(const std::string &root, const std::string &basename)
     }
 
     const std::string &dirPath = Util::extractDirPath(filepath);
-    std::cout << YELLOW << "dirPath: " << dirPath << RESET << std::endl;
-    std::cout << YELLOW << "!fileExists(dirPath, dirInfo): " << !fileExists(dirPath, dirInfo) << RESET << std::endl;
-    std::cout << YELLOW << "!isDirectory: " << !isDirectory(dirInfo) << RESET << std::endl;
-    std::cout << YELLOW << "!checkFileWritePermission: " << !checkFileWritePermission(dirPath) << RESET << std::endl;
+	if (DEBUG_PRINT)
+	{
+		std::cout << YELLOW << "dirPath: " << dirPath << RESET << std::endl;
+		std::cout << YELLOW << "!fileExists(dirPath, dirInfo): " << !fileExists(dirPath, dirInfo) << RESET << std::endl;
+		std::cout << YELLOW << "!isDirectory: " << !isDirectory(dirInfo) << RESET << std::endl;
+		std::cout << YELLOW << "!checkFileWritePermission: " << !checkFileWritePermission(dirPath) << RESET << std::endl;
+	}
 
     if (!fileExists(dirPath, dirInfo) ||
         !isDirectory(dirInfo) ||

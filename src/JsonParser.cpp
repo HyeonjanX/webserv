@@ -89,13 +89,12 @@ void	JsonParser::readFile
 		_errorExit("Error: Cannot open file " + filepath);
 	}
 
-
 	ss << file.rdbuf();
 
 	if (file.fail())
 	{
 		file.close();
-		_errorExit("Error: Failed to load to memory");
+		_errorExit("Error: Failed to load file into memory");
 	}
 
 	file.close();
