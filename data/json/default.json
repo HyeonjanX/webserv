@@ -11,7 +11,7 @@
         },
         "location": {
             "path": "/list/",
-            "root": "./",
+            "root": "data/",
             "limit_except": ["GET"],
             "autoindex": true,
             "error_page": [404, "/data/html/50x.html/"]
@@ -32,7 +32,7 @@
             "path": "/asdf/",
             "root": "./",
             "limit_except": ["GET"],
-            "return": [301, "./data/html/50x.html/"]
+            "return": [301, "/invalid/return"]
         }
     }
 }

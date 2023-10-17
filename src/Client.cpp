@@ -545,7 +545,6 @@ int Client::notCgiDeleteProcess(const std::string &filepath)
  */
 void Client::makeResponseData(int statusCode, int defaultBodyNeed)
 {
-	std::cout << "makeResponseData" << std::endl;
     // 두 인자를 새롭게 받아 와서 활용.
     _response.setStatusCode(statusCode);
 
@@ -560,7 +559,6 @@ void Client::makeResponseData(int statusCode, int defaultBodyNeed)
     // 1.2 300번대 리다이렉트
     if (statusCode / 100 == 3) // _matchedLocation && _matchedLocation->isRedirect()
     {
-		std::cout << "redirect" << std::endl;
         _response.setHeader(std::string("Location"),
 							_matchedLocation->getRedirectUrl(
 								_request.findHeaderValue(std::string("host")),

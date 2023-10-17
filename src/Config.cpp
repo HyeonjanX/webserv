@@ -1,4 +1,5 @@
 #include "Config.hpp"
+#include "Util.hpp"
 
 #define DEBUG_PRINT false
 
@@ -101,6 +102,15 @@ static bool	isValidUriString(const std::string &url)
 	return true;
 }
 
+static bool	isInternetUrl(const std::string &url)
+{
+	if (Util::startsWith(url, "http://") || Util::startsWith(url, "https://"))
+	{
+		return true;
+	}
+	return false;
+}
+
 static bool	isValidDirectoryPath(const std::string &url, char mark)
 {
 	if (url.empty())
@@ -113,6 +123,10 @@ static bool	isValidDirectoryPath(const std::string &url, char mark)
 		return false;
 	}
 	else if (mark == 'R' && (url[url.length() - 1] != '/'))
+	{
+		return false;
+	}
+	else if (mark == 'r' && (url[0] != '/'))
 	{
 		return false;
 	}
@@ -679,7 +693,9 @@ void Config::locationParseReturn(t_location &location, const JsonData &value)
 
 	if (arr[1].getJsonDataType() != TYPE_STRING ||
 		arr[1].getStringData().empty() ||
-		isValidUriString(arr[1].getStringData()) == false)
+		isValidUriString(arr[1].getStringData()) == false ||
+		(isInternetUrl(arr[1].getStringData()) == false &&
+		 isValidDirectoryPath(arr[1].getStringData(), 'r') == false))
 		throw "올바르지 않은 return path 형태입니다.";
 
 	ret._page = arr[1].getStringData();
