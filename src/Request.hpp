@@ -102,6 +102,7 @@ class	Request
 		std::string					extractBoundary(std::string fieldValue);
 		std::vector<Content>		extractMultipartBody(std::string const &body, std::string const &boundary);
 		std::string					getPostData();
+		void						getPostData2(std::string &body, std::string &path);
 		
 };
 

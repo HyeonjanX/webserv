@@ -636,7 +636,7 @@ bool Request::extractContentTypeData(std::string fieldValue, std::string &mediTy
 		if (pos == std::string::npos)
 		{
 			parameter = fieldValue.substr(oldPos);
-			std::cout << BLUE << "extractContentTypeData inner 4" << std::endl;
+			if (DEBUG_PRINT) std::cout << BLUE << "extractContentTypeData inner 4" << std::endl;
 		}
 		else
 		{
@@ -693,33 +693,56 @@ std::string Request::getPostData()
 {
 	static const std::string &emptyString("");
 	const std::string &boundary = extractBoundary(findHeaderValue("content-type"));
+	const std::string &body = getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData();
+
+	// 1. chunked || 2. normal
 
 	if (boundary.empty())
-	{
-		// 1. chunked || 2. normal
-		// std::cout << CYAN << "Encoding: " << getTransferEncoding() << RESET << std::endl;
-		return getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData();
-	}
-	// std::cout << CYAN << "boundary: " << boundary << RESET << std::endl;
+		return body;
 	
 	// 3. mutipart/form-data, throw 400
-	const std::vector<Content> &contents = extractMultipartBody(getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData(), boundary);
+	const std::vector<Content> &contents = extractMultipartBody(body, boundary);
 	
 	for (std::vector<Content>::const_iterator it = contents.begin(); it < contents.end(); ++it)
 	{
-		// std::cout << "============================================" << std::endl;
-		// std::cout << RED << "name: |" << it->name << "|" << RESET << std::endl;
-		// std::cout << BLUE << "filename: |" << it->filename << "|" << RESET << std::endl;
-		// std::cout << RED << "type: |" << it->type << "|" << RESET << std::endl;
+		if (it->name.compare("file") == 0)
+			return it->data;
+	}
+
+	return emptyString;
+}
+
+void Request::getPostData2(std::string &body, std::string &basename)
+{
+	std::string defaultName = "newFile";
+	const std::string &boundary = extractBoundary(findHeaderValue("content-type"));
+
+	body = getTransferEncoding().compare("chunked") == 0 ? getChunkOctetData() : getRawData();
+	
+	if (boundary.empty())
+	{
+		return;
+	}
+	
+	const std::vector<Content> &contents = extractMultipartBody(body, boundary);
+	
+	for (std::vector<Content>::const_iterator it = contents.begin(); it < contents.end(); ++it)
+	{
+		std::cout << "============================================" << std::endl;
+		std::cout << RED << "name: |" << it->name << "|" << RESET << std::endl;
+		std::cout << BLUE << "filename: |" << it->filename << "|" << RESET << std::endl;
+		std::cout << RED << "type: |" << it->type << "|" << RESET << std::endl;
 		// std::cout << BLUE << "data: |" << it->data << "|" << RESET << std::endl;
 		std::cout << "============================================" << std::endl;
 
 		if (it->name.compare("file") == 0)
 		{
-			// std::cout << "return it->data: " << it->data.size() << ", " << it->data << std::endl;
-			return it->data;
+			body = it->data;
+			basename = Util::extractBasename(it->filename);
+			if (basename.empty())
+				basename = defaultName;
+			return;
 		}
 	}
-	// std::cout << "return emptyString" << std::endl;
-	return emptyString;
+	return;
 }

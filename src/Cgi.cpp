@@ -93,7 +93,7 @@ int Cgi::clearChild()
         _pid = 0;
     }
 
-    return exitCode;
+    return WEXITSTATUS(exitCode);
 }
 
 void Cgi::clearPipe()

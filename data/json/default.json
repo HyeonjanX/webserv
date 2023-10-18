@@ -1,38 +1,78 @@
 {
     "server": {
-        "listen": 8080,
-        "server_name": "localhost",
+        "listen": 80,
 
         "location": {
             "path": "/",
-            "root": "data/html/",
+            "root": "./",
             "limit_except": ["GET"],
-            "index": ["index.html"]
+            "index": ["data/html/index.html"],
+            "error_page": [404, "/data/html/40x.html"]
         },
+
         "location": {
             "path": "/list/",
-            "root": "data/",
+            "root": "./data/",
             "limit_except": ["GET"],
             "autoindex": true,
-            "error_page": [404, "/data/html/50x.html/"]
+            "error_page": [404, "/data/html/40x.html"]
         },
+
         "location": {
             "path": "/upload/",
-            "root": "./data/image/",
-            "limit_except": ["POST", "DELETE"],
-            "error_page": [500, 501, 502, 503, "/data/html/50x.html/"]
+            "root": "data/html/",
+            "index": ["post.html"],
+            "limit_except": ["GET"],
+            "error_page": [500, 501, 502, 503, 504, "/data/html/50x.html"]
         },
+
         "location": {
-            "path": "/invalid/return/",
+            "path": "/upload/create/",
+            "root": "data/image/",
+            "limit_except": ["POST"],
+            "client_max_body_size": "500m",
+            "error_page": [500, 501, 502, 503, 504, "/data/html/50x.html/"]
+        },
+
+        "location": {
+            "path": "/wp-admin/",
             "root": "./",
             "limit_except": ["GET"],
-            "return": [301, "https://youtube.com"]
+            "return": [301, "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
         },
+
         "location": {
-            "path": "/asdf/",
-            "root": "./",
+            "path": "/new/",
+            "root": "data/html/",
+            "index": ["new.html"],
+            "limit_except": ["GET"]
+        },
+
+        "location": {
+            "path": "/old/",
             "limit_except": ["GET"],
-            "return": [301, "/invalid/return"]
+            "return": [301, "/new/"]
+        },
+
+        "location": {
+            "path": "/python/",
+            "root": "cgi/",
+            "limit_except": ["GET", "POST"],
+            "cgi": ".py"
+        },
+
+        "location": {
+            "path": "/php/",
+            "root": "cgi/",
+            "limit_except": ["GET", "POST"],
+            "cgi": ".php"
+        },
+
+        "location": {
+            "path": "/cookie/",
+            "root": "data/html/",
+            "limit_except": ["GET"],
+            "index": ["cookie.html"]
         }
     }
 }

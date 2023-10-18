@@ -371,9 +371,11 @@ int Client::doNonCgiProcess(const std::string &method)
     }
     else if (method.compare("POST") == 0)
     {
-        const std::string &basename = Util::extractBasename(path); // POST의 경우, 경로를 제외한 path만 (basename) 받아들인다.
-        const std::string &body = _request.getPostData(); // throw 400
-
+        std::string body;
+        std::string basename = Util::extractBasename(path);
+        
+        _request.getPostData2(body, basename);
+        
         statusCode = notCgiPostProcess(root, basename, body);
     }
     else if (method.compare("DELETE") == 0)
