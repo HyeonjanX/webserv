@@ -159,7 +159,7 @@ void Webserver::runWebserver(void)
         {
             const struct kevent &curr = _eventHandler.getEvent(i);
 
-            if (curr.filter == EVFILT_TIMER && _closeFds.find(curr.ident) != _closeFds.end() && (cit = searchClientByPipeFd(curr.ident)) != _clients.end())
+            if (curr.filter == EVFILT_TIMER && _closeFds.find(curr.ident) == _closeFds.end() && (cit = searchClientByPipeFd(curr.ident)) != _clients.end())
             {
                 if (DEBUG_PRINT) std::cout << YELLOW << "***************** ### CGI TIMER 이벤트 ### *****************" << RESET << std::endl;
                 cit->second.makeCgiErrorResponse(504); // Gateway Timeout

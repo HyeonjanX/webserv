@@ -333,8 +333,7 @@ void Client::readBody(void)
         if (DEBUG_PRINT)
             std::cout << GREEN << "크기체크 => rawData:" << readBodyLength << ", contentLength: " << contentLength << ", clientMaxBodySize: " << clientMaxBodySize << RESET << std::endl;
 
-        // TODO: FIX
-        if (readBodyLength >= clientMaxBodySize)
+        if (readBodyLength > clientMaxBodySize)
             throw 413; // 413 Content Too Large
         if (readBodyLength > contentLength)
             throw 400;
@@ -652,6 +651,13 @@ void Client::sendProcess(void)
         _ws->closeClient(*this);
         return;
     }
+    if (bytes_sent == 0)
+    {
+        std::cerr << "bytes_sent is zero" << std::endl;
+        throw Webserver::WebserverException("bytes_sent is zero");
+        return;
+    }
+
 
     // if (DEBUG_PRINT)
     // {
