@@ -1,4 +1,4 @@
-# Webserv
+# Webserv (hyeonjanX)
 
 https://github.com/HyeonjanX/webserv/assets/63810422/6a5e6cd9-3ee0-4b9d-afc0-f1f7ce8c35f4
 
