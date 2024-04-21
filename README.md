@@ -41,7 +41,7 @@ make
 3. Run server with configuration file
 
 ```sh
-./webserv [configuration_file.json]
+./webserv configuration_file.json
 ```
-* 만약 파일을 설정하지 않고 실행하면, 기본 설정을 적용하여 실행
+* 만약 설정 파일 없이 실행하는 경우, 서버 기본 설정을 적용하여 실행
 * 예제 파일은 `data/json`에서 확인 가능
